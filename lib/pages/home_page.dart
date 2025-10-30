@@ -1,144 +1,11 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
-import 'dart:ui' as ui;
-import 'package:flutter/services.dart';
 import 'package:quiz_foot/pages/quiz_test.dart';
 import 'lineup_match_page.dart';
 import 'parcours_joueur_page.dart';
 import 'result_page.dart';
 import 'qui_a_menti.dart';
 
-// =======================
-// FOND ANIMÉ (ballons)
-// =======================
-class AnimatedBallBackground extends StatefulWidget {
-  const AnimatedBallBackground({super.key});
 
-  @override
-  _AnimatedBallBackgroundState createState() => _AnimatedBallBackgroundState();
-}
-
-class _AnimatedBallBackgroundState extends State<AnimatedBallBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  final Random _random = Random();
-  late List<Ball> _balls;
-  ui.Image? _ballImage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBallImage();
-    _balls = List.generate(5, (index) {
-      return Ball(
-        x: _random.nextDouble(),
-        y: _random.nextDouble(),
-        radius: 20 + _random.nextDouble() * 20,
-        speed: (0.05 + _random.nextDouble() * 0.25) / 2, // vitesse divisée par 2
-      );
-    });
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 60),
-    )..addListener(() {
-        setState(() {
-          for (var ball in _balls) {
-            ball.y += ball.speed / 60;
-            if (ball.y > 1.1) ball.y = -0.1;
-          }
-        });
-      })
-      ..repeat();
-  }
-
-  Future<void> _loadBallImage() async {
-    final data = await rootBundle.load('assets/images/ball.png');
-    final bytes = data.buffer.asUint8List();
-    final image = await decodeImageFromList(bytes);
-    setState(() {
-      _ballImage = image;
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_ballImage == null) return const Center(child: CircularProgressIndicator());
-    return CustomPaint(
-      size: MediaQuery.of(context).size,
-      painter: BallPainter(_balls, _ballImage!),
-    );
-  }
-}
-
-class Ball {
-  double x;
-  double y;
-  double radius;
-  double speed;
-
-  Ball({required this.x, required this.y, required this.radius, required this.speed});
-}
-
-class BallPainter extends CustomPainter {
-  final List<Ball> balls;
-  final ui.Image ballImage;
-  BallPainter(this.balls, this.ballImage);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Rect rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    // Dégradé sombre et texturé
-    final Gradient gradient = LinearGradient(
-      colors: [
-        Color(0xFF0E1A11), // vert très foncé, presque noir
-        Color(0xFF1E5128), // vert bouteille profond
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-    final Paint backgroundPaint = Paint()..shader = gradient.createShader(rect);
-    canvas.drawRect(rect, backgroundPaint);
-
-    // Ajout d'une légère texture (bruit/grain simple)
-    final Paint texturePaint = Paint()
-      ..color = const Color(0x22000000)
-      ..blendMode = BlendMode.softLight;
-    for (int i = 0; i < 120; i++) {
-      final double dx = (size.width) * (i / 120.0) + (i.isEven ? 4 : -4);
-      final double dy = (size.height) * ((i * 37 % 100) / 100.0);
-      canvas.drawCircle(Offset(dx, dy), 1.3, texturePaint);
-    }
-
-    for (var ball in balls) {
-      final double imgWidth = ball.radius;
-      final double imgHeight = ball.radius;
-      final Offset offset = Offset(
-        ball.x * size.width - imgWidth / 2,
-        ball.y * size.height - imgHeight / 2,
-      );
-      canvas.drawImageRect(
-        ballImage,
-        Rect.fromLTWH(0, 0, ballImage.width.toDouble(), ballImage.height.toDouble()),
-        Rect.fromLTWH(offset.dx, offset.dy, imgWidth, imgHeight),
-        Paint(),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-// =======================
-// PAGE D'ACCUEIL REFAITE
-// =======================
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -190,6 +57,7 @@ class _HomePageState extends State<HomePage> {
     final randomAnecdote = (anecdotes..shuffle()).first;
 
     return SafeArea(
+      bottom: false,
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
         child: Column(
@@ -471,12 +339,35 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          const AnimatedBallBackground(),
-          _buildContent(),
-        ],
+      backgroundColor: const Color(0xFF0E1A11),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF3CAE3A), Color(0xFF1E5128)],
+          ),
+        ),
+        child: _buildContent(),
       ),
+      // PUB bar inserted just above bottomNavigationBar
+      persistentFooterButtons: [
+        Container(
+          height: 40,
+          width: double.infinity,
+          color: Colors.grey[300],
+          alignment: Alignment.center,
+          child: const Text(
+            'PUB',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavItemTapped,
@@ -507,9 +398,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ================
-// DIALOGUE DIFFICULTÉ
-// ================
 void _showDifficultyDialog(BuildContext context) {
   showDialog(
     context: context,
