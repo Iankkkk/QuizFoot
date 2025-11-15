@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quiz_foot/pages/quiz_test.dart';
+import 'quiz_test_intro.dart';
 import 'lineup_match_page.dart';
 import 'parcours_joueur_page.dart';
 import 'result_page.dart';
@@ -287,7 +288,10 @@ class _HomePageState extends State<HomePage> {
           children: [
             _MpgGameButton(
               title: "Coup d’œil",
-              onTap: () => _showDifficultyDialog(context),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => QuizTestIntro()),
+              ),
               icon: Icons.remove_red_eye,
               color: const Color(0xFF3CAE3A),
             ),

@@ -6,6 +6,7 @@ import 'pages/history_page.dart';
 import 'pages/qui_a_menti.dart';
 import 'pages/parcours_joueur_page.dart';
 import 'pages/lineup_match_page.dart';
+import 'pages/quiz_test_intro.dart';
 
 void main() {
   runApp(const MyApp());
@@ -34,7 +35,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const HomePage(),
-        '/quiz_test': (context) => QuizTest(difficulty: 'Moyenne'),
+        '/quiz_test': (context) => const QuizTestIntro(),
         '/result_page': (context) => const ResultPage(score: 0),
         '/history_page': (context) => const HistoryPage(),
         '/qui_a_menti': (context) => const QuiAMentiPage(),
