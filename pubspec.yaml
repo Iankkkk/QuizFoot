@@ -34,6 +34,7 @@ flutter:
     - assets/images/correct.jpg
     - assets/images/wrong.jpg
     - assets/logos/
+    - assets/images/shirt.png
 
   uses-material-design: true
   fonts:

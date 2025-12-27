@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:collection/collection.dart';
+import 'package:string_similarity/string_similarity.dart';
 import '../data/lineup_game_data.dart';
 import '../models/match_model.dart';
 import '../models/lineup_model.dart';
@@ -108,9 +109,16 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
 
     // Vérifie si la réponse est contenue dans le nom du joueur
     final foundPlayer = _lineups.firstWhereOrNull((lineup) {
-      final playerNameNormalized = removeDiacritics(lineup.playerName.toLowerCase());
-      return playerNameNormalized.contains(answer);
-    });
+    final playerNameNormalized =
+      removeDiacritics(lineup.playerName.toLowerCase()).trim();
+
+    final answerNormalized = answer.trim();
+
+    final parts = playerNameNormalized.split(' ');
+    final lastName = parts.isNotEmpty ? parts.last : '';
+
+    return lastName == answerNormalized;
+      });
 
     final alreadyFound = foundPlayer != null && _foundPlayers.contains(foundPlayer.playerName);
 
@@ -128,17 +136,34 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
     } else if (alreadyFound) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vous avez déjà trouvé ce joueur.'),
+          content: Text('Tu as déjà trouvé ce joueur.'),
           duration: Duration(seconds: 1),
         ),
       );
     } else {
+      final closeMatch = _lineups.firstWhereOrNull((lineup) {
+        final normalizedName =
+            removeDiacritics(lineup.playerName.toLowerCase()).trim();
+        final lastName = normalizedName.split(' ').last;
+        return lastName.similarityTo(answer) >= 0.6;
+      });
+
+      if (closeMatch != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🟡 Essaye encore !'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+        return;
+      }
+
       setState(() {
         _errors++;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('❌ Incorrect !'),
+          content: Text('❌ Faux !'),
           duration: Duration(seconds: 1),
         ),
       );
@@ -328,6 +353,7 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
                         ],
                       ),
                     ),
+                    
                   ],
                 ),
               ),
