@@ -109,11 +109,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       fullName.toLowerCase(),
     ).replaceAll('.', '').trim();
 
-    final parts = normalized.split(' ');
-    final last = parts.last;
-
-    // Si le dernier mot commence par une lettre suivie d’un nom collé (ex: ldiarra)
-    return last.replaceFirst(RegExp(r'^[a-z](?=[a-z]{2,})'), '');
+    return normalized;
   }
 
   void _checkPlayer() {
