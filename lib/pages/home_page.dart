@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quiz_foot/pages/quiz_test.dart';
 import 'quiz_test_intro.dart';
-import 'lineup_match_page.dart';
-import 'parcours_joueur_page.dart';
-import 'result_page.dart';
-import 'qui_a_menti.dart';
 
 
 class HomePage extends StatefulWidget {

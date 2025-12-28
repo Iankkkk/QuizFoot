@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'pages/home_page.dart';
-import 'pages/quiz_test.dart';
 import 'pages/result_page.dart';
 import 'pages/history_page.dart';
 import 'pages/qui_a_menti.dart';

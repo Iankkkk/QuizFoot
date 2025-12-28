@@ -13,7 +13,8 @@ class LineupMatchPage extends StatefulWidget {
   State<LineupMatchPage> createState() => _LineupMatchPageState();
 }
 
-class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProviderStateMixin {
+class _LineupMatchPageState extends State<LineupMatchPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   int _score = 0;
   int _errors = 0;
@@ -24,7 +25,7 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
   List<Lineup> _lineups = [];
   bool _isLoading = true;
 
-  Set<String> _foundPlayers = {};
+  final Set<String> _foundPlayers = {};
 
   late TabController _tabController;
 
@@ -48,7 +49,9 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
       final matches = await loadMatches();
       setState(() {
         _matches = matches;
-        if (matches.isNotEmpty) _selectedMatch = matches.first;
+        if (matches.isNotEmpty) {
+          _selectedMatch = (matches..shuffle()).first;
+        }
       });
       if (_selectedMatch != null) {
         await _loadLineups(_selectedMatch!.matchId);
@@ -66,13 +69,17 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
       final allLineups = await loadLineups(matchId);
 
       // Filtrer uniquement les lineups du match sélectionné
-      final matchLineups = allLineups.where((l) => l.matchId == matchId).toList();
+      final matchLineups = allLineups
+          .where((l) => l.matchId == matchId)
+          .toList();
 
       // Trier d'abord les joueurs de home_team puis ceux de away_team
       matchLineups.sort((a, b) {
-        if (a.teamName == _selectedMatch?.homeTeam && b.teamName == _selectedMatch?.awayTeam) {
+        if (a.teamName == _selectedMatch?.homeTeam &&
+            b.teamName == _selectedMatch?.awayTeam) {
           return -1;
-        } else if (a.teamName == _selectedMatch?.awayTeam && b.teamName == _selectedMatch?.homeTeam) {
+        } else if (a.teamName == _selectedMatch?.awayTeam &&
+            b.teamName == _selectedMatch?.homeTeam) {
           return 1;
         } else {
           return 0;
@@ -80,7 +87,9 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
       });
 
       // Dédoublonner les joueurs par playerName
-      final uniqueLineups = {for (var l in matchLineups) l.playerName: l}.values.toList();
+      final uniqueLineups = {
+        for (var l in matchLineups) l.playerName: l,
+      }.values.toList();
 
       setState(() {
         _lineups = uniqueLineups;
@@ -95,9 +104,21 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
     }
   }
 
+  String _normalizeLastName(String fullName) {
+    final normalized = removeDiacritics(
+      fullName.toLowerCase(),
+    ).replaceAll('.', '').trim();
+
+    final parts = normalized.split(' ');
+    final last = parts.last;
+
+    // Si le dernier mot commence par une lettre suivie d’un nom collé (ex: ldiarra)
+    return last.replaceFirst(RegExp(r'^[a-z](?=[a-z]{2,})'), '');
+  }
+
   void _checkPlayer() {
-    final answer = removeDiacritics(_controller.text.trim().toLowerCase());
-    if (answer.isEmpty) {
+    final inputRaw = _controller.text.trim();
+    if (inputRaw.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez entrer un nom de joueur.'),
@@ -107,24 +128,42 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
       return;
     }
 
-    // Vérifie si la réponse est contenue dans le nom du joueur
-    final foundPlayer = _lineups.firstWhereOrNull((lineup) {
-    final playerNameNormalized =
-      removeDiacritics(lineup.playerName.toLowerCase()).trim();
+    final answerNormalized = removeDiacritics(
+      inputRaw.toLowerCase(),
+    ).replaceAll('.', '').trim();
 
-    final answerNormalized = answer.trim();
+    Lineup? exactMatch;
+    Lineup? closeMatch;
 
-    final parts = playerNameNormalized.split(' ');
-    final lastName = parts.isNotEmpty ? parts.last : '';
+    for (final lineup in _lineups) {
+      final lastName = _normalizeLastName(lineup.playerName);
 
-    return lastName == answerNormalized;
-      });
+      if (lastName == answerNormalized) {
+        exactMatch = lineup;
+        break;
+      }
 
-    final alreadyFound = foundPlayer != null && _foundPlayers.contains(foundPlayer.playerName);
+      if (lastName.similarityTo(answerNormalized) >= 0.6) {
+        closeMatch ??= lineup;
+      }
+    }
 
-    if (foundPlayer != null && !alreadyFound) {
+    // 🔴 PRIORITÉ ABSOLUE : joueur déjà trouvé
+    if (exactMatch != null && _foundPlayers.contains(exactMatch.playerName)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tu as déjà trouvé ce joueur.'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+      _controller.clear();
+      return;
+    }
+
+    // ✅ Bonne réponse
+    if (exactMatch != null) {
       setState(() {
-        _foundPlayers.add(foundPlayer.playerName);
+        _foundPlayers.add(exactMatch!.playerName);
         _score++;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -133,70 +172,74 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
           duration: Duration(seconds: 1),
         ),
       );
-    } else if (alreadyFound) {
+      _controller.clear();
+      return;
+    }
+
+    // 🟡 Presque (similarité)
+    if (closeMatch != null && _foundPlayers.contains(closeMatch.playerName)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tu as déjà trouvé ce joueur.'),
           duration: Duration(seconds: 1),
         ),
       );
-    } else {
-      final closeMatch = _lineups.firstWhereOrNull((lineup) {
-        final normalizedName =
-            removeDiacritics(lineup.playerName.toLowerCase()).trim();
-        final lastName = normalizedName.split(' ').last;
-        return lastName.similarityTo(answer) >= 0.6;
-      });
+      _controller.clear();
+      return;
+    }
 
-      if (closeMatch != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🟡 Essaye encore !'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-        return;
-      }
-
-      setState(() {
-        _errors++;
-      });
+    if (closeMatch != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('❌ Faux !'),
+          content: Text('🟡 Essaye encore !'),
           duration: Duration(seconds: 1),
         ),
       );
-      if (_errors >= 6) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Jeu terminé'),
-            content: Text('Nombre d\'erreurs atteint. Score final: $_score'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  setState(() {
-                    _foundPlayers.clear();
-                    _score = 0;
-                    _errors = 0;
-                  });
-                },
-                child: const Text('Recommencer'),
-              ),
-            ],
-          ),
-        );
-      }
+      return;
+    }
+
+    // ❌ Faux
+    setState(() {
+      _errors++;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('❌ Faux !'), duration: Duration(seconds: 1)),
+    );
+
+    if (_errors >= 6) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Jeu terminé'),
+          content: Text('Nombre d\'erreurs atteint. Score final: $_score'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  _foundPlayers.clear();
+                  _score = 0;
+                  _errors = 0;
+                });
+              },
+              child: const Text('Recommencer'),
+            ),
+          ],
+        ),
+      );
     }
 
     _controller.clear();
   }
 
   Widget _buildTeamFormation(String teamName) {
-    final starters = _lineups.where((l) => l.teamName == teamName && l.starter).toList();
-    final substitutes = _lineups.where((l) => l.teamName == teamName && !l.starter).toList();
+    final starters = _lineups
+        .where((l) => l.teamName == teamName && l.starter)
+        .toList();
+    final substitutes = _lineups
+        .where((l) => l.teamName == teamName && !l.starter)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,18 +269,27 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
                         Text(
                           player.playerName,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           player.position,
-                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
                         ),
                       ],
                     )
                   : Text(
                       player.position,
-                      style: const TextStyle(color: Colors.black54, fontSize: 14),
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 14,
+                      ),
                     ),
             );
           },
@@ -264,18 +316,27 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
                           Text(
                             player.playerName,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             player.position,
-                            style: const TextStyle(color: Colors.white, fontSize: 10),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                            ),
                           ),
                         ],
                       )
                     : Text(
                         player.position,
-                        style: const TextStyle(color: Colors.black54, fontSize: 14),
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 14,
+                        ),
                       ),
               );
             },
@@ -288,9 +349,7 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Compositions de match'),
-      ),
+      appBar: AppBar(title: const Text('Compositions de match')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -298,25 +357,15 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    // Dropdown pour choisir le match
-                    DropdownButton<Match>(
-                      value: _selectedMatch,
-                      isExpanded: true,
-                      hint: const Text('Choisir un match'),
-                      items: _matches.map((match) {
-                        return DropdownMenuItem(
-                          value: match,
-                          child: Text(match.matchName),
-                        );
-                      }).toList(),
-                      onChanged: (match) async {
-                        setState(() => _selectedMatch = match);
-                        if (match != null) {
-                          await _loadLineups(match.matchId);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 20),
+                    if (_selectedMatch != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          _selectedMatch!.matchName,
+                          style: Theme.of(context).textTheme.titleMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     TabBar(
                       controller: _tabController,
                       tabs: [
@@ -348,12 +397,19 @@ class _LineupMatchPageState extends State<LineupMatchPage> with SingleTickerProv
                       child: TabBarView(
                         controller: _tabController,
                         children: [
-                          SingleChildScrollView(child: _buildTeamFormation(_selectedMatch?.homeTeam ?? '')),
-                          SingleChildScrollView(child: _buildTeamFormation(_selectedMatch?.awayTeam ?? '')),
+                          SingleChildScrollView(
+                            child: _buildTeamFormation(
+                              _selectedMatch?.homeTeam ?? '',
+                            ),
+                          ),
+                          SingleChildScrollView(
+                            child: _buildTeamFormation(
+                              _selectedMatch?.awayTeam ?? '',
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    
                   ],
                 ),
               ),

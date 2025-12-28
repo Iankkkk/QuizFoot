@@ -61,8 +61,8 @@ class _HistoryPageState extends State<HistoryPage> {
       floatingActionButton: _history.isNotEmpty
           ? FloatingActionButton(
               onPressed: _clearHistory,
-              child: const Icon(Icons.delete),
               tooltip: 'Supprimer l\'historique',
+              child: const Icon(Icons.delete),
             )
           : null,
     );
