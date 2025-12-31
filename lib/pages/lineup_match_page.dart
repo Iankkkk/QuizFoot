@@ -15,6 +15,23 @@ class LineupMatchPage extends StatefulWidget {
   State<LineupMatchPage> createState() => _LineupMatchPageState();
 }
 
+int _difficultyToLevel(String difficulty) {
+  switch (difficulty) {
+    case 'Très Facile':
+      return 1;
+    case 'Facile':
+      return 2;
+    case 'Moyenne':
+      return 3;
+    case 'Difficile':
+      return 4;
+    case 'Impossible':
+      return 5;
+    default:
+      return 3; // fallback safe
+  }
+}
+
 class _LineupMatchPageState extends State<LineupMatchPage>
     with SingleTickerProviderStateMixin {
   String get difficulty => widget.difficulty;
@@ -50,12 +67,30 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     setState(() => _isLoading = true);
     try {
       final matches = await loadMatches();
+
+      final int targetLevel = _difficultyToLevel(difficulty);
+
+      final filteredMatches = matches
+          .where((m) => m.level == targetLevel)
+          .toList();
+
       setState(() {
-        _matches = matches;
-        if (matches.isNotEmpty) {
-          _selectedMatch = (matches..shuffle()).first;
+        _matches = filteredMatches;
+
+        if (filteredMatches.isNotEmpty) {
+          _selectedMatch = (filteredMatches..shuffle()).first;
+        } else {
+          _selectedMatch = null;
         }
       });
+
+      if (_selectedMatch == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Aucun match disponible pour cette difficulté'),
+          ),
+        );
+      }
       if (_selectedMatch != null) {
         await _loadLineups(_selectedMatch!.matchId);
       }

@@ -7,6 +7,7 @@ class Match {
   final String awayTeam;
   final String formationHome;
   final String formationAway;
+  final int level;
 
   Match({
     required this.matchId,
@@ -17,6 +18,7 @@ class Match {
     required this.awayTeam,
     required this.formationHome,
     required this.formationAway,
+    required this.level,
   });
 
   factory Match.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class Match {
       awayTeam: json['away_team'] as String,
       formationHome: json['formation_home'] as String,
       formationAway: json['formation_away'] as String,
+      level: int.tryParse(json['level'].toString()) ?? 1,
     );
   }
 }
