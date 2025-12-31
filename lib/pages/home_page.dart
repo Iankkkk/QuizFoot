@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quiz_foot/pages/quiz_test.dart';
 import 'quiz_test_intro.dart';
-
+import 'package:quiz_foot/pages/lineup_match_page_intro.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -121,15 +121,25 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 20,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF174423).withOpacity(0.95),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF3CAE3A), width: 1.2),
+                  border: Border.all(
+                    color: const Color(0xFF3CAE3A),
+                    width: 1.2,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.format_quote, color: Color(0xFF3CAE3A), size: 28),
+                    const Icon(
+                      Icons.format_quote,
+                      color: Color(0xFF3CAE3A),
+                      size: 28,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -154,7 +164,10 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 18,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF16291A),
                   borderRadius: BorderRadius.circular(12),
@@ -174,7 +187,10 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 8),
                     Text(
                       randomAnecdote,
-                      style: const TextStyle(color: Color(0xFFB8F2E6), fontSize: 14.5),
+                      style: const TextStyle(
+                        color: Color(0xFFB8F2E6),
+                        fontSize: 14.5,
+                      ),
                     ),
                   ],
                 ),
@@ -186,11 +202,17 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 18,
+                  horizontal: 18,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1B2F1A).withOpacity(0.95),
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: const Color(0xFF3CAE3A), width: 1.2),
+                  border: Border.all(
+                    color: const Color(0xFF3CAE3A),
+                    width: 1.2,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.08),
@@ -253,7 +275,8 @@ class _HomePageState extends State<HomePage> {
                 children: const [
                   _HighlightCard(
                     title: "🔥 Nouveau mode Compos",
-                    subtitle: "Revis les matchs mythiques et devine les compos !",
+                    subtitle:
+                        "Revis les matchs mythiques et devine les compos !",
                     color: Color(0xFF2E8B57),
                   ),
                   _HighlightCard(
@@ -308,7 +331,14 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 14),
             _MpgGameButton(
               title: "Compos",
-              onTap: () => Navigator.pushNamed(context, '/lineup_match'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LineupMatchPageIntro(),
+                  ),
+                );
+              },
               icon: Icons.sports_soccer,
               color: const Color(0xFF174423),
             ),
@@ -376,10 +406,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Color(0xFF1E5128),
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Accueil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
           BottomNavigationBarItem(
             icon: Icon(Icons.sports_soccer),
             label: 'Jeux',
@@ -388,10 +415,7 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.history),
             label: 'Historique',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
         ],
       ),
     );
@@ -425,7 +449,9 @@ Widget _difficultyButton(BuildContext context, String difficulty) {
         Navigator.pop(context);
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => QuizTest(difficulty: difficulty)),
+          MaterialPageRoute(
+            builder: (context) => QuizTest(difficulty: difficulty),
+          ),
         );
       },
       child: Text(difficulty),
@@ -577,7 +603,11 @@ class _MpgGameButton extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(Icons.play_arrow_rounded, color: Color(0xFFFCFFFD), size: 30),
+              const Icon(
+                Icons.play_arrow_rounded,
+                color: Color(0xFFFCFFFD),
+                size: 30,
+              ),
             ],
           ),
         ),

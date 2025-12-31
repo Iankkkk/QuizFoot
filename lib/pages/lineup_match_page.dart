@@ -7,7 +7,9 @@ import '../models/match_model.dart';
 import '../models/lineup_model.dart';
 
 class LineupMatchPage extends StatefulWidget {
-  const LineupMatchPage({super.key});
+  const LineupMatchPage({super.key, required this.difficulty});
+
+  final String difficulty;
 
   @override
   State<LineupMatchPage> createState() => _LineupMatchPageState();
@@ -15,6 +17,7 @@ class LineupMatchPage extends StatefulWidget {
 
 class _LineupMatchPageState extends State<LineupMatchPage>
     with SingleTickerProviderStateMixin {
+  String get difficulty => widget.difficulty;
   final TextEditingController _controller = TextEditingController();
   int _score = 0;
   int _errors = 0;
@@ -86,13 +89,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         }
       });
 
-      // Dédoublonner les joueurs par playerName
-      final uniqueLineups = {
-        for (var l in matchLineups) l.playerName: l,
-      }.values.toList();
-
       setState(() {
-        _lineups = uniqueLineups;
+        _lineups = matchLineups;
         _foundPlayers.clear();
         _score = 0;
         _errors = 0;
@@ -108,17 +106,21 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     final normalized = removeDiacritics(
       fullName.toLowerCase(),
     ).replaceAll('.', '').trim();
-
+    print(normalized);
     return normalized;
   }
 
   void _checkPlayer() {
+    FocusScope.of(
+      context,
+    ).unfocus(); //fermer le clavier quand le user a validé une réponse
+
     final inputRaw = _controller.text.trim();
     if (inputRaw.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez entrer un nom de joueur.'),
-          duration: Duration(seconds: 1),
+          duration: Duration(seconds: 2),
         ),
       );
       return;
@@ -128,79 +130,92 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       inputRaw.toLowerCase(),
     ).replaceAll('.', '').trim();
 
-    Lineup? exactMatch;
-    Lineup? closeMatch;
+    final List<Lineup> exactMatches = [];
+    final List<Lineup> closeMatches = [];
 
     for (final lineup in _lineups) {
       final lastName = _normalizeLastName(lineup.playerName);
 
       if (lastName == answerNormalized) {
-        exactMatch = lineup;
-        break;
-      }
-
-      if (lastName.similarityTo(answerNormalized) >= 0.6) {
-        closeMatch ??= lineup;
+        exactMatches.add(lineup);
+      } else if (lastName.similarityTo(answerNormalized) >= 0.6) {
+        closeMatches.add(lineup);
       }
     }
 
-    // 🔴 PRIORITÉ ABSOLUE : joueur déjà trouvé
-    if (exactMatch != null && _foundPlayers.contains(exactMatch.playerName)) {
+    final notFoundExact = exactMatches
+        .where((l) => !_foundPlayers.contains(l.playerName))
+        .toList();
+
+    if (exactMatches.isNotEmpty && notFoundExact.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tu as déjà trouvé ce joueur.'),
-          duration: Duration(seconds: 1),
+          duration: Duration(seconds: 2),
         ),
       );
       _controller.clear();
       return;
     }
 
-    // ✅ Bonne réponse
-    if (exactMatch != null) {
+    // ✅ bonne(s) réponse(s)
+    if (notFoundExact.isNotEmpty) {
       setState(() {
-        _foundPlayers.add(exactMatch!.playerName);
-        _score++;
+        for (final player in notFoundExact) {
+          _foundPlayers.add(player.playerName);
+        }
+        _score += notFoundExact.length;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Correct !'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text('✅ ${notFoundExact.length} joueur(s) trouvé(s) !'),
+          duration: const Duration(seconds: 2),
         ),
       );
+
       _controller.clear();
       return;
     }
 
-    // 🟡 Presque (similarité)
-    if (closeMatch != null && _foundPlayers.contains(closeMatch.playerName)) {
+    // 🔁 proche mais déjà trouvé
+    final closeAlreadyFound = closeMatches
+        .where((l) => _foundPlayers.contains(l.playerName))
+        .toList();
+
+    if (closeAlreadyFound.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tu as déjà trouvé ce joueur.'),
-          duration: Duration(seconds: 1),
+          duration: Duration(seconds: 2),
         ),
       );
       _controller.clear();
       return;
     }
 
-    if (closeMatch != null) {
+    // 🟡 presque
+    final closeNotFound = closeMatches
+        .where((l) => !_foundPlayers.contains(l.playerName))
+        .toList();
+
+    if (closeNotFound.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('🟡 Essaye encore !'),
-          duration: Duration(seconds: 1),
+          duration: Duration(seconds: 2),
         ),
       );
       return;
     }
 
-    // ❌ Faux
+    // ❌ faux
     setState(() {
       _errors++;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('❌ Faux !'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('❌ Faux !'), duration: Duration(seconds: 2)),
     );
 
     if (_errors >= 6) {
@@ -255,46 +270,15 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           itemBuilder: (context, index) {
             final player = starters[index];
             final isFound = _foundPlayers.contains(player.playerName);
-            return CircleAvatar(
-              radius: 30,
-              backgroundColor: isFound ? Colors.green : Colors.grey[300],
-              child: isFound
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          player.playerName,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          player.position,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      player.position,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 14,
-                      ),
-                    ),
-            );
+
+            return PlayerShirt(player: player, isFound: isFound);
           },
         ),
         const SizedBox(height: 16),
         Text('Remplaçants', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         SizedBox(
-          height: 70,
+          height: 100,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: substitutes.length,
@@ -302,39 +286,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             itemBuilder: (context, index) {
               final player = substitutes[index];
               final isFound = _foundPlayers.contains(player.playerName);
-              return CircleAvatar(
-                radius: 30,
-                backgroundColor: isFound ? Colors.green : Colors.grey[300],
-                child: isFound
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            player.playerName,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            player.position,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Text(
-                        player.position,
-                        style: const TextStyle(
-                          color: Colors.black54,
-                          fontSize: 14,
-                        ),
-                      ),
-              );
+
+              return PlayerShirt(player: player, isFound: isFound);
             },
           ),
         ),
@@ -345,7 +298,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Compositions de match')),
+      appBar: AppBar(title: const Text('Compos')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -354,14 +307,23 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 child: Column(
                   children: [
                     if (_selectedMatch != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          _selectedMatch!.matchName,
-                          style: Theme.of(context).textTheme.titleMedium,
-                          textAlign: TextAlign.center,
+                      Card(
+                        elevation: 1,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            children: [
+                              Text(
+                                _selectedMatch!.matchName,
+                                style: Theme.of(context).textTheme.titleLarge,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
+                    const SizedBox(height: 16),
                     TabBar(
                       controller: _tabController,
                       tabs: [
@@ -369,25 +331,36 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                         Tab(text: _selectedMatch?.awayTeam ?? 'Away Team'),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _controller,
-                      decoration: const InputDecoration(
-                        labelText: 'Tape un joueur',
-                        border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    Card(
+                      elevation: 1,
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            TextField(
+                              controller: _controller,
+                              decoration: const InputDecoration(
+                                labelText: 'Tape un joueur',
+                                border: OutlineInputBorder(),
+                              ),
+                              onSubmitted: (_) => _checkPlayer(),
+                            ),
+                            const SizedBox(height: 10),
+                            ElevatedButton(
+                              onPressed: _checkPlayer,
+                              child: const Text('Valider'),
+                            ),
+                            const SizedBox(height: 10),
+                            Text('Score: $_score'),
+                            const SizedBox(height: 8),
+                            Text('Erreurs restantes: ${6 - _errors}'),
+                          ],
+                        ),
                       ),
-                      onSubmitted: (_) => _checkPlayer(),
                     ),
-                    const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: _checkPlayer,
-                      child: const Text('Valider'),
-                    ),
-                    const SizedBox(height: 10),
-                    Text('Score: $_score'),
-                    const SizedBox(height: 8),
-                    Text('Erreurs restantes: ${6 - _errors}'),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                     SizedBox(
                       height: 400,
                       child: TabBarView(
@@ -410,6 +383,81 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 ),
               ),
             ),
+    );
+  }
+}
+
+class PlayerShirt extends StatelessWidget {
+  final Lineup player;
+  final bool isFound;
+
+  const PlayerShirt({super.key, required this.player, required this.isFound});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedScale(
+          scale: isFound ? 1.35 : 1.0,
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.elasticOut,
+          child: AnimatedOpacity(
+            opacity: isFound ? 1.0 : 0.45,
+            duration: const Duration(milliseconds: 300),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Image.asset(
+                  'assets/images/shirt.png',
+                  width: 34,
+                  height: 34,
+                  color: Colors.black,
+                  colorBlendMode: isFound ? null : BlendMode.modulate,
+                ),
+
+                if (isFound && player.playerNumber != null)
+                  Positioned(
+                    top: 12,
+                    child: Text(
+                      player.playerNumber.toString(),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (isFound) ...[
+          const SizedBox(height: 4),
+          Text(
+            player.playerName,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.green,
+            ),
+          ),
+        ],
+        const SizedBox(height: 1),
+
+        // Poste (toujours visible)
+        Text(
+          player.position,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+      ],
     );
   }
 }
