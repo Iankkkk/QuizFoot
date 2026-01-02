@@ -59,6 +59,11 @@ class _QuizTestState extends State<QuizTest> {
   Timer? _questionTimer;
   Duration _elapsed = Duration.zero;
 
+  // --- Feedback and photo scale fields ---
+  bool _showCorrectFeedback = false;
+  double _photoScale = 1.0;
+  Color _feedbackColor = Colors.green;
+
   final String _memeCorrect = 'assets/images/correct.jpg';
   final String _memeWrong = 'assets/images/wrong.jpg';
 
@@ -141,6 +146,11 @@ class _QuizTestState extends State<QuizTest> {
     bool almostCorrect = !isCorrect && similarity > 0.4;
 
     if (isCorrect) {
+      setState(() {
+        _showCorrectFeedback = true;
+        _photoScale = 1.05;
+        _feedbackColor = Colors.green;
+      });
       final elapsed = DateTime.now().difference(_questionStartTime!);
       final points = _computePoints(elapsed);
       _score += points;
@@ -155,7 +165,9 @@ class _QuizTestState extends State<QuizTest> {
       snackMessage = '✅ Bonne réponse ! Suuuuuuuuu !!';
       snackColor = Colors.green[700]!;
       memeAsset = _memeCorrect;
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -181,13 +193,26 @@ class _QuizTestState extends State<QuizTest> {
         ),
       );
       _questionTimer?.cancel();
-      _nextQuestion();
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        setState(() {
+          _showCorrectFeedback = false;
+          _photoScale = 1.0;
+        });
+        _nextQuestion();
+      });
     } else if (almostCorrect) {
+      setState(() {
+        _showCorrectFeedback = true;
+        _photoScale = 1.05;
+        _feedbackColor = Colors.orange;
+      });
       snackMessage = '🟡 T\'y es presque grand...';
       snackColor = Colors.orange[700]!;
       memeAsset = _memeWrong;
-
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -211,14 +236,27 @@ class _QuizTestState extends State<QuizTest> {
           duration: const Duration(seconds: 3),
         ),
       );
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        setState(() {
+          _showCorrectFeedback = false;
+          _photoScale = 1.0;
+        });
+      });
     } else {
+      setState(() {
+        _showCorrectFeedback = true;
+        _photoScale = 1.05;
+        _feedbackColor = Colors.red;
+      });
       _controller.clear();
       snackMessage =
           '❌ Nan !! T\'es trompé ! La bonne réponse était : ${_selectedPlayers[_currentQuestion].name}';
       snackColor = Colors.red[700]!;
       memeAsset = _memeWrong;
-
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -243,6 +281,13 @@ class _QuizTestState extends State<QuizTest> {
           duration: const Duration(seconds: 3),
         ),
       );
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        setState(() {
+          _showCorrectFeedback = false;
+          _photoScale = 1.0;
+        });
+      });
       _questionTimer?.cancel();
       _nextQuestion();
     }
@@ -265,7 +310,9 @@ class _QuizTestState extends State<QuizTest> {
 
     String correctAnswer = _selectedPlayers[_currentQuestion].name;
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -356,12 +403,10 @@ class _QuizTestState extends State<QuizTest> {
   Widget _buildTimer() {
     final minutes = _elapsed.inMinutes;
     final seconds = _elapsed.inSeconds % 60;
-    final centiseconds = (_elapsed.inMilliseconds % 1000) ~/ 10;
 
     return Text(
       '${minutes.toString().padLeft(2, '0')}m '
-      '${seconds.toString().padLeft(2, '0')}s '
-      '${centiseconds.toString().padLeft(2, '0')}',
+      '${seconds.toString().padLeft(2, '0')}s ',
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
@@ -426,28 +471,40 @@ class _QuizTestState extends State<QuizTest> {
                     ),
                     elevation: 6,
                     clipBehavior: Clip.antiAlias,
-                    child: InteractiveViewer(
-                      minScale: 0.8,
-                      maxScale: 4.0,
-                      panEnabled: true,
-                      child: Image.network(
-                        _selectedPlayers[_currentQuestion].imageUrl,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              size: 80,
-                              color: Colors.grey,
+                    child: AnimatedScale(
+                      scale: _photoScale,
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          InteractiveViewer(
+                            minScale: 0.8,
+                            maxScale: 4.0,
+                            panEnabled: true,
+                            child: Image.network(
+                              _selectedPlayers[_currentQuestion].imageUrl,
+                              fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  },
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: Icon(Icons.broken_image, size: 80),
+                                );
+                              },
                             ),
-                          );
-                        },
+                          ),
+                          AnimatedOpacity(
+                            opacity: _showCorrectFeedback ? 0.35 : 0.0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Container(color: _feedbackColor),
+                          ),
+                        ],
                       ),
                     ),
                   ),
