@@ -30,27 +30,89 @@ class LineupMatchPageIntro extends StatelessWidget {
     }
   }
 
+  void _showDifficultyPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Choisis la difficulté",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  ...difficulties.map((diff) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: _DifficultyButton(
+                        label: diff,
+                        color: _getDifficultyColor(diff),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => LineupMatchPage(difficulty: diff),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   final List<IconData> ruleIcons = const [
     Icons.keyboard,
     Icons.timer_off,
     Icons.abc_sharp,
     Icons.error_rounded,
-    Icons.plus_one,
     Icons.announcement,
+    Icons.plus_one,
+    Icons.visibility_rounded,
   ];
 
   final List<String> rules = const [
-    "Devine les compositions d'équipe de ces célèbres matchs ",
+    "Devine les compositions d'équipe de ces matchs célèbres",
     "Il n'y a aucune limite de temps",
     "Tape le NOM DE FAMILLE du joueur dans la zone prévue",
     "6 erreurs maximum sont autorisées",
-    "Chaque bonne réponse te rapporte un point",
     "Les titulaires et les remplaçants entrés en jeu sont à trouver",
+    "Chaque bonne réponse te rapporte un point",
+    "Tu peux demander à voir les numéros des joueurs, mais ça te coutera 2 points !",
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.green,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_outlined,
+            color: Colors.white,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: Stack(
         children: [
           // Fond avec dégradé vert
@@ -92,114 +154,113 @@ class LineupMatchPageIntro extends StatelessWidget {
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 20),
-                  Center(
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.95, end: 1.05),
-                      duration: const Duration(seconds: 1),
-                      curve: Curves.easeInOut,
-                      builder: (context, scale, child) {
-                        return Transform.scale(scale: scale, child: child);
-                      },
-                      child: Icon(
-                        Icons.sports_soccer,
-                        size: 80,
-                        color: Colors.white70,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 5),
+                    Center(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.65, end: 1.35),
+                        duration: const Duration(seconds: 1),
+                        curve: Curves.easeInOut,
+                        builder: (context, scale, child) {
+                          return Transform.scale(scale: scale, child: child);
+                        },
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          width: 80,
+                          height: 80,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    "Bienvenue dans Compos !",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+
+                    const Text(
+                      "Bienvenue dans Compos !",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.85),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Règles du jeu :",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        ...List.generate(rules.length, (index) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  ruleIcons[index],
-                                  size: 20,
-                                  color: Colors.green.shade700,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    rules[index],
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                ),
-                              ],
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Règles du jeu :",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
                             ),
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: difficulties.length,
-                      itemBuilder: (context, index) {
-                        final diff = difficulties[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: _DifficultyButton(
-                            label: diff,
-                            color: _getDifficultyColor(diff),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      LineupMatchPage(difficulty: diff),
-                                ),
-                              );
-                            },
                           ),
-                        );
-                      },
+                          const SizedBox(height: 12),
+                          ...List.generate(rules.length, (index) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    ruleIcons[index],
+                                    size: 20,
+                                    color: Colors.green.shade700,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      rules[index],
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () => _showDifficultyPicker(context),
+                      child: const Text(
+                        "Jouer !",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -38,6 +38,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   final TextEditingController _controller = TextEditingController();
   int _score = 0;
   int _errors = 0;
+  bool _showNumbersHint = false;
+  bool _revealAllPlayers = false;
 
   List<Match> _matches = [];
   Match? _selectedMatch;
@@ -256,20 +258,26 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     if (_errors >= 6) {
       showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (context) => AlertDialog(
-          title: const Text('Jeu terminé'),
-          content: Text('Nombre d\'erreurs atteint. Score final: $_score'),
+          title: const Text('Partie terminée'),
+          content: Text('Nombre d\'erreurs atteint...\nScore final : $_score'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 setState(() {
-                  _foundPlayers.clear();
-                  _score = 0;
-                  _errors = 0;
+                  _revealAllPlayers = true;
                 });
               },
-              child: const Text('Recommencer'),
+              child: const Text('Voir les réponses'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Retour à l\'intro'),
             ),
           ],
         ),
@@ -304,25 +312,36 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           ),
           itemBuilder: (context, index) {
             final player = starters[index];
-            final isFound = _foundPlayers.contains(player.playerName);
+            final isFound =
+                _foundPlayers.contains(player.playerName) || _revealAllPlayers;
 
-            return PlayerShirt(player: player, isFound: isFound);
+            return PlayerShirt(
+              player: player,
+              isFound: isFound,
+              showNumber: _showNumbersHint,
+            );
           },
         ),
         const SizedBox(height: 16),
         Text('Remplaçants', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
+        const SizedBox(height: 15),
         SizedBox(
           height: 100,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: substitutes.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, __) => const SizedBox(width: 18),
             itemBuilder: (context, index) {
               final player = substitutes[index];
-              final isFound = _foundPlayers.contains(player.playerName);
+              final isFound =
+                  _foundPlayers.contains(player.playerName) ||
+                  _revealAllPlayers;
 
-              return PlayerShirt(player: player, isFound: isFound);
+              return PlayerShirt(
+                player: player,
+                isFound: isFound,
+                showNumber: _showNumbersHint,
+              );
             },
           ),
         ),
@@ -376,16 +395,104 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                           children: [
                             TextField(
                               controller: _controller,
+                              enabled: !_revealAllPlayers,
                               decoration: const InputDecoration(
-                                labelText: 'Tape un joueur',
+                                labelText: 'Tape le nom d\'un joueur',
                                 border: OutlineInputBorder(),
                               ),
                               onSubmitted: (_) => _checkPlayer(),
                             ),
                             const SizedBox(height: 10),
-                            ElevatedButton(
-                              onPressed: _checkPlayer,
-                              child: const Text('Valider'),
+                            Row(
+                              children: [
+                                // Zone gauche fantôme (même largeur que le bouton Indice)
+                                const SizedBox(width: 48, height: 48),
+
+                                // Bouton Valider parfaitement centré
+                                Expanded(
+                                  child: Center(
+                                    child: ElevatedButton(
+                                      onPressed: _revealAllPlayers
+                                          ? null
+                                          : _checkPlayer,
+                                      child: const Text('Valider'),
+                                    ),
+                                  ),
+                                ),
+
+                                // Bouton Indice à droite
+                                SizedBox(
+                                  width: 48,
+                                  height: 48,
+                                  child: Tooltip(
+                                    message: 'Afficher les numéros (-2 points)',
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        shape: const CircleBorder(),
+                                        padding: EdgeInsets.zero,
+                                        backgroundColor:
+                                            (_showNumbersHint ||
+                                                _revealAllPlayers)
+                                            ? Colors.grey
+                                            : Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                      ),
+                                      onPressed:
+                                          (_showNumbersHint ||
+                                              _revealAllPlayers)
+                                          ? null
+                                          : () async {
+                                              final confirm = await showDialog<bool>(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  title: const Text(
+                                                    'Activer un indice ?',
+                                                  ),
+                                                  content: const Text(
+                                                    'Afficher les numéros de tous les joueurs te fera perdre 2 points. Continuer ?',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                            context,
+                                                            false,
+                                                          ),
+                                                      child: const Text(
+                                                        'Annuler',
+                                                      ),
+                                                    ),
+                                                    ElevatedButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                            context,
+                                                            true,
+                                                          ),
+                                                      child: const Text(
+                                                        'Oui, afficher',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+
+                                              if (confirm == true) {
+                                                setState(() {
+                                                  _showNumbersHint = true;
+                                                  _score -= 2;
+                                                });
+                                              }
+                                            },
+                                      child: const Icon(
+                                        Icons.visibility,
+                                        size: 20,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 10),
                             Text('Score: $_score'),
@@ -425,8 +532,14 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 class PlayerShirt extends StatelessWidget {
   final Lineup player;
   final bool isFound;
+  final bool showNumber;
 
-  const PlayerShirt({super.key, required this.player, required this.isFound});
+  const PlayerShirt({
+    super.key,
+    required this.player,
+    required this.isFound,
+    required this.showNumber,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -434,7 +547,7 @@ class PlayerShirt extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedScale(
-          scale: isFound ? 1.35 : 1.0,
+          scale: isFound ? 1.35 : 1.15,
           duration: const Duration(milliseconds: 420),
           curve: Curves.elasticOut,
           child: AnimatedOpacity(
@@ -451,15 +564,15 @@ class PlayerShirt extends StatelessWidget {
                   colorBlendMode: isFound ? null : BlendMode.modulate,
                 ),
 
-                if (isFound && player.playerNumber != null)
+                if ((isFound || showNumber) && player.playerNumber != null)
                   Positioned(
                     top: 12,
                     child: Text(
                       player.playerNumber.toString(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: isFound ? Colors.black : Colors.black54,
                       ),
                     ),
                   ),

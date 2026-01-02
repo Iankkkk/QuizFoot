@@ -41,7 +41,7 @@ class QuizTestIntro extends StatelessWidget {
 
   final List<String> rules = const [
     "Devine le joueur à partir de sa photo.",
-    "10 photos seront affichés.",
+    "10 photos seront affichées.",
     "Il n'y a aucune limite de temps",
     "Tape le NOM DE FAMILLE du joueur dans la zone prévue.",
     "Chaque bonne réponse te rapporte un point..",
@@ -51,6 +51,20 @@ class QuizTestIntro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.green,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_outlined,
+            color: Colors.white,
+          ),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
           // Fond avec dégradé vert
@@ -64,10 +78,7 @@ class QuizTestIntro extends StatelessWidget {
             ),
           ),
           // Soccer field lines
-          CustomPaint(
-            size: Size.infinite,
-            painter: SoccerFieldLinesPainter(),
-          ),
+          CustomPaint(size: Size.infinite, painter: SoccerFieldLinesPainter()),
           // Bouncing balls in background
           const Positioned.fill(child: BouncingBallsBackground()),
           Positioned(
@@ -103,23 +114,20 @@ class QuizTestIntro extends StatelessWidget {
                   const SizedBox(height: 20),
                   Center(
                     child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.95, end: 1.05),
+                      tween: Tween(begin: 0.70, end: 1.30),
                       duration: const Duration(seconds: 1),
                       curve: Curves.easeInOut,
                       builder: (context, scale, child) {
-                        return Transform.scale(
-                          scale: scale,
-                          child: child,
-                        );
+                        return Transform.scale(scale: scale, child: child);
                       },
-                      child: Icon(
-                        Icons.sports_soccer,
-                        size: 80,
-                        color: Colors.white70,
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 80,
+                        height: 80,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+
                   const Text(
                     "Bienvenue dans Coup d'œil !",
                     style: TextStyle(
@@ -226,7 +234,12 @@ class SoccerFieldLinesPainter extends CustomPainter {
     final height = size.height;
 
     // Draw outer rectangle (field border)
-    final fieldRect = Rect.fromLTWH(width * 0.05, height * 0.05, width * 0.9, height * 0.9);
+    final fieldRect = Rect.fromLTWH(
+      width * 0.05,
+      height * 0.05,
+      width * 0.9,
+      height * 0.9,
+    );
     canvas.drawRect(fieldRect, paint);
 
     // Center circle
@@ -265,8 +278,16 @@ class SoccerFieldLinesPainter extends CustomPainter {
     final penaltySpotRadius = 4.0;
     final topSpot = Offset(width / 2, height * 0.05 + penaltyHeight * 0.65);
     final bottomSpot = Offset(width / 2, height * 0.95 - penaltyHeight * 0.65);
-    canvas.drawCircle(topSpot, penaltySpotRadius, paint..style = PaintingStyle.fill);
-    canvas.drawCircle(bottomSpot, penaltySpotRadius, paint..style = PaintingStyle.fill);
+    canvas.drawCircle(
+      topSpot,
+      penaltySpotRadius,
+      paint..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      bottomSpot,
+      penaltySpotRadius,
+      paint..style = PaintingStyle.fill,
+    );
 
     // Corner arcs
     final cornerRadius = 15.0;
@@ -278,7 +299,9 @@ class SoccerFieldLinesPainter extends CustomPainter {
     ];
     for (var corner in corners) {
       final rect = Rect.fromCircle(center: corner, radius: cornerRadius);
-      final startAngle = (corner == corners[0] || corner == corners[2]) ? 0.0 : (pi / 2).toDouble();
+      final startAngle = (corner == corners[0] || corner == corners[2])
+          ? 0.0
+          : (pi / 2).toDouble();
       final sweepAngle = (pi / 2).toDouble();
       canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
     }
@@ -292,10 +315,12 @@ class BouncingBallsBackground extends StatefulWidget {
   const BouncingBallsBackground({super.key});
 
   @override
-  State<BouncingBallsBackground> createState() => _BouncingBallsBackgroundState();
+  State<BouncingBallsBackground> createState() =>
+      _BouncingBallsBackgroundState();
 }
 
-class _BouncingBallsBackgroundState extends State<BouncingBallsBackground> with SingleTickerProviderStateMixin {
+class _BouncingBallsBackgroundState extends State<BouncingBallsBackground>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   final List<_Ball> balls = [];
   final int ballCount = 10;
@@ -305,16 +330,25 @@ class _BouncingBallsBackgroundState extends State<BouncingBallsBackground> with 
   void initState() {
     super.initState();
     for (int i = 0; i < ballCount; i++) {
-      balls.add(_Ball(
-        position: Offset(random.nextDouble(), random.nextDouble()),
-        velocity: Offset((random.nextDouble() - 0.5) * 0.002, (random.nextDouble() - 0.5) * 0.002),
-        radius: 6 + random.nextDouble() * 6,
-        color: Colors.white.withOpacity(0.15 + random.nextDouble() * 0.15),
-      ));
+      balls.add(
+        _Ball(
+          position: Offset(random.nextDouble(), random.nextDouble()),
+          velocity: Offset(
+            (random.nextDouble() - 0.5) * 0.002,
+            (random.nextDouble() - 0.5) * 0.002,
+          ),
+          radius: 6 + random.nextDouble() * 6,
+          color: Colors.white.withOpacity(0.15 + random.nextDouble() * 0.15),
+        ),
+      );
     }
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1000))
-      ..addListener(_update)
-      ..repeat();
+    _controller =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(seconds: 1000),
+          )
+          ..addListener(_update)
+          ..repeat();
   }
 
   void _update() {
@@ -343,12 +377,14 @@ class _BouncingBallsBackgroundState extends State<BouncingBallsBackground> with 
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      return CustomPaint(
-        size: Size(constraints.maxWidth, constraints.maxHeight),
-        painter: _BallsPainter(balls, constraints.biggest),
-      );
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return CustomPaint(
+          size: Size(constraints.maxWidth, constraints.maxHeight),
+          painter: _BallsPainter(balls, constraints.biggest),
+        );
+      },
+    );
   }
 }
 
@@ -377,7 +413,10 @@ class _BallsPainter extends CustomPainter {
     final paint = Paint();
     for (var ball in balls) {
       paint.color = ball.color;
-      final pos = Offset(ball.position.dx * size.width, ball.position.dy * size.height);
+      final pos = Offset(
+        ball.position.dx * size.width,
+        ball.position.dy * size.height,
+      );
       canvas.drawCircle(pos, ball.radius, paint);
     }
   }
@@ -401,7 +440,8 @@ class _DifficultyButton extends StatefulWidget {
   State<_DifficultyButton> createState() => _DifficultyButtonState();
 }
 
-class _DifficultyButtonState extends State<_DifficultyButton> with SingleTickerProviderStateMixin {
+class _DifficultyButtonState extends State<_DifficultyButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -439,10 +479,7 @@ class _DifficultyButtonState extends State<_DifficultyButton> with SingleTickerP
   @override
   Widget build(BuildContext context) {
     final gradient = LinearGradient(
-      colors: [
-        widget.color.withOpacity(0.85),
-        widget.color,
-      ],
+      colors: [widget.color.withOpacity(0.85), widget.color],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );

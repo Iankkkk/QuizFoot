@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:string_similarity/string_similarity.dart';
@@ -54,6 +55,10 @@ class _QuizTestState extends State<QuizTest> {
   DateTime? _quizStartTime;
   bool _isLoading = true;
 
+  DateTime? _questionStartTime;
+  Timer? _questionTimer;
+  Duration _elapsed = Duration.zero;
+
   final String _memeCorrect = 'assets/images/correct.jpg';
   final String _memeWrong = 'assets/images/wrong.jpg';
 
@@ -89,19 +94,46 @@ class _QuizTestState extends State<QuizTest> {
       _selectedPlayers = selected;
       _quizStartTime = DateTime.now();
       _isLoading = false;
+      _startQuestionTimer();
     });
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _questionTimer?.cancel();
     super.dispose();
+  }
+
+  void _startQuestionTimer() {
+    _questionTimer?.cancel();
+    _elapsed = Duration.zero;
+    _questionStartTime = DateTime.now();
+    setState(() {
+      _elapsed = Duration.zero;
+    });
+    _questionTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      setState(() {
+        _elapsed = DateTime.now().difference(_questionStartTime!);
+      });
+    });
+  }
+
+  int _computePoints(Duration duration) {
+    final seconds = duration.inSeconds;
+    if (seconds < 4) return 5;
+    if (seconds < 7) return 4;
+    if (seconds < 10) return 3;
+    if (seconds < 20) return 2;
+    return 1;
   }
 
   // ✅ Modifié uniquement ici
   Future<void> _submitAnswer() async {
     final trimmedAnswer = removeDiacritics(_answer.trim().toLowerCase());
-    final correctAnswer = removeDiacritics(_selectedPlayers[_currentQuestion].name.toLowerCase());
+    final correctAnswer = removeDiacritics(
+      _selectedPlayers[_currentQuestion].name.toLowerCase(),
+    );
 
     double similarity = trimmedAnswer.similarityTo(correctAnswer);
 
@@ -109,7 +141,9 @@ class _QuizTestState extends State<QuizTest> {
     bool almostCorrect = !isCorrect && similarity > 0.4;
 
     if (isCorrect) {
-      _score++;
+      final elapsed = DateTime.now().difference(_questionStartTime!);
+      final points = _computePoints(elapsed);
+      _score += points;
     }
 
     String snackMessage;
@@ -130,21 +164,26 @@ class _QuizTestState extends State<QuizTest> {
               Expanded(
                 child: Text(
                   snackMessage,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
           backgroundColor: snackColor,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
+      _questionTimer?.cancel();
       _nextQuestion();
     } else if (almostCorrect) {
-      snackMessage =
-          '🟡 T\'y es presque grand...';
+      snackMessage = '🟡 T\'y es presque grand...';
       snackColor = Colors.orange[700]!;
       memeAsset = _memeWrong;
 
@@ -156,14 +195,19 @@ class _QuizTestState extends State<QuizTest> {
               Expanded(
                 child: Text(
                   snackMessage,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
           backgroundColor: snackColor,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -183,17 +227,23 @@ class _QuizTestState extends State<QuizTest> {
               Expanded(
                 child: Text(
                   snackMessage,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
           backgroundColor: snackColor,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
+      _questionTimer?.cancel();
       _nextQuestion();
     }
   }
@@ -204,6 +254,7 @@ class _QuizTestState extends State<QuizTest> {
         _currentQuestion++;
         _answer = '';
       });
+      _startQuestionTimer();
     } else {
       _showScorePage();
     }
@@ -222,7 +273,10 @@ class _QuizTestState extends State<QuizTest> {
             Expanded(
               child: Text(
                 '⏩ Question passée ! La bonne réponse était : $correctAnswer',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -233,8 +287,17 @@ class _QuizTestState extends State<QuizTest> {
         duration: const Duration(seconds: 3),
       ),
     );
-
+    _questionTimer?.cancel();
     _nextQuestion();
+  }
+
+  String _currentPointsLabel() {
+    final seconds = _elapsed.inSeconds;
+    if (seconds < 4) return '5 points';
+    if (seconds < 7) return '4 points';
+    if (seconds < 15) return '3 points';
+    if (seconds < 30) return '2 points';
+    return '1 point';
   }
 
   Future<void> _saveResult(int score, int total, Duration timeTaken) async {
@@ -276,7 +339,9 @@ class _QuizTestState extends State<QuizTest> {
   Player _pickRandomPlayer(List<Player> players, List<int> levels) {
     final filtered = players.where((p) => levels.contains(p.level)).toList();
     if (filtered.isEmpty) {
-      final maxLevel = players.map((p) => p.level).reduce((a, b) => a > b ? a : b);
+      final maxLevel = players
+          .map((p) => p.level)
+          .reduce((a, b) => a > b ? a : b);
       for (int lvl in levels) {
         if (lvl < maxLevel) {
           return _pickRandomPlayer(players, [lvl + 1]);
@@ -286,6 +351,23 @@ class _QuizTestState extends State<QuizTest> {
     }
     filtered.shuffle();
     return filtered.first;
+  }
+
+  Widget _buildTimer() {
+    final minutes = _elapsed.inMinutes;
+    final seconds = _elapsed.inSeconds % 60;
+    final centiseconds = (_elapsed.inMilliseconds % 1000) ~/ 10;
+
+    return Text(
+      '${minutes.toString().padLeft(2, '0')}m '
+      '${seconds.toString().padLeft(2, '0')}s '
+      '${centiseconds.toString().padLeft(2, '0')}',
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+    );
   }
 
   @override
@@ -300,7 +382,9 @@ class _QuizTestState extends State<QuizTest> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Question ${_currentQuestion + 1} / ${_selectedPlayers.length}'),
+        title: Text(
+          'Question ${_currentQuestion + 1} / ${_selectedPlayers.length}',
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -337,7 +421,9 @@ class _QuizTestState extends State<QuizTest> {
                   height: 250,
                   width: double.infinity,
                   child: Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     elevation: 6,
                     clipBehavior: Clip.antiAlias,
                     child: InteractiveViewer(
@@ -349,11 +435,17 @@ class _QuizTestState extends State<QuizTest> {
                         fit: BoxFit.cover,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
-                          return const Center(child: CircularProgressIndicator());
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         },
                         errorBuilder: (context, error, stackTrace) {
                           return const Center(
-                            child: Icon(Icons.broken_image, size: 80, color: Colors.grey),
+                            child: Icon(
+                              Icons.broken_image,
+                              size: 80,
+                              color: Colors.grey,
+                            ),
                           );
                         },
                       ),
@@ -361,6 +453,21 @@ class _QuizTestState extends State<QuizTest> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildTimer(),
+                    Text(
+                      _currentPointsLabel(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
@@ -371,7 +478,10 @@ class _QuizTestState extends State<QuizTest> {
                           controller: _controller,
                           decoration: InputDecoration(
                             hintText: 'Entre le nom du joueur',
-                            prefixIcon: const Icon(Icons.person, color: Colors.grey),
+                            prefixIcon: const Icon(
+                              Icons.person,
+                              color: Colors.grey,
+                            ),
                             filled: true,
                             fillColor: Colors.grey.shade100,
                             border: OutlineInputBorder(
@@ -379,7 +489,10 @@ class _QuizTestState extends State<QuizTest> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).primaryColor,
+                                width: 2,
+                              ),
                             ),
                           ),
                           onChanged: (value) {
@@ -394,7 +507,10 @@ class _QuizTestState extends State<QuizTest> {
                           children: [
                             Expanded(
                               child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red[300], foregroundColor: Colors.white,),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[300],
+                                  foregroundColor: Colors.white,
+                                ),
                                 onPressed: _skipQuestion,
                                 child: const Text('Passer'),
                               ),
@@ -402,7 +518,9 @@ class _QuizTestState extends State<QuizTest> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: _answer.trim().isEmpty ? null : _submitAnswer,
+                                onPressed: _answer.trim().isEmpty
+                                    ? null
+                                    : _submitAnswer,
                                 child: const Text('Valider'),
                               ),
                             ),
@@ -433,6 +551,20 @@ class ScorePage extends StatelessWidget {
     required this.timeTaken,
   });
 
+  String _scoreMessage(int score, int minutes, int seconds) {
+    if (score == 50) {
+      return 'Score parfait !!\nTemps : ${minutes}m ${seconds}s';
+    } else if (score >= 35) {
+      return 'Super score ! Tié un bon !';
+    } else if (score >= 25) {
+      return 'Pas mal grand ! Continue !';
+    } else if (score >= 15) {
+      return 'C\'est moyen... Applique toi !';
+    } else {
+      return 'Clairement un mauvais score. Ressaisis toi.';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final minutes = timeTaken.inMinutes;
@@ -447,21 +579,21 @@ class ScorePage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Score : $score / $total',
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                'Score : $score points',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 20),
-              if (score == total)
-                Text(
-                  'Bravo, tu as tout juste !\nTemps : ${minutes}m ${seconds}s',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 20, color: Colors.green),
-                )
-              else
-                const Text(
-                  'Bonne tentative, essaie encore !',
-                  style: TextStyle(fontSize: 20),
+              Text(
+                _scoreMessage(score, minutes, seconds),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  color: score >= 15 ? Colors.green : Colors.black,
                 ),
+              ),
               const SizedBox(height: 40),
               ElevatedButton(
                 onPressed: () {

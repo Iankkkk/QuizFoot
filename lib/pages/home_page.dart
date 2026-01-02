@@ -50,6 +50,12 @@ class _HomePageState extends State<HomePage> {
       "Le Brésil n’a jamais perdu un match de Coupe du Monde lorsqu’il menait à la mi-temps.",
       "Oliver Kahn a été élu meilleur joueur d’une Coupe du Monde en 2002, une première pour un gardien.",
       "Steven Gerrard n’a jamais remporté la Premier League malgré 17 saisons à Liverpool.",
+      "Dimitri Payet a fini trois fois meilleur passeur de Ligue 1.",
+      "Clarence Seedorf est le seul joueur à avoir remporté la Ligue des Champions avec 3 clubs différents.",
+      "Pauleta a déjà mis un triplé dans un match de Coupe du Monde",
+      "Juninho à mis trois doublé sur coup-franc en Ligue 1.",
+      "Claude Puel à joué toute sa carrière à l'AS Monaco.",
+      "En 2017, le PSG paye la clause de Neymar pour un montant de 222 millions d'euros.",
     ];
     final randomAnecdote = (anecdotes..shuffle()).first;
 
@@ -301,49 +307,65 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildGamesPage() {
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        child: Column(
-          children: [
-            _MpgGameButton(
-              title: "Coup d’œil",
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => QuizTestIntro()),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 70,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    _MpgGameButton(
+                      title: "Coup d’œil",
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => QuizTestIntro(),
+                        ),
+                      ),
+                      icon: Icons.remove_red_eye,
+                      color: const Color(0xFF3CAE3A),
+                    ),
+                    const SizedBox(height: 14),
+                    _MpgGameButton(
+                      title: "Qui a menti ?",
+                      onTap: () => Navigator.pushNamed(context, '/qui_a_menti'),
+                      icon: Icons.psychology_alt_rounded,
+                      color: const Color(0xFF2E8B57),
+                    ),
+                    const SizedBox(height: 14),
+                    _MpgGameButton(
+                      title: "Parcours Joueur",
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/parcours_joueur'),
+                      icon: Icons.emoji_events,
+                      color: const Color(0xFF1E5128),
+                    ),
+                    const SizedBox(height: 14),
+                    _MpgGameButton(
+                      title: "Compos",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LineupMatchPageIntro(),
+                          ),
+                        );
+                      },
+                      icon: Icons.view_module,
+                      color: const Color(0xFF174423),
+                    ),
+                  ],
+                ),
               ),
-              icon: Icons.remove_red_eye,
-              color: const Color(0xFF3CAE3A),
             ),
-            const SizedBox(height: 14),
-            _MpgGameButton(
-              title: "Qui a menti ?",
-              onTap: () => Navigator.pushNamed(context, '/qui_a_menti'),
-              icon: Icons.psychology_alt_rounded,
-              color: const Color(0xFF2E8B57),
-            ),
-            const SizedBox(height: 14),
-            _MpgGameButton(
-              title: "Parcours Joueur",
-              onTap: () => Navigator.pushNamed(context, '/parcours_joueur'),
-              icon: Icons.emoji_events,
-              color: const Color(0xFF1E5128),
-            ),
-            const SizedBox(height: 14),
-            _MpgGameButton(
-              title: "Compos",
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const LineupMatchPageIntro(),
-                  ),
-                );
-              },
-              icon: Icons.sports_soccer,
-              color: const Color(0xFF174423),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
