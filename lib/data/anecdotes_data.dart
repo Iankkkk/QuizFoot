@@ -1,33 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import '../models/player.dart';
-import 'api_exception.dart';
-import 'data_cache.dart';
 import 'package:http/http.dart' as http;
+import 'api_exception.dart';
 
-Future<List<Player>> loadPlayers() async {
-  final cached = DataCache.instance.players;
-  if (cached != null) return cached;
-
-  final url = Uri.parse('https://sheetdb.io/api/v1/awu5uvi0qdn9s');
+Future<List<String>> loadAnecdotes() async {
+  final url = Uri.parse(
+    'https://sheetdb.io/api/v1/awu5uvi0qdn9s?sheet=Anecdotes',
+  );
   try {
     final response = await http.get(url).timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) {
       throw ApiException(
         type: ApiErrorType.serverError,
-        message: 'Impossible de charger les joueurs : ${response.statusCode}',
+        message: 'Impossible de charger les anecdotes : ${response.statusCode}',
       );
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
-    final players = jsonList
-        .map((jsonItem) => Player.fromJson(jsonItem))
-        .where((p) => p.isValid)
-        .toList();
-    DataCache.instance.setPlayers(players);
-    return players;
+    return jsonList.map((item) => item['anecdote'] as String).toList();
   } on SocketException {
     throw const ApiException(
       type: ApiErrorType.noInternet,
@@ -36,12 +28,12 @@ Future<List<Player>> loadPlayers() async {
   } on TimeoutException {
     throw const ApiException(
       type: ApiErrorType.timeout,
-      message: 'Délai dépassé lors du chargement des joueurs',
+      message: 'Délai dépassé lors du chargement des anecdotes',
     );
   } on FormatException {
     throw const ApiException(
       type: ApiErrorType.parseError,
-      message: 'Données joueurs invalides',
+      message: 'Données invalides',
     );
   }
 }

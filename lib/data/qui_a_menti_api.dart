@@ -4,11 +4,15 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/claim.dart';
 import 'api_exception.dart';
+import 'data_cache.dart';
 
 class QuiAMentiApi {
   static const String baseUrl = "https://sheetdb.io/api/v1/g2jtj2ps4cm5o";
 
   static Future<List<Claim>> fetchRandomClaim() async {
+    final cached = DataCache.instance.claims;
+    if (cached != null) return cached;
+
     try {
       final response = await http
           .get(Uri.parse(baseUrl))
@@ -22,7 +26,9 @@ class QuiAMentiApi {
       }
 
       final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => Claim.fromJson(json)).toList();
+      final claims = data.map((json) => Claim.fromJson(json)).toList();
+      DataCache.instance.setClaims(claims);
+      return claims;
     } on SocketException {
       throw const ApiException(
         type: ApiErrorType.noInternet,

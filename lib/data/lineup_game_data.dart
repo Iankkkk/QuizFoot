@@ -5,8 +5,12 @@ import 'package:http/http.dart' as http;
 import '../models/match_model.dart';
 import '../models/lineup_model.dart';
 import 'api_exception.dart';
+import 'data_cache.dart';
 
 Future<List<Match>> loadMatches() async {
+  final cached = DataCache.instance.matches;
+  if (cached != null) return cached;
+
   final url = Uri.parse('https://sheetdb.io/api/v1/awu5uvi0qdn9s?sheet=Matches');
   try {
     final response = await http.get(url).timeout(const Duration(seconds: 10));
@@ -19,7 +23,9 @@ Future<List<Match>> loadMatches() async {
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
-    return jsonList.map((jsonItem) => Match.fromJson(jsonItem)).toList();
+    final matches = jsonList.map((jsonItem) => Match.fromJson(jsonItem)).toList();
+    DataCache.instance.setMatches(matches);
+    return matches;
   } on SocketException {
     throw const ApiException(
       type: ApiErrorType.noInternet,
@@ -39,6 +45,9 @@ Future<List<Match>> loadMatches() async {
 }
 
 Future<List<Lineup>> loadLineups(String matchId) async {
+  final cached = DataCache.instance.lineups;
+  if (cached != null) return cached;
+
   final url = Uri.parse('https://sheetdb.io/api/v1/awu5uvi0qdn9s?sheet=Lineups');
   try {
     final response = await http.get(url).timeout(const Duration(seconds: 10));
@@ -51,7 +60,9 @@ Future<List<Lineup>> loadLineups(String matchId) async {
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
-    return jsonList.map((jsonItem) => Lineup.fromJson(jsonItem)).toList();
+    final lineups = jsonList.map((jsonItem) => Lineup.fromJson(jsonItem)).toList();
+    DataCache.instance.setLineups(lineups);
+    return lineups;
   } on SocketException {
     throw const ApiException(
       type: ApiErrorType.noInternet,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:quiz_foot/pages/quiz_test.dart';
 import 'quiz_test_intro.dart';
 import 'package:quiz_foot/pages/lineup_match_page_intro.dart';
+import 'package:quiz_foot/data/anecdotes_data.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,6 +13,24 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  String _randomAnecdote = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnecdote();
+  }
+
+  Future<void> _loadAnecdote() async {
+    try {
+      final anecdotes = await loadAnecdotes();
+      if (anecdotes.isNotEmpty && mounted) {
+        setState(() {
+          _randomAnecdote = (anecdotes..shuffle()).first;
+        });
+      }
+    } catch (_) {}
+  }
 
   void _onNavItemTapped(int index) {
     setState(() {
@@ -45,19 +64,6 @@ class _HomePageState extends State<HomePage> {
     ];
     final randomPhrase = (phrases..shuffle()).first;
 
-    final List<String> anecdotes = [
-      "En 2007, Messi a marqué un but quasi identique à celui de Maradona en 1986, 21 ans jour pour jour après.",
-      "Le Brésil n’a jamais perdu un match de Coupe du Monde lorsqu’il menait à la mi-temps.",
-      "Oliver Kahn a été élu meilleur joueur d’une Coupe du Monde en 2002, une première pour un gardien.",
-      "Steven Gerrard n’a jamais remporté la Premier League malgré 17 saisons à Liverpool.",
-      "Dimitri Payet a fini trois fois meilleur passeur de Ligue 1.",
-      "Clarence Seedorf est le seul joueur à avoir remporté la Ligue des Champions avec 3 clubs différents.",
-      "Pauleta a déjà mis un triplé dans un match de Coupe du Monde",
-      "Juninho à mis trois doublé sur coup-franc en Ligue 1.",
-      "Claude Puel à joué toute sa carrière à l'AS Monaco.",
-      "En 2017, le PSG paye la clause de Neymar pour un montant de 222 millions d'euros.",
-    ];
-    final randomAnecdote = (anecdotes..shuffle()).first;
 
     return SafeArea(
       bottom: false,
@@ -191,13 +197,22 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      randomAnecdote,
-                      style: const TextStyle(
-                        color: Color(0xFFB8F2E6),
-                        fontSize: 14.5,
-                      ),
-                    ),
+                    _randomAnecdote.isEmpty
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFB8F2E6),
+                            ),
+                          )
+                        : Text(
+                            _randomAnecdote,
+                            style: const TextStyle(
+                              color: Color(0xFFB8F2E6),
+                              fontSize: 14.5,
+                            ),
+                          ),
                   ],
                 ),
               ),

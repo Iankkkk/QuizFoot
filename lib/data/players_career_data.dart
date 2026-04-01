@@ -4,8 +4,12 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/player_career.dart';
 import 'api_exception.dart';
+import 'data_cache.dart';
 
 Future<List<PlayerCareer>> loadCareerPlayers() async {
+  final cached = DataCache.instance.careerPlayers;
+  if (cached != null) return cached;
+
   final url = Uri.parse('https://sheetdb.io/api/v1/awu5uvi0qdn9s?sheet=ParcoursJoueur');
   try {
     final response = await http.get(url).timeout(const Duration(seconds: 10));
@@ -18,7 +22,9 @@ Future<List<PlayerCareer>> loadCareerPlayers() async {
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
-    return jsonList.map((jsonItem) => PlayerCareer.fromJson(jsonItem)).toList();
+    final careerPlayers = jsonList.map((jsonItem) => PlayerCareer.fromJson(jsonItem)).toList();
+    DataCache.instance.setCareerPlayers(careerPlayers);
+    return careerPlayers;
   } on SocketException {
     throw const ApiException(
       type: ApiErrorType.noInternet,
