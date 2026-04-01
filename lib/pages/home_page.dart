@@ -55,16 +55,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHomeContent() {
-    final List<String> phrases = [
-      "Le foot, c’est dans la tête. Et un peu dans les doigts aussi.",
-      "Apparemment tu connais le Football ? Prouve-le.",
-      "CR7 ou Messi ? Peu importe, tant que tu gagnes.",
-      "Chaque jour, un nouveau défi t’attend.",
-      "Ton cerveau est ton meilleur pied.",
-    ];
-    final randomPhrase = (phrases..shuffle()).first;
-
-
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
@@ -128,49 +118,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 20),
-            // Phrase du jour style MPG
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 14,
-                  horizontal: 20,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF174423).withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF3CAE3A),
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.format_quote,
-                      color: Color(0xFF3CAE3A),
-                      size: 28,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        randomPhrase,
-                        style: const TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontWeight: FontWeight.w500,
-                          fontSize: 15,
-                          fontStyle: FontStyle.italic,
-                          color: Color(0xFFB8F2E6),
-                        ),
-                        textAlign: TextAlign.left,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
             // Anecdote du jour
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -182,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF16291A),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFF3CAE3A), width: 1),
                 ),
                 child: Column(
@@ -406,16 +353,18 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0E1A11),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF3CAE3A), Color(0xFF1E5128)],
+      backgroundColor: const Color(0xFF1E5128),
+      body: SizedBox.expand(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF3CAE3A), Color(0xFF1E5128)],
+            ),
           ),
+          child: _buildContent(),
         ),
-        child: _buildContent(),
       ),
       // PUB bar inserted just above bottomNavigationBar
       persistentFooterButtons: [
