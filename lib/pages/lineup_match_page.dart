@@ -3,6 +3,7 @@ import 'package:diacritic/diacritic.dart';
 import 'package:collection/collection.dart';
 import 'package:string_similarity/string_similarity.dart';
 import '../data/lineup_game_data.dart';
+import '../data/api_exception.dart';
 import '../models/match_model.dart';
 import '../models/lineup_model.dart';
 
@@ -96,8 +97,26 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       if (_selectedMatch != null) {
         await _loadLineups(_selectedMatch!.matchId);
       }
-    } catch (e) {
-      debugPrint('Erreur lors du chargement des matchs : $e');
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.userMessage),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Erreur inattendue. Réessaie.'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -132,8 +151,26 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         _score = 0;
         _errors = 0;
       });
-    } catch (e) {
-      debugPrint('Erreur lors du chargement des lineups : $e');
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.userMessage),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Erreur inattendue. Réessaie.'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:quiz_foot/data/qui_a_menti_api.dart';
+import 'package:quiz_foot/data/api_exception.dart';
 
 /// Modèle minimal pour un "candidat" à classer.
 class Candidate {
@@ -71,13 +72,28 @@ class _QuiAMentiPageState extends State<QuiAMentiPage> {
       _falseBucket.clear();
       _isLoading = false;
     });
-  } catch (e) {
-    setState(() {
-      _isLoading = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Erreur lors du chargement des candidats : $e")),
-    );
+  } on ApiException catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.userMessage),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Erreur inattendue. Réessaie.'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
   }
 }
 

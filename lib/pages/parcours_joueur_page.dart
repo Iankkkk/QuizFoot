@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:diacritic/diacritic.dart';
 import '../models/player_career.dart';
 import '../data/players_career_data.dart';
+import '../data/api_exception.dart';
 
 class ParcoursJoueurPage extends StatefulWidget {
   const ParcoursJoueurPage({super.key});
@@ -32,13 +33,28 @@ class _ParcoursJoueurPageState extends State<ParcoursJoueurPage> {
         _currentPlayer = _players.first;
         _isLoading = false;
       });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors du chargement : $e')),
-      );
+    } on ApiException catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.userMessage),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Erreur inattendue. Réessaie.'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 

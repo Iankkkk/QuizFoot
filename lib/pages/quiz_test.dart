@@ -5,6 +5,7 @@ import 'package:diacritic/diacritic.dart';
 import 'package:string_similarity/string_similarity.dart';
 import '../models/player.dart';
 import '../data/players_data.dart';
+import '../data/api_exception.dart';
 
 class QuizTest extends StatefulWidget {
   final String difficulty;
@@ -46,7 +47,7 @@ final Map<String, List<Map<int, int>>> difficultyPlans = {
 
 class _QuizTestState extends State<QuizTest> {
   List<Player> _players = [];
-  late List<Player> _selectedPlayers;
+  List<Player> _selectedPlayers = [];
   int _currentQuestion = 0;
   int _score = 0;
   String _answer = '';
@@ -74,6 +75,7 @@ class _QuizTestState extends State<QuizTest> {
   }
 
   Future<void> _loadPlayersAndStartQuiz() async {
+    try {
     final players = await loadPlayers();
 
     final remainingPlayers = List<Player>.from(players);
@@ -99,8 +101,33 @@ class _QuizTestState extends State<QuizTest> {
       _selectedPlayers = selected;
       _quizStartTime = DateTime.now();
       _isLoading = false;
-      _startQuestionTimer();
     });
+    _startQuestionTimer();
+    } on ApiException catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.userMessage),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e, stack) {
+      debugPrint('ERROR: $e\n$stack');
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('DEBUG: $e'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 15),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -417,7 +444,7 @@ class _QuizTestState extends State<QuizTest> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading || _selectedPlayers.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Chargement...')),
         body: const Center(child: CircularProgressIndicator()),
