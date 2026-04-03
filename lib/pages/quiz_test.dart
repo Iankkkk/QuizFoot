@@ -85,14 +85,22 @@ class _QuizTestState extends State<QuizTest> {
                 .where((p) => p.categories.contains(widget.category))
                 .toList();
 
-      if (players.length < 10) {
+      final requiredLevels = (difficultyPlans[widget.difficulty] ?? [])
+          .expand((step) => step.keys)
+          .toSet();
+
+      final matchingCount = players
+          .where((p) => requiredLevels.contains(p.level))
+          .length;
+
+      if (players.length < 10 || matchingCount < 10) {
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 widget.category != null
-                    ? 'Pas assez de joueurs pour la catégorie "${widget.category}" en ${widget.difficulty}.'
+                    ? 'Pas assez de joueurs pour "${widget.category}" en difficulté ${widget.difficulty}.'
                     : 'Pas assez de joueurs pour cette difficulté.',
               ),
               backgroundColor: Colors.red[700],
