@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'quiz_test.dart';
+import '../data/players_data.dart';
 
-class QuizTestIntro extends StatelessWidget {
+class QuizTestIntro extends StatefulWidget {
   const QuizTestIntro({super.key});
 
+  @override
+  State<QuizTestIntro> createState() => _QuizTestIntroState();
+}
+
+class _QuizTestIntroState extends State<QuizTestIntro> {
   final List<String> difficulties = const [
     "Très Facile",
     "Facile",
@@ -12,23 +18,6 @@ class QuizTestIntro extends StatelessWidget {
     "Difficile",
     "Impossible",
   ];
-
-  Color _getDifficultyColor(String diff) {
-    switch (diff) {
-      case "Très Facile":
-        return Colors.green.shade400;
-      case "Facile":
-        return Colors.lightGreen.shade600;
-      case "Moyenne":
-        return Colors.amber.shade700;
-      case "Difficile":
-        return Colors.orange.shade700;
-      case "Impossible":
-        return Colors.red.shade700;
-      default:
-        return Colors.grey;
-    }
-  }
 
   final List<IconData> ruleIcons = const [
     Icons.photo_camera,
@@ -47,6 +36,46 @@ class QuizTestIntro extends StatelessWidget {
     "Chaque bonne réponse te rapporte un point..",
     "Tu peux passer si tu bloques.",
   ];
+
+  String? _selectedCategory;
+  List<String> _categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final players = await loadPlayers();
+      final cats = players
+          .expand((p) => p.categories)
+          .map((c) => c.trim())
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      setState(() => _categories = cats);
+    } catch (_) {}
+  }
+
+  Color _getDifficultyColor(String diff) {
+    switch (diff) {
+      case "Très Facile":
+        return Colors.green.shade400;
+      case "Facile":
+        return Colors.lightGreen.shade600;
+      case "Moyenne":
+        return Colors.amber.shade700;
+      case "Difficile":
+        return Colors.orange.shade700;
+      case "Impossible":
+        return Colors.red.shade700;
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +156,6 @@ class QuizTestIntro extends StatelessWidget {
                       ),
                     ),
                   ),
-
                   const Text(
                     "Bienvenue dans Coup d'œil !",
                     style: TextStyle(
@@ -188,7 +216,52 @@ class QuizTestIntro extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  // Sélection de catégorie
+                  const Text(
+                    "Catégorie :",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: _categories.isEmpty
+                        ? Row(
+                            children: List.generate(
+                              4,
+                              (_) => Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                width: 72,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Row(
+                            children: [
+                              _CategoryChip(
+                                label: "Toutes",
+                                selected: _selectedCategory == null,
+                                onTap: () =>
+                                    setState(() => _selectedCategory = null),
+                              ),
+                              ..._categories.map((cat) => _CategoryChip(
+                                    label: cat,
+                                    selected: _selectedCategory == cat,
+                                    onTap: () => setState(
+                                        () => _selectedCategory = cat),
+                                  )),
+                            ],
+                          ),
+                  ),
+                  const SizedBox(height: 16),
                   Expanded(
                     child: ListView.builder(
                       itemCount: difficulties.length,
@@ -203,7 +276,10 @@ class QuizTestIntro extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => QuizTest(difficulty: diff),
+                                  builder: (_) => QuizTest(
+                                    difficulty: diff,
+                                    category: _selectedCategory,
+                                  ),
                                 ),
                               );
                             },
@@ -423,6 +499,45 @@ class _BallsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BallsPainter oldDelegate) => true;
+}
+
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.white.withOpacity(0.25),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.green.shade800 : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DifficultyButton extends StatefulWidget {

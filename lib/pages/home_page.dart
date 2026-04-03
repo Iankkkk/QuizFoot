@@ -3,6 +3,7 @@ import 'package:quiz_foot/pages/quiz_test.dart';
 import 'quiz_test_intro.dart';
 import 'package:quiz_foot/pages/lineup_match_page_intro.dart';
 import 'package:quiz_foot/data/anecdotes_data.dart';
+import 'package:quiz_foot/data/players_data.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,6 +20,11 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadAnecdote();
+    _warmCache();
+  }
+
+  Future<void> _warmCache() async {
+    try { await loadPlayers(); } catch (_) {}
   }
 
   Future<void> _loadAnecdote() async {

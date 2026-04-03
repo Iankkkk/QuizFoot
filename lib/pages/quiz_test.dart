@@ -9,7 +9,8 @@ import '../data/api_exception.dart';
 
 class QuizTest extends StatefulWidget {
   final String difficulty;
-  const QuizTest({super.key, required this.difficulty});
+  final String? category;
+  const QuizTest({super.key, required this.difficulty, this.category});
 
   @override
   State<QuizTest> createState() => _QuizTestState();
@@ -76,33 +77,56 @@ class _QuizTestState extends State<QuizTest> {
 
   Future<void> _loadPlayersAndStartQuiz() async {
     try {
-    final players = await loadPlayers();
+      final allPlayers = await loadPlayers();
+      final players = widget.category == null
+          ? allPlayers
+          : allPlayers
+                .where((p) => p.categories.contains(widget.category))
+                .toList();
 
-    final remainingPlayers = List<Player>.from(players);
-    List<Player> selected = [];
-
-    final plan = difficultyPlans[widget.difficulty] ?? [];
-
-    for (var step in plan) {
-      step.forEach((level, count) {
-        for (int i = 0; i < count; i++) {
-          final player = _pickRandomPlayer(remainingPlayers, [level]);
-          selected.add(player);
-          remainingPlayers.remove(player);
+      if (players.length < 10) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.category != null
+                    ? 'Pas assez de joueurs pour la catégorie "${widget.category}" en ${widget.difficulty}.'
+                    : 'Pas assez de joueurs pour cette difficulté.',
+              ),
+              backgroundColor: Colors.red[700],
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
         }
-      });
-    }
+        return;
+      }
 
-    for (var p in selected) {
-      print('Player: ${p.name}, Level: ${p.level}');
-    }
-    setState(() {
-      _players = players;
-      _selectedPlayers = selected;
-      _quizStartTime = DateTime.now();
-      _isLoading = false;
-    });
-    _startQuestionTimer();
+      final remainingPlayers = List<Player>.from(players);
+      List<Player> selected = [];
+
+      final plan = difficultyPlans[widget.difficulty] ?? [];
+
+      for (var step in plan) {
+        step.forEach((level, count) {
+          for (int i = 0; i < count; i++) {
+            final player = _pickRandomPlayer(remainingPlayers, [level]);
+            selected.add(player);
+            remainingPlayers.remove(player);
+          }
+        });
+      }
+
+      for (var p in selected) {
+        print('Player: ${p.name}, Level: ${p.level}');
+      }
+      setState(() {
+        _players = players;
+        _selectedPlayers = selected;
+        _quizStartTime = DateTime.now();
+        _isLoading = false;
+      });
+      _startQuestionTimer();
     } on ApiException catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -454,9 +478,19 @@ class _QuizTestState extends State<QuizTest> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(
-          'Question ${_currentQuestion + 1} / ${_selectedPlayers.length}',
+        title: Column(
+          children: [
+            Text(
+              'Question ${_currentQuestion + 1} / ${_selectedPlayers.length}',
+            ),
+            if (widget.category != null)
+              Text(
+                widget.category!,
+                style: const TextStyle(fontSize: 12, color: Colors.white70),
+              ),
+          ],
         ),
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
