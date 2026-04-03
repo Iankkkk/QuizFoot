@@ -49,6 +49,7 @@ final Map<String, List<Map<int, int>>> difficultyPlans = {
 class _QuizTestState extends State<QuizTest> {
   List<Player> _players = [];
   List<Player> _selectedPlayers = [];
+  List<Player> _playerPool = [];
   int _currentQuestion = 0;
   int _score = 0;
   String _answer = '';
@@ -117,12 +118,10 @@ class _QuizTestState extends State<QuizTest> {
         });
       }
 
-      for (var p in selected) {
-        print('Player: ${p.name}, Level: ${p.level}');
-      }
       setState(() {
         _players = players;
         _selectedPlayers = selected;
+        _playerPool = remainingPlayers..shuffle();
         _quizStartTime = DateTime.now();
         _isLoading = false;
       });
@@ -434,6 +433,13 @@ class _QuizTestState extends State<QuizTest> {
     );
   }
 
+  void _replaceCurrentPlayer() {
+    if (_playerPool.isEmpty) return;
+    setState(() {
+      _selectedPlayers[_currentQuestion] = _playerPool.removeAt(0);
+    });
+  }
+
   Player _pickRandomPlayer(List<Player> players, List<int> levels) {
     final filtered = players.where((p) => levels.contains(p.level)).toList();
     if (filtered.isEmpty) {
@@ -554,8 +560,11 @@ class _QuizTestState extends State<QuizTest> {
                                     );
                                   },
                               errorBuilder: (context, error, stackTrace) {
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => _replaceCurrentPlayer(),
+                                );
                                 return const Center(
-                                  child: Icon(Icons.broken_image, size: 80),
+                                  child: CircularProgressIndicator(),
                                 );
                               },
                             ),
