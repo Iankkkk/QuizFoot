@@ -49,13 +49,14 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
   Future<void> _loadCategories() async {
     try {
       final players = await loadPlayers();
-      final cats = players
-          .expand((p) => p.categories)
-          .map((c) => c.trim())
-          .where((c) => c.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final cats =
+          players
+              .expand((p) => p.categories)
+              .map((c) => c.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
       setState(() => _categories = cats);
     } catch (_) {}
   }
@@ -252,12 +253,14 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
                                 onTap: () =>
                                     setState(() => _selectedCategory = null),
                               ),
-                              ..._categories.map((cat) => _CategoryChip(
-                                    label: cat,
-                                    selected: _selectedCategory == cat,
-                                    onTap: () => setState(
-                                        () => _selectedCategory = cat),
-                                  )),
+                              ..._categories.map(
+                                (cat) => _CategoryChip(
+                                  label: cat,
+                                  selected: _selectedCategory == cat,
+                                  onTap: () =>
+                                      setState(() => _selectedCategory = cat),
+                                ),
+                              ),
                             ],
                           ),
                   ),
@@ -520,12 +523,9 @@ class _CategoryChip extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.white.withOpacity(0.25),
+          color: selected ? Colors.amber : Colors.white.withOpacity(0.25),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white,
-            width: 1.5,
-          ),
+          border: Border.all(color: Colors.white, width: 1.5),
         ),
         child: Text(
           label,
