@@ -100,7 +100,7 @@ class _QuizTestState extends State<QuizTest> {
             SnackBar(
               content: Text(
                 widget.category != null
-                    ? 'Pas assez de joueurs pour "${widget.category}" en difficulté ${widget.difficulty}.'
+                    ? 'Pas assez de joueurs pour la catégorie "${widget.category}" en difficulté ${widget.difficulty}.'
                     : 'Pas assez de joueurs pour cette difficulté.',
               ),
               backgroundColor: Colors.red[700],
@@ -577,10 +577,12 @@ class _QuizTestState extends State<QuizTest> {
                               },
                             ),
                           ),
-                          AnimatedOpacity(
-                            opacity: _showCorrectFeedback ? 0.35 : 0.0,
-                            duration: const Duration(milliseconds: 200),
-                            child: Container(color: _feedbackColor),
+                          IgnorePointer(
+                            child: AnimatedOpacity(
+                              opacity: _showCorrectFeedback ? 0.35 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Container(color: _feedbackColor),
+                            ),
                           ),
                         ],
                       ),

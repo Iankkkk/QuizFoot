@@ -61,6 +61,58 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
     } catch (_) {}
   }
 
+  void _showDifficultyPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Choisis la difficulté",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  ...difficulties.map((diff) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: _DifficultyButton(
+                        label: diff,
+                        color: _getDifficultyColor(diff),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => QuizTest(
+                                difficulty: diff,
+                                category: _selectedCategory,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Color _getDifficultyColor(String diff) {
     switch (diff) {
       case "Très Facile":
@@ -136,7 +188,9 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
             ),
           ),
           SafeArea(
-            child: Padding(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -264,36 +318,29 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
                             ],
                           ),
                   ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: difficulties.length,
-                      itemBuilder: (context, index) {
-                        final diff = difficulties[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: _DifficultyButton(
-                            label: diff,
-                            color: _getDifficultyColor(diff),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => QuizTest(
-                                    difficulty: diff,
-                                    category: _selectedCategory,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () => _showDifficultyPicker(context),
+                    child: const Text(
+                      "Jouer !",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+          ),
           ),
         ],
       ),
