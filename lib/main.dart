@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'pages/home_page.dart';
 import 'pages/result_page.dart';
 import 'pages/history_page.dart';
@@ -22,7 +23,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF5F6F8),
-        fontFamily: 'Oswald',
+        textTheme: GoogleFonts.poppinsTextTheme().apply(
+          bodyColor: Colors.black,
+          displayColor: Colors.black,
+        ).copyWith(
+          bodyLarge: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          bodyMedium: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+          titleLarge: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+          titleMedium: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          labelLarge: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
 
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E7F4F),
@@ -38,20 +48,10 @@ class MyApp extends StatelessWidget {
           elevation: 0,
           centerTitle: true,
           titleTextStyle: TextStyle(
-            fontFamily: 'Oswald',
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
-        ),
-
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-          displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          bodyLarge: TextStyle(fontSize: 18),
-          bodyMedium: TextStyle(fontSize: 16),
-          labelLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
 
         elevatedButtonTheme: ElevatedButtonThemeData(
@@ -64,7 +64,6 @@ class MyApp extends StatelessWidget {
               borderRadius: BorderRadius.all(Radius.circular(12)),
             ),
             textStyle: TextStyle(
-              fontFamily: 'Oswald',
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -89,7 +88,6 @@ class MyApp extends StatelessWidget {
           behavior: SnackBarBehavior.floating,
           backgroundColor: Color(0xFF1E7F4F),
           contentTextStyle: TextStyle(
-            fontFamily: 'Oswald',
             fontSize: 16,
             color: Colors.white,
           ),
