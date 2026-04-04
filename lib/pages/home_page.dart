@@ -5,6 +5,16 @@ import 'package:quiz_foot/pages/lineup_match_page_intro.dart';
 import 'package:quiz_foot/data/anecdotes_data.dart';
 import 'package:quiz_foot/data/players_data.dart';
 
+// ── Palette MPG-inspired ──────────────────────────────────────────
+const _bg = Color(0xFF0D1117);
+const _card = Color(0xFF161B22);
+const _border = Color(0xFF30363D);
+const _accent = Color(0xFF2EA043);
+const _accentBright = Color(0xFF3FB950);
+const _textPrimary = Color(0xFFE6EDF3);
+const _textSecondary = Color(0xFF8B949E);
+// ─────────────────────────────────────────────────────────────────
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -24,7 +34,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _warmCache() async {
-    try { await loadPlayers(); } catch (_) {}
+    try {
+      await loadPlayers();
+    } catch (_) {}
   }
 
   Future<void> _loadAnecdote() async {
@@ -44,7 +56,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // Contenu principal selon l'onglet sélectionné
   Widget _buildContent() {
     switch (_selectedIndex) {
       case 0:
@@ -64,180 +75,160 @@ class _HomePageState extends State<HomePage> {
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 36),
-            // Logo & nom
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.07),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(1.0),
-                    child: Image.asset('assets/images/logo.png'),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                const Text(
-                  'TEMPO',
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w900,
-                    fontSize: 36,
-                    letterSpacing: 2,
-                    color: Color(0xFFFCFFFD),
-                    shadows: [
-                      Shadow(
-                        color: Color(0x33000000),
-                        blurRadius: 6,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Le jeu, dans la tête.',
-              style: TextStyle(
-                fontFamily: 'Montserrat',
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-                color: Color(0xFFB8F2E6),
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Anecdote du jour
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 14,
-                  horizontal: 18,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16291A),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF3CAE3A), width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "⚽ Anecdote du jour",
-                      style: TextStyle(
-                        color: Color(0xFF3CAE3A),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _randomAnecdote.isEmpty
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFFB8F2E6),
-                            ),
-                          )
-                        : Text(
-                            _randomAnecdote,
-                            style: const TextStyle(
-                              color: Color(0xFFB8F2E6),
-                              fontSize: 14.5,
-                            ),
-                          ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Stats section MPG style
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 18,
-                  horizontal: 18,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1B2F1A).withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(
-                    color: const Color(0xFF3CAE3A),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Tes stats',
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Color(0xFFFCFFFD),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: const [
-                        _StatItem(label: "Parties jouées", value: "127"),
-                        _StatItem(label: "Score moyen", value: "7.4"),
-                        _StatItem(label: "Jeu préféré", value: "Coup d’œil"),
+            const SizedBox(height: 28),
+
+            // ── Header ──────────────────────────────────────────
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      color: Colors.white,
+                      border: Border.all(color: _border, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _accent.withOpacity(0.4),
+                          blurRadius: 40,
+                          spreadRadius: 6,
+                          offset: const Offset(0, 0),
+                        ),
+                        BoxShadow(
+                          color: _accentBright.withOpacity(0.15),
+                          blurRadius: 70,
+                          spreadRadius: 10,
+                          offset: const Offset(0, 0),
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 28),
-            // Section "À la une" style MPG
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: const [
-                  Text(
-                    'À la une',
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Image.asset('assets/images/logo.png'),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'TEMPO',
                     style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 19,
-                      color: Color(0xFFFCFFFD),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 32,
+                      letterSpacing: 4,
+                      color: _textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Le jeu, dans la tête.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _textSecondary,
                       letterSpacing: 0.5,
                     ),
                   ),
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── Anecdote ────────────────────────────────────────
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.bolt, color: _accentBright, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'Anecdote du jour',
+                        style: TextStyle(
+                          color: _accentBright,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _randomAnecdote.isEmpty
+                      ? const SizedBox(
+                          height: 14,
+                          width: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _accentBright,
+                          ),
+                        )
+                      : Text(
+                          _randomAnecdote,
+                          style: const TextStyle(
+                            color: _textPrimary,
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Stats ────────────────────────────────────────────
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              decoration: BoxDecoration(
+                color: _card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tes stats',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: _textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: const [
+                      _StatItem(label: 'Parties jouées', value: '127'),
+                      _StatItem(label: 'Score moyen', value: '7.4'),
+                      _StatItem(label: 'Jeu préféré', value: "Coup d'œil"),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── À la une ─────────────────────────────────────────
+            const Text(
+              'À la une',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 17,
+                color: _textPrimary,
               ),
             ),
             const SizedBox(height: 12),
@@ -245,28 +236,26 @@ class _HomePageState extends State<HomePage> {
               height: 140,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 18),
+                clipBehavior: Clip.none,
                 children: const [
                   _HighlightCard(
-                    title: "🔥 Nouveau mode Compos",
+                    title: '🔥 Nouveau mode Compos',
                     subtitle:
-                        "Revis les matchs mythiques et devine les compos !",
-                    color: Color(0xFF2E8B57),
+                        'Revis les matchs mythiques et devine les compos !',
                   ),
                   _HighlightCard(
-                    title: "⭐ 1000 parties jouées",
-                    subtitle: "Merci à la communauté Tempo !",
-                    color: Color(0xFF3CAE3A),
+                    title: '⭐ 1000 parties jouées',
+                    subtitle: 'Merci à la communauté Tempo !',
                   ),
                   _HighlightCard(
-                    title: "⚽ Zidane ou Platini ?",
-                    subtitle: "Teste ton flair dans Qui a menti ?",
-                    color: Color(0xFF1E5128),
+                    title: '⚽ Zidane ou Platini ?',
+                    subtitle: 'Teste ton flair dans Qui a menti ?',
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 26),
+
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -275,65 +264,60 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildGamesPage() {
     return SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 70,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    _MpgGameButton(
-                      title: "Coup d’œil",
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => QuizTestIntro(),
-                        ),
-                      ),
-                      icon: Icons.remove_red_eye,
-                      color: const Color(0xFF3CAE3A),
-                    ),
-                    const SizedBox(height: 14),
-                    _MpgGameButton(
-                      title: "Qui a menti ?",
-                      onTap: () => Navigator.pushNamed(context, '/qui_a_menti'),
-                      icon: Icons.psychology_alt_rounded,
-                      color: const Color(0xFF2E8B57),
-                    ),
-                    const SizedBox(height: 14),
-                    _MpgGameButton(
-                      title: "Parcours Joueur",
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/parcours_joueur'),
-                      icon: Icons.emoji_events,
-                      color: const Color(0xFF1E5128),
-                    ),
-                    const SizedBox(height: 14),
-                    _MpgGameButton(
-                      title: "Compos",
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const LineupMatchPageIntro(),
-                          ),
-                        );
-                      },
-                      icon: Icons.view_module,
-                      color: const Color(0xFF174423),
-                    ),
-                  ],
-                ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Jeux',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 24,
+                color: _textPrimary,
               ),
             ),
-          );
-        },
+            const SizedBox(height: 6),
+            const Text(
+              'Choisis ton mode de jeu',
+              style: TextStyle(fontSize: 14, color: _textSecondary),
+            ),
+            const SizedBox(height: 24),
+            _GameButton(
+              title: "Coup d'œil",
+              subtitle: 'Reconnais le joueur grâce à sa photo',
+              icon: Icons.remove_red_eye_outlined,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => QuizTestIntro()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _GameButton(
+              title: 'Qui a menti ?',
+              subtitle: '10 joueurs, une affirmation, 5 menteurs...',
+              icon: Icons.psychology_alt_outlined,
+              onTap: () => Navigator.pushNamed(context, '/qui_a_menti'),
+            ),
+            const SizedBox(height: 12),
+            _GameButton(
+              title: 'Parcours Joueur',
+              subtitle: 'Retrouve le joueur grâce à sa carrière',
+              icon: Icons.emoji_events_outlined,
+              onTap: () => Navigator.pushNamed(context, '/parcours_joueur'),
+            ),
+            const SizedBox(height: 12),
+            _GameButton(
+              title: 'Compos',
+              subtitle: 'Devine la composition d\'un match historique',
+              icon: Icons.view_module_outlined,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LineupMatchPageIntro()),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -342,7 +326,7 @@ class _HomePageState extends State<HomePage> {
     return const Center(
       child: Text(
         'Historique des scores...',
-        style: TextStyle(color: Colors.white, fontSize: 22),
+        style: TextStyle(color: _textSecondary, fontSize: 16),
       ),
     );
   }
@@ -351,7 +335,7 @@ class _HomePageState extends State<HomePage> {
     return const Center(
       child: Text(
         'Profil utilisateur...',
-        style: TextStyle(color: Colors.white, fontSize: 22),
+        style: TextStyle(color: _textSecondary, fontSize: 16),
       ),
     );
   }
@@ -359,46 +343,36 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E5128),
-      body: SizedBox.expand(
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF3CAE3A), Color(0xFF1E5128)],
-            ),
-          ),
-          child: _buildContent(),
-        ),
-      ),
-      // PUB bar inserted just above bottomNavigationBar
+      backgroundColor: _bg,
+      body: _buildContent(),
       persistentFooterButtons: [
         Container(
           height: 40,
           width: double.infinity,
-          color: Colors.grey[300],
+          color: _card,
           alignment: Alignment.center,
           child: const Text(
             'PUB',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.black,
-              fontSize: 16,
+              color: _textSecondary,
+              fontSize: 13,
             ),
-            textAlign: TextAlign.center,
           ),
         ),
       ],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavItemTapped,
-        selectedItemColor: Color(0xFF3CAE3A),
-        unselectedItemColor: Colors.white70,
-        backgroundColor: Color(0xFF1E5128),
+        selectedItemColor: _accentBright,
+        unselectedItemColor: _textSecondary,
+        backgroundColor: _card,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            label: 'Accueil',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.sports_soccer),
             label: 'Jeux',
@@ -407,12 +381,161 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.history),
             label: 'Historique',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profil',
+          ),
         ],
       ),
     );
   }
 }
+
+// ── Widgets ────────────────────────────────────────────────────────
+
+class _StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  const _StatItem({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: _accentBright,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: const TextStyle(color: _textSecondary, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+class _HighlightCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  const _HighlightCard({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 200,
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: _textSecondary,
+              fontSize: 12.5,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GameButton extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _GameButton({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+          decoration: BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _accent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: _accentBright, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: _textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: _textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: _textSecondary, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Legacy helpers (still used by other pages) ─────────────────────
 
 void _showDifficultyDialog(BuildContext context) {
   showDialog(
@@ -449,161 +572,4 @@ Widget _difficultyButton(BuildContext context, String difficulty) {
       child: Text(difficulty),
     ),
   );
-}
-
-class _StatItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _StatItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Color(0xFF3CAE3A),
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.bold,
-            fontSize: 19,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFFB8F2E6),
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w500,
-            fontSize: 13,
-            letterSpacing: 0.2,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-}
-
-class _HighlightCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color color;
-
-  const _HighlightCard({
-    required this.title,
-    required this.subtitle,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 210,
-      margin: const EdgeInsets.only(right: 14),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.96),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFF3CAE3A), width: 1.1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontFamily: 'Montserrat',
-              color: Color(0xFFFCFFFD),
-              fontWeight: FontWeight.w700,
-              fontSize: 15.5,
-              letterSpacing: 0.2,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontFamily: 'Montserrat',
-              color: Color(0xFFB8F2E6),
-              fontWeight: FontWeight.w400,
-              fontSize: 13.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// MPG-style game button for the games tab
-class _MpgGameButton extends StatelessWidget {
-  final String title;
-  final VoidCallback onTap;
-  final IconData icon;
-  final Color color;
-  const _MpgGameButton({
-    required this.title,
-    required this.onTap,
-    required this.icon,
-    required this.color,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(13),
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.97),
-            borderRadius: BorderRadius.circular(13),
-            border: Border.all(color: const Color(0xFFB8F2E6), width: 1.1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.10),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: Colors.white, size: 34),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 19,
-                    color: Color(0xFFFCFFFD),
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.play_arrow_rounded,
-                color: Color(0xFFFCFFFD),
-                size: 30,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

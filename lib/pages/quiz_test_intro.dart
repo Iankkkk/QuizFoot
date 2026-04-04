@@ -33,7 +33,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
     "10 photos seront affichées.",
     "Il n'y a aucune limite de temps",
     "Tape le NOM DE FAMILLE du joueur dans la zone prévue.",
-    "Chaque bonne réponse te rapporte un point..",
+    "Chaque bonne réponse te rapporte 1 point.",
     "Tu peux passer si tu bloques.",
   ];
 
@@ -191,156 +191,158 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 20),
-                  Center(
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.70, end: 1.30),
-                      duration: const Duration(seconds: 1),
-                      curve: Curves.easeInOut,
-                      builder: (context, scale, child) {
-                        return Transform.scale(scale: scale, child: child);
-                      },
-                      child: Image.asset(
-                        'assets/images/logo.png',
-                        width: 80,
-                        height: 80,
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 20),
+                    Center(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.70, end: 1.30),
+                        duration: const Duration(seconds: 1),
+                        curve: Curves.easeInOut,
+                        builder: (context, scale, child) {
+                          return Transform.scale(scale: scale, child: child);
+                        },
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          width: 80,
+                          height: 80,
+                        ),
                       ),
                     ),
-                  ),
-                  const Text(
-                    "Bienvenue dans Coup d'œil !",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.85),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Règles du jeu :",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ...List.generate(rules.length, (index) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  ruleIcons[index],
-                                  size: 20,
-                                  color: Colors.green.shade700,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    rules[index],
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Sélection de catégorie
-                  const Text(
-                    "Catégorie :",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: _categories.isEmpty
-                        ? Row(
-                            children: List.generate(
-                              4,
-                              (_) => Container(
-                                margin: const EdgeInsets.only(right: 8),
-                                width: 72,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                            ),
-                          )
-                        : Row(
-                            children: [
-                              _CategoryChip(
-                                label: "Toutes",
-                                selected: _selectedCategory == null,
-                                onTap: () =>
-                                    setState(() => _selectedCategory = null),
-                              ),
-                              ..._categories.map(
-                                (cat) => _CategoryChip(
-                                  label: cat,
-                                  selected: _selectedCategory == cat,
-                                  onTap: () =>
-                                      setState(() => _selectedCategory = cat),
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: () => _showDifficultyPicker(context),
-                    child: const Text(
-                      "Jouer !",
+                    const Text(
+                      "Bienvenue dans Coup d'œil !",
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Règles du jeu :",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ...List.generate(rules.length, (index) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    ruleIcons[index],
+                                    size: 20,
+                                    color: Colors.green.shade700,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      rules[index],
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Sélection de catégorie
+                    const Text(
+                      "Catégorie :",
+                      style: TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: _categories.isEmpty
+                          ? Row(
+                              children: List.generate(
+                                4,
+                                (_) => Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  width: 72,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                _CategoryChip(
+                                  label: "Toutes",
+                                  selected: _selectedCategory == null,
+                                  onTap: () =>
+                                      setState(() => _selectedCategory = null),
+                                ),
+                                ..._categories.map(
+                                  (cat) => _CategoryChip(
+                                    label: cat,
+                                    selected: _selectedCategory == cat,
+                                    onTap: () =>
+                                        setState(() => _selectedCategory = cat),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () => _showDifficultyPicker(context),
+                      child: const Text(
+                        "Jouer !",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:diacritic/diacritic.dart';
@@ -441,6 +442,16 @@ class _QuizTestState extends State<QuizTest> {
     );
   }
 
+  String _imageUrl(String url) {
+    if (kIsWeb) {
+      return Uri.base
+          .resolve('api/image')
+          .replace(queryParameters: {'url': url})
+          .toString();
+    }
+    return url;
+  }
+
   void _replaceCurrentPlayer() {
     if (_playerPool.isEmpty) return;
     setState(() {
@@ -558,7 +569,7 @@ class _QuizTestState extends State<QuizTest> {
                             maxScale: 4.0,
                             panEnabled: true,
                             child: Image.network(
-                              _selectedPlayers[_currentQuestion].imageUrl,
+                              _imageUrl(_selectedPlayers[_currentQuestion].imageUrl),
                               fit: BoxFit.cover,
                               loadingBuilder:
                                   (context, child, loadingProgress) {
