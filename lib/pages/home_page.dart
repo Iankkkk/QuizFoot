@@ -4,6 +4,8 @@ import 'quiz_test_intro.dart';
 import 'package:quiz_foot/pages/lineup_match_page_intro.dart';
 import 'package:quiz_foot/data/anecdotes_data.dart';
 import 'package:quiz_foot/data/players_data.dart';
+import 'package:quiz_foot/data/data_cache.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ── Palette MPG-inspired ──────────────────────────────────────────
 const _bg = Color(0xFF0D1117);
@@ -37,6 +39,22 @@ class _HomePageState extends State<HomePage> {
     try {
       await loadPlayers();
     } catch (_) {}
+  }
+
+  Future<void> _clearCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('players_json');
+    await prefs.remove('players_expiry');
+    await prefs.remove('anecdotes_json');
+    await prefs.remove('anecdotes_expiry');
+    DataCache.instance.invalidateAll();
+    await _loadAnecdote();
+    await _warmCache();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cache vidé — données rechargées ✓')),
+      );
+    }
   }
 
   Future<void> _loadAnecdote() async {
@@ -82,6 +100,14 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 28),
 
             // ── Header ──────────────────────────────────────────
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                onPressed: _clearCache,
+                icon: const Icon(Icons.refresh, color: _textSecondary, size: 20),
+                tooltip: 'Vider le cache',
+              ),
+            ),
             Center(
               child: Column(
                 children: [

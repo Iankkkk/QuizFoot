@@ -60,4 +60,12 @@ class DataCache {
     _claims = data;
     _claimsExpiry = DateTime.now().add(_ttl);
   }
+
+  void invalidateAll() {
+    _players = null; _playersExpiry = null;
+    _matches = null; _matchesExpiry = null;
+    _lineups = null; _lineupsExpiry = null;
+    _careerPlayers = null; _careerPlayersExpiry = null;
+    _claims = null; _claimsExpiry = null;
+  }
 }
