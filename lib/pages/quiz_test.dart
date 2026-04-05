@@ -68,6 +68,11 @@ class _QuizTestState extends State<QuizTest> {
   double _photoScale = 1.0;
   Color _feedbackColor = Colors.green;
 
+  String _feedbackMessage = '';
+  Color _feedbackBannerColor = Colors.green;
+  bool _feedbackVisible = false;
+  String? _feedbackMeme;
+
   final String _memeCorrect = 'assets/images/correct.jpg';
   final String _memeWrong = 'assets/images/wrong.jpg';
 
@@ -223,34 +228,7 @@ class _QuizTestState extends State<QuizTest> {
       _controller.clear();
       snackMessage = '✅ Bonne réponse ! Suuuuuuuuu !!';
       snackColor = Colors.green[700]!;
-      memeAsset = _memeCorrect;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Image.asset(memeAsset, width: 80, height: 80, fit: BoxFit.cover),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  snackMessage,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: snackColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      _showFeedback(snackMessage, snackColor, meme: _memeCorrect);
       _questionTimer?.cancel();
       Future.delayed(const Duration(milliseconds: 350), () {
         if (!mounted) return;
@@ -268,33 +246,7 @@ class _QuizTestState extends State<QuizTest> {
       });
       snackMessage = '🟡 T\'y es presque grand...';
       snackColor = Colors.orange[700]!;
-      memeAsset = _memeWrong;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  snackMessage,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: snackColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      _showFeedback(snackMessage, snackColor, meme: _memeWrong);
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
         setState(() {
@@ -312,34 +264,7 @@ class _QuizTestState extends State<QuizTest> {
       snackMessage =
           '❌ Nan !! T\'es trompé ! La bonne réponse était : ${_selectedPlayers[_currentQuestion].name}';
       snackColor = Colors.red[700]!;
-      memeAsset = _memeWrong;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Image.asset(memeAsset, width: 80, height: 80, fit: BoxFit.cover),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  snackMessage,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: snackColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      _showFeedback(snackMessage, snackColor, meme: _memeWrong);
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
         setState(() {
@@ -442,6 +367,18 @@ class _QuizTestState extends State<QuizTest> {
     );
   }
 
+  void _showFeedback(String message, Color color, {String? meme}) {
+    setState(() {
+      _feedbackMessage = message;
+      _feedbackBannerColor = color;
+      _feedbackMeme = meme;
+      _feedbackVisible = true;
+    });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _feedbackVisible = false);
+    });
+  }
+
   String _imageUrl(String url) {
     if (kIsWeb) {
       return Uri.base
@@ -500,186 +437,264 @@ class _QuizTestState extends State<QuizTest> {
       );
     }
 
+    const bg = Color(0xFF0D1117);
+    const cardBg = Color(0xFF161B22);
+    const border = Color(0xFF30363D);
+    const accent = Color(0xFF2EA043);
+    const accentBright = Color(0xFF3FB950);
+    const textPrimary = Color(0xFFE6EDF3);
+    const textSecondary = Color(0xFF8B949E);
+
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      backgroundColor: bg,
       appBar: AppBar(
+        backgroundColor: cardBg,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Column(
           children: [
             Text(
               'Question ${_currentQuestion + 1} / ${_selectedPlayers.length}',
+              style: const TextStyle(
+                color: textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
             ),
             if (widget.category != null)
               Text(
                 widget.category!,
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
+                style: const TextStyle(fontSize: 11, color: textSecondary),
               ),
           ],
         ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      resizeToAvoidBottomInset: true,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xff66bb6a), Color(0xff1b5e20)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: border),
         ),
-        child: SafeArea(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            switchInCurve: Curves.easeOut,
-            switchOutCurve: Curves.easeIn,
-            transitionBuilder: (child, animation) {
-              final slide = Tween<Offset>(
-                begin: const Offset(0.08, 0),
-                end: Offset.zero,
-              ).animate(animation);
-
-              return SlideTransition(
-                position: slide,
-                child: FadeTransition(opacity: animation, child: child),
-              );
-            },
-            child: Column(
-              key: ValueKey(_currentQuestion),
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: 250,
-                  width: double.infinity,
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 6,
-                    clipBehavior: Clip.antiAlias,
-                    child: AnimatedScale(
-                      scale: _photoScale,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          InteractiveViewer(
-                            minScale: 0.8,
-                            maxScale: 4.0,
-                            panEnabled: true,
-                            child: Image.network(
-                              _imageUrl(_selectedPlayers[_currentQuestion].imageUrl),
-                              fit: BoxFit.cover,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return const Center(
-                                      child: CircularProgressIndicator(),
-                                    );
-                                  },
-                              errorBuilder: (context, error, stackTrace) {
-                                WidgetsBinding.instance.addPostFrameCallback(
-                                  (_) => _replaceCurrentPlayer(),
-                                );
-                                return const Center(
-                                  child: CircularProgressIndicator(),
-                                );
-                              },
-                            ),
-                          ),
-                          IgnorePointer(
-                            child: AnimatedOpacity(
-                              opacity: _showCorrectFeedback ? 0.35 : 0.0,
-                              duration: const Duration(milliseconds: 200),
-                              child: Container(color: _feedbackColor),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildTimer(),
-                    Text(
-                      _currentPointsLabel(),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        TextField(
-                          autofocus: true,
-                          controller: _controller,
-                          decoration: InputDecoration(
-                            hintText: 'Entre le nom du joueur',
-                            prefixIcon: const Icon(
-                              Icons.person,
-                              color: Colors.grey,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey.shade100,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Theme.of(context).primaryColor,
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() => _answer = value);
-                          },
-                          onSubmitted: (_) {
-                            if (_answer.trim().isNotEmpty) _submitAnswer();
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
+      ),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) {
+            final slide = Tween<Offset>(
+              begin: const Offset(0.08, 0),
+              end: Offset.zero,
+            ).animate(animation);
+            return SlideTransition(
+              position: slide,
+              child: FadeTransition(opacity: animation, child: child),
+            );
+          },
+          child: Column(
+            key: ValueKey(_currentQuestion),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Photo ───────────────────────────────────────────
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 260),
+                      child: AnimatedScale(
+                        scale: _photoScale,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        child: Stack(
+                          fit: StackFit.expand,
                           children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red[300],
-                                  foregroundColor: Colors.white,
-                                ),
-                                onPressed: _skipQuestion,
-                                child: const Text('Passer'),
+                            InteractiveViewer(
+                              minScale: 0.8,
+                              maxScale: 4.0,
+                              panEnabled: true,
+                              child: Image.network(
+                                _imageUrl(_selectedPlayers[_currentQuestion].imageUrl),
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    color: cardBg,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(color: accentBright),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  WidgetsBinding.instance.addPostFrameCallback(
+                                    (_) => _replaceCurrentPlayer(),
+                                  );
+                                  return Container(
+                                    color: cardBg,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(color: accentBright),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _answer.trim().isEmpty
-                                    ? null
-                                    : _submitAnswer,
-                                child: const Text('Valider'),
+                            IgnorePointer(
+                              child: AnimatedOpacity(
+                                opacity: _showCorrectFeedback ? 0.35 : 0.0,
+                                duration: const Duration(milliseconds: 200),
+                                child: Container(color: _feedbackColor),
                               ),
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              // ── Feedback banner ──────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _feedbackVisible
+                      ? Container(
+                          key: const ValueKey('fb'),
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: _feedbackBannerColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              if (_feedbackMeme != null)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.asset(_feedbackMeme!, width: 50, height: 50, fit: BoxFit.cover),
+                                ),
+                              if (_feedbackMeme != null) const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _feedbackMessage,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(key: ValueKey('nofb')),
+                ),
+              ),
+
+              // ── Timer + points ──────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildTimer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: border),
+                      ),
+                      child: Text(
+                        _currentPointsLabel(),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: accentBright,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── TextField + boutons ─────────────────────────────
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Column(
+                    children: [
+                      TextField(
+                        autofocus: false,
+                        controller: _controller,
+                        style: const TextStyle(color: textPrimary),
+                        decoration: InputDecoration(
+                          hintText: 'Entre le nom du joueur...',
+                          hintStyle: const TextStyle(color: textSecondary),
+                          prefixIcon: const Icon(Icons.person_outline, color: textSecondary),
+                          filled: true,
+                          fillColor: cardBg,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: border),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: accentBright, width: 2),
+                          ),
+                        ),
+                        onChanged: (value) => setState(() => _answer = value),
+                        onSubmitted: (_) {
+                          if (_answer.trim().isNotEmpty) _submitAnswer();
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: textSecondary,
+                                side: const BorderSide(color: border),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: _skipQuestion,
+                              child: const Text('Passer'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: accentBright,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: _answer.trim().isEmpty ? null : _submitAnswer,
+                              child: const Text('Valider', style: TextStyle(fontWeight: FontWeight.w700)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
