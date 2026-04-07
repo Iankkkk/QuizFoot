@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:quiz_foot/pages/lineup_match_page.dart';
 
 // ── Palette ───────────────────────────────────────────────────────
-const _bg = Color(0xFF0D1117);
-const _card = Color(0xFF161B22);
-const _border = Color(0xFF30363D);
+const _bg = Color(0xFF171923);
+const _card = Color(0xFF1E2130);
+const _border = Color(0xFF2D3148);
 const _accentBright = Color(0xFF3FB950);
 const _textPrimary = Color(0xFFE6EDF3);
 const _textSecondary = Color(0xFF8B949E);

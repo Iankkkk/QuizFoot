@@ -8,9 +8,9 @@ import 'package:quiz_foot/data/data_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ── Palette MPG-inspired ──────────────────────────────────────────
-const _bg = Color(0xFF0D1117);
-const _card = Color(0xFF161B22);
-const _border = Color(0xFF30363D);
+const _bg = Color(0xFF171923);
+const _card = Color(0xFF1E2130);
+const _border = Color(0xFF2D3148);
 const _accent = Color(0xFF2EA043);
 const _accentBright = Color(0xFF3FB950);
 const _textPrimary = Color(0xFFE6EDF3);
@@ -104,7 +104,11 @@ class _HomePageState extends State<HomePage> {
               alignment: Alignment.centerRight,
               child: IconButton(
                 onPressed: _clearCache,
-                icon: const Icon(Icons.refresh, color: _textSecondary, size: 20),
+                icon: const Icon(
+                  Icons.refresh,
+                  color: _textSecondary,
+                  size: 20,
+                ),
                 tooltip: 'Vider le cache',
               ),
             ),
@@ -321,7 +325,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 12),
             _GameButton(
               title: 'Qui a menti ?',
-              subtitle: '10 joueurs, une affirmation, 5 menteurs...',
+              subtitle: '10 joueurs, 1 affirmation : 5 menteurs...',
               icon: Icons.psychology_alt_outlined,
               onTap: () => Navigator.pushNamed(context, '/qui_a_menti'),
             ),

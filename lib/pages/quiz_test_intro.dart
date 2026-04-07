@@ -3,9 +3,9 @@ import 'quiz_test.dart';
 import '../data/players_data.dart';
 
 // ── Palette ───────────────────────────────────────────────────────
-const _bg = Color(0xFF0D1117);
-const _card = Color(0xFF161B22);
-const _border = Color(0xFF30363D);
+const _bg = Color(0xFF171923);
+const _card = Color(0xFF1E2130);
+const _border = Color(0xFF2D3148);
 const _accent = Color(0xFF2EA043);
 const _accentBright = Color(0xFF3FB950);
 const _textPrimary = Color(0xFFE6EDF3);
@@ -40,9 +40,8 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
   final List<String> rules = const [
     "Devine le joueur à partir de sa photo.",
     "10 photos seront affichées.",
-    "Il n'y a aucune limite de temps.",
     "Tape le NOM DE FAMILLE du joueur.",
-    "Chaque bonne réponse rapporte 1 point.",
+    "Plus tu trouves rapidement, plus tu marques de points.",
     "Tu peux passer si tu bloques.",
   ];
 
@@ -58,25 +57,32 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
   Future<void> _loadCategories() async {
     try {
       final players = await loadPlayers();
-      final cats = players
-          .expand((p) => p.categories)
-          .map((c) => c.trim())
-          .where((c) => c.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final cats =
+          players
+              .expand((p) => p.categories)
+              .map((c) => c.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
       setState(() => _categories = cats);
     } catch (_) {}
   }
 
   Color _getDifficultyColor(String diff) {
     switch (diff) {
-      case "Très Facile": return const Color(0xFF238636);
-      case "Facile":      return const Color(0xFF2EA043);
-      case "Moyenne":     return const Color(0xFFD29922);
-      case "Difficile":   return const Color(0xFFDA3633);
-      case "Impossible":  return const Color(0xFF8957E5);
-      default:            return _textSecondary;
+      case "Très Facile":
+        return const Color(0xFF238636);
+      case "Facile":
+        return const Color(0xFF2EA043);
+      case "Moyenne":
+        return const Color(0xFFD29922);
+      case "Difficile":
+        return const Color(0xFFDA3633);
+      case "Impossible":
+        return const Color(0xFF8957E5);
+      default:
+        return _textSecondary;
     }
   }
 
@@ -136,7 +142,10 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 16,
+                          ),
                           decoration: BoxDecoration(
                             color: color.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(12),
@@ -190,7 +199,11 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
         ),
         title: const Text(
           "Coup d'œil",
-          style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w700, fontSize: 17),
+          style: TextStyle(
+            color: _textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -206,7 +219,11 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
 
             // ── Logo ─────────────────────────────────────────────
             Center(
-              child: Image.asset('assets/images/logo.png', width: 72, height: 72),
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 72,
+                height: 72,
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -297,7 +314,8 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
                           (cat) => _CategoryChip(
                             label: cat,
                             selected: _selectedCategory == cat,
-                            onTap: () => setState(() => _selectedCategory = cat),
+                            onTap: () =>
+                                setState(() => _selectedCategory = cat),
                           ),
                         ),
                       ],

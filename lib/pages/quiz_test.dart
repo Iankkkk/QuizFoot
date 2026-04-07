@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:diacritic/diacritic.dart';
@@ -62,6 +63,7 @@ class _QuizTestState extends State<QuizTest> {
   DateTime? _questionStartTime;
   Timer? _questionTimer;
   Duration _elapsed = Duration.zero;
+  bool _photoLoaded = false;
 
   // --- Feedback and photo scale fields ---
   bool _showCorrectFeedback = false;
@@ -138,8 +140,8 @@ class _QuizTestState extends State<QuizTest> {
         _playerPool = remainingPlayers..shuffle();
         _quizStartTime = DateTime.now();
         _isLoading = false;
+        _photoLoaded = false;
       });
-      _startQuestionTimer();
     } on ApiException catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -204,12 +206,23 @@ class _QuizTestState extends State<QuizTest> {
       _selectedPlayers[_currentQuestion].name.toLowerCase(),
     );
 
-    double similarity = trimmedAnswer.similarityTo(correctAnswer);
+    // Vérifier contre tous les noms acceptés, garder le meilleur score
+    final allCorrect = _selectedPlayers[_currentQuestion].allNames
+        .map((n) => removeDiacritics(n.toLowerCase()))
+        .toList();
+    double similarity = allCorrect
+        .map((n) => trimmedAnswer.similarityTo(n))
+        .reduce((a, b) => a > b ? a : b);
 
-    bool isCorrect = similarity == 1.0;
+    bool isCorrect = similarity > 0.8;
     bool almostCorrect = !isCorrect && similarity > 0.4;
 
     if (isCorrect) {
+      HapticFeedback.mediumImpact();
+      Future.delayed(
+        const Duration(milliseconds: 80),
+        HapticFeedback.mediumImpact,
+      );
       setState(() {
         _showCorrectFeedback = true;
         _photoScale = 1.05;
@@ -239,6 +252,11 @@ class _QuizTestState extends State<QuizTest> {
         _nextQuestion();
       });
     } else if (almostCorrect) {
+      HapticFeedback.heavyImpact();
+      Future.delayed(
+        const Duration(milliseconds: 60),
+        HapticFeedback.heavyImpact,
+      );
       setState(() {
         _showCorrectFeedback = true;
         _photoScale = 1.05;
@@ -282,53 +300,53 @@ class _QuizTestState extends State<QuizTest> {
       setState(() {
         _currentQuestion++;
         _answer = '';
+        _photoLoaded = false;
       });
-      _startQuestionTimer();
     } else {
-      _showScorePage();
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) _showScorePage();
+      });
     }
   }
 
   void _skipQuestion() {
     _controller.clear();
-
-    String correctAnswer = _selectedPlayers[_currentQuestion].name;
-
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '⏩ Question passée ! La bonne réponse était : $correctAnswer',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.red[700],
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
-      ),
+    final correctAnswer = _selectedPlayers[_currentQuestion].name;
+    _showFeedback(
+      '⏩ Passée ! C\'était : $correctAnswer',
+      const Color(0xFF8B949E),
     );
     _questionTimer?.cancel();
     _nextQuestion();
   }
 
-  String _currentPointsLabel() {
+  int _currentPoints() {
     final seconds = _elapsed.inSeconds;
-    if (seconds < 4) return '5 points';
-    if (seconds < 7) return '4 points';
-    if (seconds < 15) return '3 points';
-    if (seconds < 30) return '2 points';
-    return '1 point';
+    if (seconds < 4) return 5;
+    if (seconds < 7) return 4;
+    if (seconds < 15) return 3;
+    if (seconds < 30) return 2;
+    return 1;
+  }
+
+  String _currentPointsLabel() {
+    final pts = _currentPoints();
+    return '+$pts pt${pts > 1 ? 's' : ''}';
+  }
+
+  Color _currentPointsColor() {
+    switch (_currentPoints()) {
+      case 5:
+        return const Color(0xFF3FB950);
+      case 4:
+        return const Color(0xFF7CB95A);
+      case 3:
+        return const Color(0xFFD29922);
+      case 2:
+        return const Color(0xFFE87820);
+      default:
+        return const Color(0xFFDA3633);
+    }
   }
 
   Future<void> _saveResult(int score, int total, Duration timeTaken) async {
@@ -418,12 +436,11 @@ class _QuizTestState extends State<QuizTest> {
     final seconds = _elapsed.inSeconds % 60;
 
     return Text(
-      '${minutes.toString().padLeft(2, '0')}m '
-      '${seconds.toString().padLeft(2, '0')}s ',
+      '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
       style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
+        fontSize: 15,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFFE6EDF3),
       ),
     );
   }
@@ -437,206 +454,367 @@ class _QuizTestState extends State<QuizTest> {
       );
     }
 
-    const bg = Color(0xFF0D1117);
-    const cardBg = Color(0xFF161B22);
-    const border = Color(0xFF30363D);
-    const accent = Color(0xFF2EA043);
+    const bg = Color(0xFF171923);
+    const cardBg = Color(0xFF1E2130);
+    const border = Color(0xFF2D3148);
     const accentBright = Color(0xFF3FB950);
     const textPrimary = Color(0xFFE6EDF3);
     const textSecondary = Color(0xFF8B949E);
 
+    final total = _selectedPlayers.length;
+    final current = _currentQuestion;
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       backgroundColor: bg,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: cardBg,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          children: [
-            Text(
-              'Question ${_currentQuestion + 1} / ${_selectedPlayers.length}',
-              style: const TextStyle(
-                color: textPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-            if (widget.category != null)
-              Text(
-                widget.category!,
-                style: const TextStyle(fontSize: 11, color: textSecondary),
-              ),
-          ],
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: border),
-        ),
-      ),
-      body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, animation) {
-            final slide = Tween<Offset>(
-              begin: const Offset(0.08, 0),
-              end: Offset.zero,
-            ).animate(animation);
-            return SlideTransition(
-              position: slide,
-              child: FadeTransition(opacity: animation, child: child),
-            );
-          },
-          child: Column(
-            key: ValueKey(_currentQuestion),
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Photo ───────────────────────────────────────────
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 260),
-                      child: AnimatedScale(
-                        scale: _photoScale,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            InteractiveViewer(
-                              minScale: 0.8,
-                              maxScale: 4.0,
-                              panEnabled: true,
-                              child: Image.network(
-                                _imageUrl(_selectedPlayers[_currentQuestion].imageUrl),
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    color: cardBg,
-                                    child: const Center(
-                                      child: CircularProgressIndicator(color: accentBright),
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  WidgetsBinding.instance.addPostFrameCallback(
-                                    (_) => _replaceCurrentPlayer(),
-                                  );
-                                  return Container(
-                                    color: cardBg,
-                                    child: const Center(
-                                      child: CircularProgressIndicator(color: accentBright),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            IgnorePointer(
-                              child: AnimatedOpacity(
-                                opacity: _showCorrectFeedback ? 0.35 : 0.0,
-                                duration: const Duration(milliseconds: 200),
-                                child: Container(color: _feedbackColor),
-                              ),
-                            ),
-                          ],
+        automaticallyImplyLeading: false,
+        flexibleSpace: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                // Bouton retour uniquement
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        backgroundColor: const Color(0xFF1E2130),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
+                        title: const Text(
+                          'Quitter la partie ?',
+                          style: TextStyle(
+                            color: Color(0xFFE6EDF3),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        content: const Text(
+                          'Ta progression sera perdue.',
+                          style: TextStyle(color: Color(0xFF8B949E)),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              'Continuer',
+                              style: TextStyle(
+                                color: Color(0xFF3FB950),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.pop(context);
+                            },
+                            child: const Text(
+                              'Quitter',
+                              style: TextStyle(
+                                color: Color(0xFFDA3633),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                    );
+                  },
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.45),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 20,
                     ),
                   ),
                 ),
-              ),
-
-              // ── Feedback banner ──────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: _feedbackVisible
-                      ? Container(
-                          key: const ValueKey('fb'),
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: _feedbackBannerColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              if (_feedbackMeme != null)
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Image.asset(_feedbackMeme!, width: 50, height: 50, fit: BoxFit.cover),
-                                ),
-                              if (_feedbackMeme != null) const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  _feedbackMessage,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : const SizedBox.shrink(key: ValueKey('nofb')),
-                ),
-              ),
-
-              // ── Timer + points ──────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) {
+          final slide = Tween<Offset>(
+            begin: const Offset(0.06, 0),
+            end: Offset.zero,
+          ).animate(animation);
+          return SlideTransition(
+            position: slide,
+            child: FadeTransition(opacity: animation, child: child),
+          );
+        },
+        child: Column(
+          key: ValueKey(_currentQuestion),
+          children: [
+            // ── Photo plein écran ────────────────────────────────
+            Flexible(
+              flex: 5,
+              child: AnimatedScale(
+                scale: _photoScale,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    _buildTimer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: border),
+                    InteractiveViewer(
+                      minScale: 0.8,
+                      maxScale: 4.0,
+                      panEnabled: true,
+                      child: Image.network(
+                        _imageUrl(_selectedPlayers[_currentQuestion].imageUrl),
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) {
+                            if (!_photoLoaded) {
+                              _photoLoaded = true;
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) _startQuestionTimer();
+                              });
+                            }
+                            return child;
+                          }
+                          return Container(
+                            color: cardBg,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: accentBright,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          WidgetsBinding.instance.addPostFrameCallback(
+                            (_) => _replaceCurrentPlayer(),
+                          );
+                          return Container(
+                            color: cardBg,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: accentBright,
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      child: Text(
-                        _currentPointsLabel(),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: accentBright,
+                    ),
+                    // Dégradé bas pour transition douce
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: IgnorePointer(
+                        child: Container(
+                          height: 80,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [bg, bg.withOpacity(0)],
+                            ),
+                          ),
                         ),
+                      ),
+                    ),
+                    IgnorePointer(
+                      child: AnimatedOpacity(
+                        opacity: _showCorrectFeedback ? 0.35 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Container(color: _feedbackColor),
                       ),
                     ),
                   ],
                 ),
               ),
+            ),
 
-              // ── TextField + boutons ─────────────────────────────
-              Expanded(
+            // ── Section basse ────────────────────────────────────
+            Flexible(
+              flex: keyboardOpen ? 6 : 4,
+              child: Container(
+                color: bg,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  physics: const ClampingScrollPhysics(),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Progress + score total (masqué quand clavier ouvert)
+                      if (!keyboardOpen) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: (current + 1) / total,
+                                  backgroundColor: const Color(0xFF2D3148),
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                        accentBright,
+                                      ),
+                                  minHeight: 3,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '${current + 1}/$total${widget.category != null ? " · ${widget.category}" : ""}',
+                              style: const TextStyle(
+                                color: textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '$_score pt${_score > 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                color: textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Timer + Points courants groupés dans un pill
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2D3148),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.timer_outlined,
+                                  size: 14,
+                                  color: Color(0xFFE6EDF3),
+                                ),
+                                const SizedBox(width: 5),
+                                _buildTimer(),
+                                Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  width: 1,
+                                  height: 14,
+                                  color: const Color(0xFF3D4460),
+                                ),
+                                Text(
+                                  _currentPointsLabel(),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: _currentPointsColor(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Feedback banner
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _feedbackVisible
+                            ? Container(
+                                key: const ValueKey('fb'),
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _feedbackBannerColor.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: _feedbackBannerColor.withOpacity(
+                                      0.5,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    if (_feedbackMeme != null)
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Image.asset(
+                                          _feedbackMeme!,
+                                          width: 44,
+                                          height: 44,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    if (_feedbackMeme != null)
+                                      const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        _feedbackMessage,
+                                        style: TextStyle(
+                                          color: _feedbackBannerColor,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : const SizedBox.shrink(key: ValueKey('nofb')),
+                      ),
+
+                      // TextField
                       TextField(
                         autofocus: false,
                         controller: _controller,
-                        style: const TextStyle(color: textPrimary),
+                        style: const TextStyle(
+                          color: textPrimary,
+                          fontSize: 15,
+                        ),
                         decoration: InputDecoration(
-                          hintText: 'Entre le nom du joueur...',
+                          hintText: 'Nom du joueur...',
                           hintStyle: const TextStyle(color: textSecondary),
-                          prefixIcon: const Icon(Icons.person_outline, color: textSecondary),
+                          prefixIcon: const Icon(
+                            Icons.person_outline,
+                            color: textSecondary,
+                            size: 20,
+                          ),
                           filled: true,
                           fillColor: cardBg,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(color: border),
@@ -647,7 +825,10 @@ class _QuizTestState extends State<QuizTest> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: accentBright, width: 2),
+                            borderSide: const BorderSide(
+                              color: accentBright,
+                              width: 2,
+                            ),
                           ),
                         ),
                         onChanged: (value) => setState(() => _answer = value),
@@ -655,37 +836,59 @@ class _QuizTestState extends State<QuizTest> {
                           if (_answer.trim().isNotEmpty) _submitAnswer();
                         },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
+
+                      // Boutons
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: textSecondary,
-                                side: const BorderSide(color: border),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                foregroundColor: textPrimary,
+                                side: const BorderSide(color: textSecondary),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                               onPressed: _skipQuestion,
-                              child: const Text('Passer'),
+                              child: const Text(
+                                'Passer',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
+                            flex: 2,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: accentBright,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                disabledBackgroundColor: accentBright
+                                    .withOpacity(0.35),
+                                disabledForegroundColor: Colors.white
+                                    .withOpacity(0.5),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 elevation: 0,
                               ),
-                              onPressed: _answer.trim().isEmpty ? null : _submitAnswer,
-                              child: const Text('Valider', style: TextStyle(fontWeight: FontWeight.w700)),
+                              onPressed: _answer.trim().isEmpty
+                                  ? null
+                                  : _submitAnswer,
+                              child: const Text(
+                                'Valider ✓',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -694,8 +897,8 @@ class _QuizTestState extends State<QuizTest> {
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
