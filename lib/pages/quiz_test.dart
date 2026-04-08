@@ -48,6 +48,15 @@ final Map<String, List<Map<int, int>>> difficultyPlans = {
   ],
 };
 
+class QuestionResult {
+  final String playerName;
+  final bool correct;
+  final bool attempted; // au moins une mauvaise réponse avant de passer
+  final int points;
+
+  const QuestionResult({required this.playerName, required this.correct, required this.attempted, required this.points});
+}
+
 class _QuizTestState extends State<QuizTest> {
   List<Player> _players = [];
   List<Player> _selectedPlayers = [];
@@ -56,6 +65,8 @@ class _QuizTestState extends State<QuizTest> {
   int _score = 0;
   String _answer = '';
   final TextEditingController _controller = TextEditingController();
+  final List<QuestionResult> _questionResults = [];
+  bool _hadWrongAttempt = false;
 
   DateTime? _quizStartTime;
   bool _isLoading = true;
@@ -231,6 +242,12 @@ class _QuizTestState extends State<QuizTest> {
       final elapsed = DateTime.now().difference(_questionStartTime!);
       final points = _computePoints(elapsed);
       _score += points;
+      _questionResults.add(QuestionResult(
+        playerName: _selectedPlayers[_currentQuestion].name,
+        correct: true,
+        attempted: true,
+        points: points,
+      ));
     }
 
     String snackMessage;
@@ -252,6 +269,7 @@ class _QuizTestState extends State<QuizTest> {
         _nextQuestion();
       });
     } else if (almostCorrect) {
+      _hadWrongAttempt = true;
       HapticFeedback.heavyImpact();
       Future.delayed(
         const Duration(milliseconds: 60),
@@ -273,6 +291,12 @@ class _QuizTestState extends State<QuizTest> {
         });
       });
     } else {
+      _questionResults.add(QuestionResult(
+        playerName: _selectedPlayers[_currentQuestion].name,
+        correct: false,
+        attempted: true,
+        points: 0,
+      ));
       setState(() {
         _showCorrectFeedback = true;
         _photoScale = 1.05;
@@ -301,6 +325,7 @@ class _QuizTestState extends State<QuizTest> {
         _currentQuestion++;
         _answer = '';
         _photoLoaded = false;
+        _hadWrongAttempt = false;
       });
     } else {
       Future.delayed(const Duration(seconds: 2), () {
@@ -312,6 +337,12 @@ class _QuizTestState extends State<QuizTest> {
   void _skipQuestion() {
     _controller.clear();
     final correctAnswer = _selectedPlayers[_currentQuestion].name;
+    _questionResults.add(QuestionResult(
+      playerName: correctAnswer,
+      correct: false,
+      attempted: _hadWrongAttempt,
+      points: 0,
+    ));
     _showFeedback(
       '⏩ Passée ! C\'était : $correctAnswer',
       const Color(0xFF8B949E),
@@ -380,6 +411,9 @@ class _QuizTestState extends State<QuizTest> {
           score: _score,
           total: _selectedPlayers.length,
           timeTaken: duration,
+          results: List.unmodifiable(_questionResults),
+          difficulty: widget.difficulty,
+          category: widget.category,
         ),
       ),
     );
@@ -909,68 +943,266 @@ class ScorePage extends StatelessWidget {
   final int score;
   final int total;
   final Duration timeTaken;
+  final List<QuestionResult> results;
+  final String difficulty;
+  final String? category;
 
   const ScorePage({
     super.key,
     required this.score,
     required this.total,
     required this.timeTaken,
+    required this.results,
+    required this.difficulty,
+    this.category,
   });
 
-  String _scoreMessage(int score, int minutes, int seconds) {
-    if (score == 50) {
-      return 'Score parfait !!\nTemps : ${minutes}m ${seconds}s';
-    } else if (score >= 35) {
-      return 'Super score ! Tié un bon !';
-    } else if (score >= 25) {
-      return 'Pas mal grand ! Continue !';
-    } else if (score >= 15) {
-      return 'C\'est moyen... Applique toi !';
-    } else {
-      return 'Clairement un mauvais score. Ressaisis toi.';
-    }
+  static const _bg       = Color(0xFF171923);
+  static const _card     = Color(0xFF1E2130);
+  static const _border   = Color(0xFF2D3148);
+  static const _accent   = Color(0xFF3FB950);
+  static const _textPrimary   = Color(0xFFE6EDF3);
+  static const _textSecondary = Color(0xFF8B949E);
+
+  IconData _rowIcon(QuestionResult r) {
+    if (r.correct) return Icons.check;
+    if (r.attempted) return Icons.close;
+    return Icons.arrow_forward;
+  }
+
+  Color _rowColor(QuestionResult r) {
+    if (r.correct) return _accent;
+    if (r.attempted) return const Color(0xFFDA3633);
+    return _textSecondary;
+  }
+
+  String _scoreMessage() {
+    final maxScore = total * 5;
+    final ratio = score / maxScore;
+    if (ratio == 1.0) return 'Score parfait 🏆';
+    if (ratio >= 0.75) return 'Super score ! T\'es un bon !';
+    if (ratio >= 0.5)  return 'Pas mal grand ! Continue !';
+    if (ratio >= 0.3)  return 'C\'est moyen... Applique toi !';
+    return 'Clairement un mauvais score. Ressaisis toi.';
+  }
+
+  Color _scoreColor() {
+    final ratio = score / (total * 5);
+    if (ratio >= 0.75) return _accent;
+    if (ratio >= 0.5)  return const Color(0xFFD29922);
+    return const Color(0xFFDA3633);
   }
 
   @override
   Widget build(BuildContext context) {
     final minutes = timeTaken.inMinutes;
     final seconds = timeTaken.inSeconds % 60;
+    final maxScore = total * 5;
+    final correct = results.where((r) => r.correct).length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Résultat')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Score : $score points',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+      backgroundColor: _bg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Header ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: _card,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _border),
+                      ),
+                      child: const Icon(Icons.arrow_back, color: _textPrimary, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Résultats', style: TextStyle(color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+
+            // ── Score principal ──────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _border),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      '$score',
+                      style: TextStyle(
+                        fontSize: 72,
+                        fontWeight: FontWeight.w800,
+                        color: _scoreColor(),
+                        height: 1,
+                      ),
+                    ),
+                    Text(
+                      '/ $maxScore pts',
+                      style: const TextStyle(fontSize: 16, color: _textSecondary, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _scoreMessage(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 16, color: _textPrimary, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 20),
+                    // Stats rapides
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _StatChip(icon: Icons.check_circle_outline, label: '$correct', sublabel: 'correctes', color: _accent),
+                        _StatChip(icon: Icons.cancel_outlined, label: '${results.where((r) => !r.correct && r.attempted).length}', sublabel: 'ratées', color: const Color(0xFFDA3633)),
+                        _StatChip(icon: Icons.arrow_forward, label: '${results.where((r) => !r.correct && !r.attempted).length}', sublabel: 'passées', color: _textSecondary),
+                        _StatChip(icon: Icons.timer_outlined, label: '${minutes}m${seconds.toString().padLeft(2,'0')}', sublabel: 'temps', color: _textSecondary),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                _scoreMessage(score, minutes, seconds),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  color: score >= 15 ? Colors.green : Colors.black,
-                ),
+            ),
+
+            // ── Récap par question ───────────────────────────────
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Détail', style: TextStyle(color: _textSecondary, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
               ),
-              const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                itemCount: results.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, i) {
+                  final r = results[i];
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _border),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32, height: 32,
+                          decoration: BoxDecoration(
+                            color: _rowColor(r).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(_rowIcon(r), color: _rowColor(r), size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            r.playerName,
+                            style: TextStyle(
+                              color: r.correct ? _textPrimary : _textSecondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          r.correct ? '+${r.points} pt${r.points > 1 ? 's' : ''}' : '—',
+                          style: TextStyle(
+                            color: _rowColor(r),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 },
-                child: const Text('Retour à l\'accueil'),
               ),
-            ],
-          ),
+            ),
+
+            // ── Boutons ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _textPrimary,
+                        side: const BorderSide(color: _border),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Accueil', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _accent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => QuizTest(
+                              difficulty: difficulty,
+                              category: category,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Rejouer ↺', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String sublabel;
+  final Color color;
+
+  const _StatChip({required this.icon, required this.label, required this.sublabel, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 15)),
+        Text(sublabel, style: const TextStyle(color: Color(0xFF8B949E), fontSize: 11)),
+      ],
     );
   }
 }
