@@ -431,6 +431,29 @@ class _QuizTestState extends State<QuizTest> {
     });
   }
 
+  void _showQuitDialog() {
+    HapticFeedback.selectionClick();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2130),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Quitter la partie ?', style: TextStyle(color: Color(0xFFE6EDF3), fontWeight: FontWeight.w700)),
+        content: const Text('Ta progression sera perdue.', style: TextStyle(color: Color(0xFF8B949E))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Continuer', style: TextStyle(color: Color(0xFF3FB950), fontWeight: FontWeight.w600)),
+          ),
+          TextButton(
+            onPressed: () { Navigator.pop(context); Navigator.pop(context); },
+            child: const Text('Quitter', style: TextStyle(color: Color(0xFFDA3633), fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _imageUrl(String url) {
     if (kIsWeb) {
       return Uri.base
@@ -445,6 +468,7 @@ class _QuizTestState extends State<QuizTest> {
     if (_playerPool.isEmpty) return;
     setState(() {
       _selectedPlayers[_currentQuestion] = _playerPool.removeAt(0);
+      _photoLoaded = false;
     });
   }
 
@@ -499,7 +523,12 @@ class _QuizTestState extends State<QuizTest> {
     final current = _currentQuestion;
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _showQuitDialog();
+      },
+      child: Scaffold(
       backgroundColor: bg,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -513,54 +542,7 @@ class _QuizTestState extends State<QuizTest> {
               children: [
                 // Bouton retour uniquement
                 GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        backgroundColor: const Color(0xFF1E2130),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        title: const Text(
-                          'Quitter la partie ?',
-                          style: TextStyle(
-                            color: Color(0xFFE6EDF3),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        content: const Text(
-                          'Ta progression sera perdue.',
-                          style: TextStyle(color: Color(0xFF8B949E)),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text(
-                              'Continuer',
-                              style: TextStyle(
-                                color: Color(0xFF3FB950),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              Navigator.pop(context);
-                            },
-                            child: const Text(
-                              'Quitter',
-                              style: TextStyle(
-                                color: Color(0xFFDA3633),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                  onTap: _showQuitDialog,
                   child: Container(
                     width: 36,
                     height: 36,
@@ -612,6 +594,7 @@ class _QuizTestState extends State<QuizTest> {
                       maxScale: 4.0,
                       panEnabled: true,
                       child: Image.network(
+                        key: ValueKey(_selectedPlayers[_currentQuestion].imageUrl),
                         _imageUrl(_selectedPlayers[_currentQuestion].imageUrl),
                         fit: BoxFit.cover,
                         alignment: Alignment.topCenter,
@@ -672,6 +655,35 @@ class _QuizTestState extends State<QuizTest> {
                         opacity: _showCorrectFeedback ? 0.35 : 0.0,
                         duration: const Duration(milliseconds: 200),
                         child: Container(color: _feedbackColor),
+                      ),
+                    ),
+                    // Révélation du nom sur bonne réponse
+                    IgnorePointer(
+                      child: AnimatedOpacity(
+                        opacity: (_showCorrectFeedback && _feedbackColor == Colors.green) ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeOut,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.55),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              _selectedPlayers[_currentQuestion].name,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 36,
+                                fontWeight: FontWeight.w800,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 12, offset: Offset(0, 2)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -935,7 +947,8 @@ class _QuizTestState extends State<QuizTest> {
           ],
         ),
       ),
-    );
+    ),
+    ); // PopScope
   }
 }
 
