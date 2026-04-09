@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:quiz_foot/pages/quiz_test.dart';
-import 'quiz_test_intro.dart';
+import 'coup_doeil/quiz_test.dart';
+import 'coup_doeil/quiz_test_intro.dart';
 import 'package:quiz_foot/pages/lineup_match_page_intro.dart';
 import 'package:quiz_foot/data/anecdotes_data.dart';
 import 'package:quiz_foot/data/players_data.dart';
@@ -325,7 +325,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 12),
             _GameButton(
               title: 'Qui a menti ?',
-              subtitle: '10 joueurs, 1 affirmation : 5 menteurs...',
+              subtitle: '1 affirmation, 10 joueurs : 5 menteurs !',
               icon: Icons.psychology_alt_outlined,
               onTap: () => Navigator.pushNamed(context, '/qui_a_menti'),
             ),

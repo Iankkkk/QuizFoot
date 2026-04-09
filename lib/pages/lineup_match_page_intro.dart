@@ -43,12 +43,18 @@ class LineupMatchPageIntro extends StatelessWidget {
 
   Color _getDifficultyColor(String diff) {
     switch (diff) {
-      case "Très Facile": return const Color(0xFF238636);
-      case "Facile":      return const Color(0xFF2EA043);
-      case "Moyenne":     return const Color(0xFFD29922);
-      case "Difficile":   return const Color(0xFFDA3633);
-      case "Impossible":  return const Color(0xFF8957E5);
-      default:            return _textSecondary;
+      case "Très Facile":
+        return const Color(0xFF238636);
+      case "Facile":
+        return const Color(0xFF2EA043);
+      case "Moyenne":
+        return const Color(0xFFD29922);
+      case "Difficile":
+        return const Color(0xFFDA3633);
+      case "Impossible":
+        return const Color(0xFF8957E5);
+      default:
+        return _textSecondary;
     }
   }
 
@@ -105,7 +111,10 @@ class LineupMatchPageIntro extends StatelessWidget {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 16,
+                          ),
                           decoration: BoxDecoration(
                             color: color.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(12),
@@ -159,7 +168,11 @@ class LineupMatchPageIntro extends StatelessWidget {
         ),
         title: const Text(
           "Compos",
-          style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w700, fontSize: 17),
+          style: TextStyle(
+            color: _textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -175,7 +188,11 @@ class LineupMatchPageIntro extends StatelessWidget {
 
             // ── Logo ─────────────────────────────────────────────
             Center(
-              child: Image.asset('assets/images/logo.png', width: 72, height: 72),
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 120,
+                height: 120,
+              ),
             ),
             const SizedBox(height: 16),
 
