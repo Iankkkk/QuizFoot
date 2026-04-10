@@ -23,10 +23,12 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import '../../data/qui_a_menti_api.dart';
 import '../../data/api_exception.dart';
 import '../../models/claim.dart';
+import 'qui_a_menti_confetti.dart';
 import 'qui_a_menti_score.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,7 +42,8 @@ class QuiAMentiGame extends StatefulWidget {
   State<QuiAMentiGame> createState() => _QuiAMentiGameState();
 }
 
-class _QuiAMentiGameState extends State<QuiAMentiGame> {
+class _QuiAMentiGameState extends State<QuiAMentiGame>
+    with TickerProviderStateMixin {
   // ── State ──────────────────────────────────────────────────────────────────
 
   bool _isLoading = true;
@@ -72,6 +75,31 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
   /// Number of validations used so far (0 – 3).
   int _validationCount = 0;
 
+  // ── Confetti ──────────────────────────────────────────────────────────────
+
+  /// Controller for the full-screen confetti overlay (10/10 on first attempt).
+  late final AnimationController _confettiController;
+
+  /// Whether to show the confetti overlay.
+  bool _showConfetti = false;
+
+  // ── Outcome animations ────────────────────────────────────────────────────
+
+  /// Shared controller for win-particles (2nd/3rd victory) and defeat effects.
+  late final AnimationController _outcomeController;
+
+  /// Horizontal shake applied to the whole content on defeat.
+  late final Animation<double> _shakeAnim;
+
+  /// Red flash opacity on defeat (rises then fades quickly).
+  late final Animation<double> _defeatFlashAnim;
+
+  /// Whether to show floating star particles (2nd/3rd attempt victory).
+  bool _showWinParticles = false;
+
+  /// Whether to show the defeat shake + flash.
+  bool _showDefeat = false;
+
   // ── Timer ─────────────────────────────────────────────────────────────────
 
   /// Total game duration in seconds (5 minutes).
@@ -91,12 +119,49 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
   void initState() {
     super.initState();
     _startTime = DateTime.now();
+    _confettiController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
+
+    _outcomeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    // Shake: quick left-right oscillation, finishes at 65% of the animation.
+    _shakeAnim =
+        TweenSequence([
+          TweenSequenceItem(tween: Tween(begin: 0.0, end: -14.0), weight: 15),
+          TweenSequenceItem(tween: Tween(begin: -14.0, end: 14.0), weight: 30),
+          TweenSequenceItem(tween: Tween(begin: 14.0, end: -9.0), weight: 25),
+          TweenSequenceItem(tween: Tween(begin: -9.0, end: 6.0), weight: 20),
+          TweenSequenceItem(tween: Tween(begin: 6.0, end: 0.0), weight: 10),
+        ]).animate(
+          CurvedAnimation(
+            parent: _outcomeController,
+            curve: const Interval(0.0, 0.65),
+          ),
+        );
+    // Red flash: peaks at 18% opacity then fades out in the first half.
+    _defeatFlashAnim =
+        TweenSequence([
+          TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.18), weight: 30),
+          TweenSequenceItem(tween: Tween(begin: 0.18, end: 0.0), weight: 70),
+        ]).animate(
+          CurvedAnimation(
+            parent: _outcomeController,
+            curve: const Interval(0.0, 0.50),
+          ),
+        );
+
     _loadClaim();
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _confettiController.dispose();
+    _outcomeController.dispose();
     super.dispose();
   }
 
@@ -155,6 +220,8 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
   void _moveCandidate(Candidate c, List<Candidate> target) {
     if (_lockedCardNames.contains(c.name)) return; // locked — cannot move
 
+    HapticFeedback.lightImpact(); // subtle vibration on card drop
+
     setState(() {
       _toClassify.remove(c);
       _trueBucket.remove(c);
@@ -208,8 +275,30 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
     setState(() => _lastScore = correct);
 
     if (perfect || invertedPerfect || lastAttempt) {
-      // Short pause so the score banner is visible before navigating.
-      Future.delayed(const Duration(milliseconds: 800), () {
+      final bool showConfetti = perfect && _validationCount == 1;
+      final bool showWinParticles = perfect && _validationCount > 1;
+      final bool showDefeat = !perfect;
+
+      if (showConfetti) {
+        setState(() => _showConfetti = true);
+        _confettiController.forward(from: 0);
+      }
+      if (showWinParticles) {
+        setState(() => _showWinParticles = true);
+        _outcomeController.forward(from: 0);
+      }
+      if (showDefeat) {
+        setState(() => _showDefeat = true);
+        _outcomeController.forward(from: 0);
+      }
+
+      // Give each animation enough time to be seen before navigating.
+      final delay = showConfetti
+          ? const Duration(milliseconds: 1800)
+          : (showWinParticles || showDefeat)
+          ? const Duration(milliseconds: 1200)
+          : const Duration(milliseconds: 800);
+      Future.delayed(delay, () {
         if (mounted) _endGame(timedOut: false, correctCount: correct);
       });
     } else {
@@ -218,6 +307,12 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
       // remains among the unlocked ones (prevents trivial deduction).
       if (correct > _lockedCardNames.length + 2) {
         setState(() => _revealOnePerBucket());
+        // Double medium impact — signals the card lock
+        HapticFeedback.mediumImpact();
+        Future.delayed(
+          const Duration(milliseconds: 120),
+          HapticFeedback.mediumImpact,
+        );
       }
     }
   }
@@ -260,22 +355,19 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
 
   // ── End game ──────────────────────────────────────────────────────────────
 
-  /// Stops the timer, computes the final score, and navigates to [QuiAMentiScore].
+  /// Stops the timer, computes stars, and navigates to [QuiAMentiScore].
   void _endGame({required bool timedOut, int? correctCount}) {
     _countdownTimer?.cancel();
 
-    // If called from the timer, compute the correct count from current state.
     final int correct = correctCount ?? _computeCorrectCount();
 
-    // Points based on which attempt yielded 10/10. Zero if failed or timed out.
-    int points = 0;
+    // Stars: only awarded for a perfect 10/10.
+    // 3 stars → 1st attempt, 2 stars → 2nd, 1 star → 3rd, 0 → failed/timeout.
+    int stars = 0;
     if (correct == 10) {
-      if (_validationCount == 1)
-        points = 100;
-      else if (_validationCount == 2)
-        points = 60;
-      else
-        points = 30;
+      if (_validationCount == 1)      stars = 3;
+      else if (_validationCount == 2) stars = 2;
+      else                            stars = 1;
     }
 
     final timeTaken = DateTime.now().difference(_startTime);
@@ -284,7 +376,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
       context,
       MaterialPageRoute(
         builder: (_) => QuiAMentiScore(
-          points: points,
+          stars: stars,
           correctCount: correct,
           validationsUsed: _validationCount,
           timeTaken: timeTaken,
@@ -354,23 +446,57 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
       },
       child: Scaffold(
         backgroundColor: AppColors.bg,
-        body: SafeArea(
-          child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.accentBright,
+        body: Stack(
+          children: [
+            // Main content — wrapped for the defeat shake.
+            AnimatedBuilder(
+              animation: _outcomeController,
+              builder: (_, child) => Transform.translate(
+                offset: _showDefeat ? Offset(_shakeAnim.value, 0) : Offset.zero,
+                child: child,
+              ),
+              child: SafeArea(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.accentBright,
+                        ),
+                      )
+                    : Column(
+                        children: [
+                          _buildAppBar(),
+                          _buildClaimCard(),
+                          _buildAttemptsBar(),
+                          if (_lastScore != null)
+                            _buildScoreBanner(_lastScore!),
+                          const SizedBox(height: 4),
+                          Expanded(child: _buildGameArea()),
+                          _buildValidateButton(),
+                        ],
+                      ),
+              ),
+            ),
+            // Defeat: red flash overlay.
+            if (_showDefeat)
+              IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _outcomeController,
+                  builder: (_, __) => Container(
+                    color: AppColors.red.withValues(
+                      alpha: _defeatFlashAnim.value,
+                    ),
                   ),
-                )
-              : Column(
-                  children: [
-                    _buildAppBar(),
-                    _buildClaimCard(),
-                    if (_lastScore != null) _buildScoreBanner(_lastScore!),
-                    const SizedBox(height: 4),
-                    Expanded(child: _buildGameArea()),
-                    _buildValidateButton(),
-                  ],
                 ),
+              ),
+            // Victory 2nd/3rd attempt: floating star particles.
+            if (_showWinParticles)
+              IgnorePointer(child: _buildWinParticlesOverlay()),
+            // Victory 1st attempt: full-screen confetti.
+            if (_showConfetti)
+              IgnorePointer(
+                child: QuiAMentiConfetti(controller: _confettiController),
+              ),
+          ],
         ),
       ),
     );
@@ -420,22 +546,6 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
               ),
             ),
           ),
-          // 3 dots — filled red for each validation used
-          Row(
-            children: List.generate(3, (i) {
-              final used = i < _validationCount;
-              return Container(
-                margin: const EdgeInsets.only(left: 5),
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: used ? AppColors.red : AppColors.border,
-                ),
-              );
-            }),
-          ),
-          const SizedBox(width: 12),
           // Countdown timer
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -451,6 +561,48 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Progress bar showing attempts used (1 segment per attempt, red when used).
+  Widget _buildAttemptsBar() {
+    final int remaining = 3 - _validationCount;
+    final String label = _validationCount == 0
+        ? '3 tentatives disponibles'
+        : remaining == 0
+        ? 'Dernière tentative utilisée'
+        : '$remaining tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          // 3 segment progress bar
+          ...List.generate(3, (i) {
+            final used = i < _validationCount;
+            return Expanded(
+              child: Container(
+                margin: EdgeInsets.only(right: i < 2 ? 4 : 0),
+                height: 4,
+                decoration: BoxDecoration(
+                  color: used ? AppColors.red : AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 10),
+          // Label
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: remaining == 1 ? AppColors.red : AppColors.textSecondary,
             ),
           ),
         ],
@@ -608,14 +760,25 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
                   color: accentColor,
                 ),
               ),
-              const SizedBox(height: 6),
-              // Candidate cards in a scrollable wrap
+              const SizedBox(height: 18),
+              // Candidate cards — locked cards always rendered first
               Expanded(
                 child: SingleChildScrollView(
                   child: Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: bucket.map(_buildCandidateCard).toList(),
+                    children:
+                        ([...bucket]..sort((a, b) {
+                              final aL = _lockedCardNames.contains(a.name)
+                                  ? 0
+                                  : 1;
+                              final bL = _lockedCardNames.contains(b.name)
+                                  ? 0
+                                  : 1;
+                              return aL.compareTo(bL);
+                            }))
+                            .map(_buildCandidateCard)
+                            .toList(),
                   ),
                 ),
               ),
@@ -641,11 +804,11 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: isHovered
-                ? AppColors.accentBright.withOpacity(0.05)
+                ? Colors.white.withValues(alpha: 0.06)
                 : AppColors.card,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isHovered ? AppColors.accentBright : AppColors.border,
+              color: isHovered ? AppColors.textSecondary : AppColors.border,
               width: isHovered ? 1.5 : 1,
             ),
           ),
@@ -683,60 +846,11 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
     );
   }
 
-  /// A single candidate chip.
-  ///   • Locked cards: green border + lock icon, not draggable.
-  ///   • Normal: dark background, draggable.
+  /// Delegates rendering to [_CandidateCard] which handles its own animation.
   Widget _buildCandidateCard(Candidate c) {
-    final bool isLocked = _lockedCardNames.contains(c.name);
-
-    final chip = AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: isLocked
-            ? AppColors.accentBright.withOpacity(0.1)
-            : AppColors.bg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isLocked ? AppColors.accentBright : AppColors.border,
-          width: isLocked ? 1.5 : 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isLocked)
-            const Padding(
-              padding: EdgeInsets.only(right: 4),
-              child: Icon(
-                Icons.lock_outline,
-                size: 12,
-                color: AppColors.accentBright,
-              ),
-            ),
-          Text(
-            c.name,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isLocked ? AppColors.accentBright : AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    // Locked cards are not wrapped in Draggable.
-    if (isLocked) return chip;
-
-    return Draggable<Candidate>(
-      data: c,
-      feedback: Material(
-        color: Colors.transparent,
-        child: Opacity(opacity: 0.9, child: chip),
-      ),
-      childWhenDragging: Opacity(opacity: 0.3, child: chip),
-      child: chip,
+    return _CandidateCard(
+      candidate: c,
+      isLocked: _lockedCardNames.contains(c.name),
     );
   }
 
@@ -814,5 +928,246 @@ class _QuiAMentiGameState extends State<QuiAMentiGame> {
           ),
         ) ??
         false;
+  }
+
+  /// Overlay with rising geometric particles for 2nd or 3rd attempt victory.
+  Widget _buildWinParticlesOverlay() {
+    const colors = [
+      AppColors.accentBright,
+      AppColors.amber,
+      Color(0xFF40C4FF), // light blue
+      AppColors.accentBright,
+      AppColors.orange,
+      Color(0xFF40C4FF),
+      AppColors.amber,
+      AppColors.accentBright,
+      AppColors.orange,
+      AppColors.amber,
+      AppColors.accentBright,
+      Color(0xFF40C4FF),
+    ];
+    final size = MediaQuery.of(context).size;
+    final rng  = Random(13);
+
+    return SizedBox.expand(
+      child: Stack(
+        children: List.generate(colors.length, (i) {
+          final x      = size.width  * 0.10 + rng.nextDouble() * size.width  * 0.80;
+          final y      = size.height * 0.40 + rng.nextDouble() * size.height * 0.25;
+          final sz     = 5.0 + rng.nextDouble() * 6.0;
+          final circle = rng.nextBool(); // circle or rotated square
+          return Positioned(
+            left: x,
+            top:  y,
+            child: _FloatingParticle(
+              size:       sz,
+              color:      colors[i],
+              isCircle:   circle,
+              controller: _outcomeController,
+              delay:      (i * 0.07).clamp(0.0, 0.7),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _FloatingParticle — geometric shape that rises and fades out
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FloatingParticle extends StatelessWidget {
+  final double size;
+  final Color color;
+  final bool isCircle;
+  final AnimationController controller;
+  final double delay;
+
+  const _FloatingParticle({
+    required this.size,
+    required this.color,
+    required this.isCircle,
+    required this.controller,
+    required this.delay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final curved = CurvedAnimation(
+      parent: controller,
+      curve: Interval(delay.clamp(0.0, 0.9), 1.0, curve: Curves.easeOut),
+    );
+    final offsetY = Tween<double>(begin: 0, end: -140).animate(curved);
+    final opacity = Tween<double>(begin: 0.9, end: 0).animate(
+      CurvedAnimation(
+        parent: controller,
+        curve: Interval(
+          (delay + 0.30).clamp(0.0, 1.0),
+          1.0,
+          curve: Curves.easeIn,
+        ),
+      ),
+    );
+    final rotation = Tween<double>(begin: 0, end: isCircle ? 0 : pi / 2)
+        .animate(curved);
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, __) => Transform.translate(
+        offset: Offset(0, offsetY.value),
+        child: Opacity(
+          opacity: opacity.value.clamp(0.0, 1.0),
+          child: Transform.rotate(
+            angle: rotation.value,
+            child: Container(
+              width:  size,
+              height: size,
+              decoration: BoxDecoration(
+                color: color,
+                shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
+                borderRadius: isCircle ? null : BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _CandidateCard — animated candidate chip
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A candidate chip that plays a bounce + glow animation when it becomes locked.
+/// Locked cards are not draggable and display a lock icon.
+class _CandidateCard extends StatefulWidget {
+  final Candidate candidate;
+  final bool isLocked;
+
+  const _CandidateCard({required this.candidate, required this.isLocked});
+
+  @override
+  State<_CandidateCard> createState() => _CandidateCardState();
+}
+
+class _CandidateCardState extends State<_CandidateCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    );
+
+    // Bounce: normal → pop → slight undershoot → settle
+    _scale = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.28), weight: 35),
+      TweenSequenceItem(tween: Tween(begin: 1.28, end: 0.92), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.92, end: 1.0), weight: 35),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    // Glow: fades in then out alongside the bounce
+    _glow = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 60),
+    ]).animate(_controller);
+  }
+
+  @override
+  void didUpdateWidget(_CandidateCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Trigger animation the moment this card becomes locked.
+    if (widget.isLocked && !oldWidget.isLocked) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = AnimatedBuilder(
+      animation: _controller,
+      builder: (_, __) {
+        return Transform.scale(
+          scale: _scale.value,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: widget.isLocked
+                  ? AppColors.accentBright.withOpacity(0.1)
+                  : AppColors.bg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: widget.isLocked
+                    ? AppColors.accentBright
+                    : AppColors.border,
+                width: widget.isLocked ? 1.5 : 1,
+              ),
+              // Glow effect during lock animation
+              boxShadow: widget.isLocked && _glow.value > 0
+                  ? [
+                      BoxShadow(
+                        color: AppColors.accentBright.withOpacity(
+                          _glow.value * 0.6,
+                        ),
+                        blurRadius: 12 * _glow.value,
+                        spreadRadius: 2 * _glow.value,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.isLocked)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.lock_outline,
+                      size: 12,
+                      color: AppColors.accentBright,
+                    ),
+                  ),
+                Text(
+                  widget.candidate.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: widget.isLocked
+                        ? AppColors.accentBright
+                        : AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    // Locked cards are not draggable.
+    if (widget.isLocked) return chip;
+
+    return Draggable<Candidate>(
+      data: widget.candidate,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Opacity(opacity: 0.9, child: chip),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: chip),
+      child: chip,
+    );
   }
 }
