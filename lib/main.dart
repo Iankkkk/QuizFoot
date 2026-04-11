@@ -5,7 +5,7 @@ import 'pages/result_page.dart';
 import 'pages/history_page.dart';
 import 'pages/qui_a_menti/qui_a_menti_intro.dart';
 import 'pages/parcours_joueur_page.dart';
-import 'pages/lineup_match_page.dart';
+import 'pages/lineup/lineup_match_page.dart';
 import 'pages/coup_doeil/quiz_test_intro.dart';
 
 void main() {

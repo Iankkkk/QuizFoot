@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:quiz_foot/pages/lineup_match_page.dart';
+import 'package:quiz_foot/pages/lineup/lineup_match_page.dart';
 
 // ── Palette ───────────────────────────────────────────────────────
 const _bg = Color(0xFF171923);

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'coup_doeil/quiz_test.dart';
 import 'coup_doeil/quiz_test_intro.dart';
-import 'package:quiz_foot/pages/lineup_match_page_intro.dart';
+import 'package:quiz_foot/pages/lineup/lineup_match_page_intro.dart';
 import 'package:quiz_foot/data/anecdotes_data.dart';
 import 'package:quiz_foot/data/players_data.dart';
 import 'package:quiz_foot/data/data_cache.dart';
