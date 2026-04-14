@@ -6,8 +6,12 @@
 //   • Type a player's last name to find him
 //   • 6 errors max before defeat
 //   • Hint (numbers) costs 3 points
-//   • "Passer" reveals one player (no point awarded)
-//   • Score = 1 pt per player found (hint deducts 3)
+//   • "Passer" ends the game (with confirmation)
+//   • Score = 1 pt per player found (hint deducts 3, can go negative)
+//
+// Layout:
+//   • If both formations are supported → full pitch view (home bottom / away top)
+//   • Otherwise → classic tab view (fallback)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -19,11 +23,41 @@ import '../../data/lineup_game_data.dart';
 import '../../data/api_exception.dart';
 import '../../models/match_model.dart';
 import '../../models/lineup_model.dart';
+import 'formation_layout.dart';
 import 'lineup_score_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+Color _parseTeamColor(String? name) {
+  switch (name?.toLowerCase().trim()) {
+    case 'blanc':
+      return const Color(0xFFF0F0F0);
+    case 'noir':
+      return const Color(0xFF1F2937);
+    case 'rouge':
+      return const Color(0xFFDC2626);
+    case 'bleu':
+      return const Color(0xFF1D4ED8);
+    case 'bleu clair':
+      return const Color(0xFF60A5FA);
+    case 'bleu foncé':
+      return const Color.fromARGB(255, 12, 3, 77);
+    case 'vert':
+      return const Color(0xFF16A34A);
+    case 'jaune':
+      return const Color(0xFFFACC15);
+    default:
+      return const Color(0xFF4A5568);
+  }
+}
+
+// Returns null if no second color → flat circle
+Color? _parseTeamColor2(String? name) {
+  if (name == null || name.trim().isEmpty) return null;
+  return _parseTeamColor(name);
+}
 
 int _difficultyToLevel(String difficulty) {
   switch (difficulty) {
@@ -63,7 +97,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   // ── Game state ────────────────────────────────────────────────────────────
   final Set<String> _foundPlayers = {};
-  final Set<String> _passedPlayers = {}; // revealed via "Passer" — no point
+  final Set<String> _passedPlayers = {};
   int _errors = 0;
   int _score = 0;
   bool _showNumbersHint = false;
@@ -71,7 +105,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   static const int _maxErrors = 6;
 
-  // ── Tabs ──────────────────────────────────────────────────────────────────
+  // ── Tabs (fallback only) ──────────────────────────────────────────────────
   late TabController _tabController;
 
   // ── Input ─────────────────────────────────────────────────────────────────
@@ -111,8 +145,22 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     setState(() => _isLoading = true);
     try {
       final matches = await loadMatches();
-      final level = _difficultyToLevel(widget.difficulty);
-      final filtered = matches.where((m) => m.level == level).toList();
+
+      List<Match> filtered;
+
+      // "Test" mode: only matches where BOTH formations are supported
+      if (widget.difficulty == 'Test') {
+        filtered = matches
+            .where(
+              (m) =>
+                  isFormationSupported(m.formationHome) &&
+                  isFormationSupported(m.formationAway),
+            )
+            .toList();
+      } else {
+        final level = _difficultyToLevel(widget.difficulty);
+        filtered = matches.where((m) => m.level == level).toList();
+      }
 
       if (filtered.isEmpty) {
         _showFeedback('Aucun match pour cette difficulté', AppColors.red);
@@ -186,7 +234,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           lastNorm == answer ||
           lastNorm.similarityTo(answer) >= 0.8) {
         exactMatches.add(l);
-      } else if (lastNorm.similarityTo(answer) >= 0.4) {
+      } else if (lastNorm.similarityTo(answer) >= 0.5) {
         closeMatches.add(l);
       }
     }
@@ -210,7 +258,9 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     if (newFound.isNotEmpty) {
       HapticFeedback.mediumImpact();
       setState(() {
-        for (final p in newFound) _foundPlayers.add(p.playerName);
+        for (final p in newFound) {
+          _foundPlayers.add(p.playerName);
+        }
         _score += newFound.length;
       });
       final label = newFound.length > 1
@@ -218,7 +268,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           : '${_lastName(newFound.first.playerName)} ✓  (+1)';
       _showFeedback(label, AppColors.accentBright);
       _inputController.clear();
-      _inputFocus.requestFocus();
+      _inputFocus.unfocus();
       _checkVictory();
       return;
     }
@@ -228,7 +278,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       HapticFeedback.lightImpact();
       _showFeedback('Déjà trouvé !', AppColors.amber);
       _inputController.clear();
-      _inputFocus.requestFocus();
+      _inputFocus.unfocus();
       return;
     }
 
@@ -255,7 +305,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       AppColors.red,
     );
     _inputController.clear();
-    _inputFocus.requestFocus();
+    _inputFocus.unfocus();
 
     if (_errors >= _maxErrors) {
       Future.delayed(
@@ -265,7 +315,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     }
   }
 
-  /// Ends the game early (player gives up).
   Future<void> _passPlayer() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -338,10 +387,17 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Computed ──────────────────────────────────────────────────────────────
 
   int get _totalPlayers => _lineups.length;
   int get _revealedCount => _foundPlayers.length + _passedPlayers.length;
+
+  bool get _isPitchMode {
+    final m = _selectedMatch;
+    if (m == null) return false;
+    return isFormationSupported(m.formationHome) &&
+        isFormationSupported(m.formationAway);
+  }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -369,28 +425,12 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                       children: [
                         _buildAppBar(),
                         _buildStatusBar(),
-                        _buildTabBar(),
+                        if (!_isPitchMode) _buildTabBar(),
                       ],
                     ),
                   ),
                   Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                          child: _buildTeamContent(
-                            _selectedMatch?.homeTeam ?? '',
-                          ),
-                        ),
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                          child: _buildTeamContent(
-                            _selectedMatch?.awayTeam ?? '',
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: _isPitchMode ? _buildPitchView() : _buildTabView(),
                   ),
                   _buildInputBar(),
                 ],
@@ -399,7 +439,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     );
   }
 
-  // ── Widget builders ───────────────────────────────────────────────────────
+  // ── App bar ───────────────────────────────────────────────────────────────
 
   Widget _buildAppBar() {
     return Container(
@@ -457,7 +497,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
               ],
             ),
           ),
-          // Score pill
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
@@ -479,17 +518,16 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     );
   }
 
-  /// Progress bar (found/total) + 6-segment error bar.
+  // ── Status bar ────────────────────────────────────────────────────────────
+
   Widget _buildStatusBar() {
     final pct = _totalPlayers == 0 ? 0.0 : _revealedCount / _totalPlayers;
-
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       color: AppColors.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Progress row
           Row(
             children: [
               Expanded(
@@ -517,8 +555,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             ],
           ),
           const SizedBox(height: 8),
-
-          // Error bar — 6 segments, red when used
           Row(
             children: [
               ...List.generate(_maxErrors, (i) {
@@ -552,6 +588,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     );
   }
 
+  // ── Fallback: tab bar ─────────────────────────────────────────────────────
+
   Widget _buildTabBar() {
     return Container(
       color: AppColors.card,
@@ -574,6 +612,24 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     );
   }
 
+  // ── Fallback: tab view ────────────────────────────────────────────────────
+
+  Widget _buildTabView() {
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: _buildTeamContent(_selectedMatch?.homeTeam ?? ''),
+        ),
+        SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: _buildTeamContent(_selectedMatch?.awayTeam ?? ''),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTeamContent(String teamName) {
     final starters = _lineups
         .where((l) => l.teamName == teamName && l.starter)
@@ -581,7 +637,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     final subs = _lineups
         .where((l) => l.teamName == teamName && !l.starter)
         .toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -646,6 +701,244 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     );
   }
 
+  // ── Pitch view ────────────────────────────────────────────────────────────
+
+  Widget _buildPitchView() {
+    final match = _selectedMatch!;
+    final homeStart = _lineups
+        .where((l) => l.teamName == match.homeTeam && l.starter)
+        .toList();
+    final awayStart = _lineups
+        .where((l) => l.teamName == match.awayTeam && l.starter)
+        .toList();
+    final homeSubs = _lineups
+        .where((l) => l.teamName == match.homeTeam && !l.starter)
+        .toList();
+    final awaySubs = _lineups
+        .where((l) => l.teamName == match.awayTeam && !l.starter)
+        .toList();
+
+    final homeSlots = assignPlayersToSlots(homeStart, match.formationHome);
+    final awaySlots = assignPlayersToSlots(awayStart, match.formationAway);
+    final homeLines = kFormationLines[match.formationHome]!;
+    final awayLines = kFormationLines[match.formationAway]!;
+
+    return Column(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = constraints.biggest;
+              return Stack(
+                children: [
+                  // ── Pitch background ──
+                  CustomPaint(size: size, painter: _PitchPainter()),
+
+                  // ── Team labels — left side, near each GK zone ──
+                  Positioned(
+                    left: 16,
+                    top: size.height * 0.06,
+                    child: Text(
+                      match.awayTeam.toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 16,
+                    bottom: size.height * 0.06,
+                    child: Text(
+                      match.homeTeam.toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+
+                  // ── Away team chips (top half) ──
+                  ..._buildTeamChips(
+                    slots: awaySlots,
+                    lines: awayLines,
+                    isHomeTeam: false,
+                    size: size,
+                  ),
+
+                  // ── Home team chips (bottom half) ──
+                  ..._buildTeamChips(
+                    slots: homeSlots,
+                    lines: homeLines,
+                    isHomeTeam: true,
+                    size: size,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+
+        // ── Bench (subs) ──
+        _buildBench(homeSubs: homeSubs, awaySubs: awaySubs),
+      ],
+    );
+  }
+
+  List<Widget> _buildTeamChips({
+    required List<Lineup?> slots,
+    required List<List<String>> lines,
+    required bool isHomeTeam,
+    required Size size,
+  }) {
+    final match = _selectedMatch!;
+    final totalLines = lines.length;
+    final double availableY = size.height * 0.40;
+    final double spacePerLine = totalLines > 1
+        ? availableY / (totalLines - 1)
+        : availableY;
+    final double chipRadius = (spacePerLine * 0.38).clamp(12.0, 18.0);
+    final Color teamColor = isHomeTeam
+        ? _parseTeamColor(match.colorHome)
+        : _parseTeamColor(match.colorAway);
+    final Color? teamColor2 = isHomeTeam
+        ? _parseTeamColor2(match.colorHome2)
+        : _parseTeamColor2(match.colorAway2);
+
+    final widgets = <Widget>[];
+    int slotIdx = 0;
+
+    for (int li = 0; li < lines.length; li++) {
+      final line = lines[li];
+      for (int si = 0; si < line.length; si++) {
+        final player = slots[slotIdx++];
+        final frac = slotFraction(
+          lineIndex: li,
+          slotIndex: si,
+          totalSlotsInLine: line.length,
+          totalLines: totalLines,
+          isHomeTeam: isHomeTeam,
+        );
+
+        final x = frac.dx * size.width;
+        final y = frac.dy * size.height;
+
+        widgets.add(
+          Positioned(
+            left: x - chipRadius - 4,
+            top: y - chipRadius - 2,
+            child: _PitchChip(
+              player: player,
+              isFound:
+                  player != null && _foundPlayers.contains(player.playerName),
+              isPassed:
+                  player != null && _passedPlayers.contains(player.playerName),
+              showNumber: _showNumbersHint,
+              chipRadius: chipRadius,
+              teamColor: teamColor,
+              teamColor2: teamColor2,
+            ),
+          ),
+        );
+      }
+    }
+    return widgets;
+  }
+
+  // ── Bench bar ─────────────────────────────────────────────────────────────
+
+  Widget _buildBench({
+    required List<Lineup> homeSubs,
+    required List<Lineup> awaySubs,
+  }) {
+    if (homeSubs.isEmpty && awaySubs.isEmpty) return const SizedBox.shrink();
+
+    final match = _selectedMatch!;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildBenchTeam(
+              match.homeTeam,
+              homeSubs,
+              _parseTeamColor(match.colorHome),
+              _parseTeamColor2(match.colorHome2),
+            ),
+          ),
+          Container(width: 1, height: 60, color: AppColors.border),
+          Expanded(
+            child: _buildBenchTeam(
+              match.awayTeam,
+              awaySubs,
+              _parseTeamColor(match.colorAway),
+              _parseTeamColor2(match.colorAway2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenchTeam(
+    String teamName,
+    List<Lineup> subs,
+    Color teamColor,
+    Color? teamColor2,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 10, bottom: 4),
+          child: Text(
+            teamName.toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 8,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            itemCount: subs.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final sub = subs[i];
+              final found = _foundPlayers.contains(sub.playerName);
+              final passed = _passedPlayers.contains(sub.playerName);
+              return _SubChip(
+                player: sub,
+                isFound: found,
+                isPassed: passed,
+                showNumber: _showNumbersHint,
+                teamColor: teamColor,
+                teamColor2: teamColor2,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Input bar ─────────────────────────────────────────────────────────────
+
   Widget _buildInputBar() {
     return SafeArea(
       top: false,
@@ -658,7 +951,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Inline feedback
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               child: _feedbackText != null
@@ -676,8 +968,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                     )
                   : const SizedBox(key: ValueKey('empty'), height: 0),
             ),
-
-            // Input row
             Row(
               children: [
                 Expanded(
@@ -721,8 +1011,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                   ),
                 ),
                 const SizedBox(width: 8),
-
-                // Validate
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accentBright,
@@ -743,8 +1031,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                   ),
                 ),
                 const SizedBox(width: 8),
-
-                // Hint (numbers, -3 pts)
                 GestureDetector(
                   onTap: _showNumbersHint || _gameOver ? null : _askNumbersHint,
                   child: AnimatedContainer(
@@ -766,8 +1052,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                   ),
                 ),
                 const SizedBox(width: 8),
-
-                // Passer
                 GestureDetector(
                   onTap: _gameOver ? null : _passPlayer,
                   child: Container(
@@ -887,13 +1171,417 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _PlayerCard
+// _PitchPainter
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PitchPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Base green
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w, h),
+      Paint()..color = const Color(0xFF1A5C2A),
+    );
+
+    // Alternating stripes
+    const stripeColor = Color(0xFF1E6830);
+    const stripes = 8;
+    final stripeH = h / stripes;
+    for (int i = 0; i < stripes; i += 2) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, i * stripeH, w, stripeH),
+        Paint()..color = stripeColor,
+      );
+    }
+
+    final line = Paint()
+      ..color = Colors.white.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    const p = 10.0; // pitch padding
+
+    // Outer border
+    canvas.drawRect(Rect.fromLTRB(p, p, w - p, h - p), line);
+
+    // Center line
+    canvas.drawLine(Offset(p, h / 2), Offset(w - p, h / 2), line);
+
+    // Center circle
+    canvas.drawCircle(Offset(w / 2, h / 2), h * 0.09, line);
+
+    // Center dot
+    canvas.drawCircle(
+      Offset(w / 2, h / 2),
+      3,
+      Paint()..color = Colors.white.withValues(alpha: 0.55),
+    );
+
+    // Penalty areas
+    final penW = w * 0.55;
+    final penH = h * 0.13;
+    final penLeft = (w - penW) / 2;
+
+    // Top (away goal)
+    canvas.drawRect(Rect.fromLTRB(penLeft, p, penLeft + penW, p + penH), line);
+    // Bottom (home goal)
+    canvas.drawRect(
+      Rect.fromLTRB(penLeft, h - p - penH, penLeft + penW, h - p),
+      line,
+    );
+
+    // Goal areas
+    final goalW = w * 0.28;
+    final goalH = h * 0.05;
+    final goalLeft = (w - goalW) / 2;
+
+    canvas.drawRect(
+      Rect.fromLTRB(goalLeft, p, goalLeft + goalW, p + goalH),
+      line,
+    );
+    canvas.drawRect(
+      Rect.fromLTRB(goalLeft, h - p - goalH, goalLeft + goalW, h - p),
+      line,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _PitchChip  —  player chip on the pitch
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PitchChip extends StatefulWidget {
+  final Lineup? player;
+  final bool isFound;
+  final bool isPassed;
+  final bool showNumber;
+  final double chipRadius;
+  final Color teamColor;
+  final Color? teamColor2;
+
+  const _PitchChip({
+    required this.player,
+    required this.isFound,
+    required this.isPassed,
+    required this.showNumber,
+    required this.chipRadius,
+    required this.teamColor,
+    this.teamColor2,
+  });
+
+  @override
+  State<_PitchChip> createState() => _PitchChipState();
+}
+
+class _PitchChipState extends State<_PitchChip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _scale = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.4, end: 0.9), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.0), weight: 30),
+    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void didUpdateWidget(_PitchChip old) {
+    super.didUpdateWidget(old);
+    if (!old.isFound && widget.isFound) {
+      _ctrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String get _shortName {
+    if (widget.player == null) return '';
+    return widget.player!.playerName.trim().split(' ').last;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final revealed = widget.isFound || widget.isPassed;
+    final d = widget.chipRadius * 2;
+
+    String label;
+    if (revealed) {
+      label = widget.player!.playerNumber > 0
+          ? '${widget.player!.playerNumber}'
+          : '✓';
+    } else if (widget.showNumber &&
+        widget.player != null &&
+        widget.player!.playerNumber > 0) {
+      label = '${widget.player!.playerNumber}';
+    } else {
+      label = '?';
+    }
+
+    final numFontSize = d < 28 ? 8.0 : 10.0;
+
+    // Not found → empty circle (transparent + white border)
+    // Passed    → amber fill
+    // Found     → team colors
+    final Color c1 = widget.isPassed ? AppColors.amber : widget.teamColor;
+    final Color c2 = widget.isPassed
+        ? AppColors.amber
+        : (widget.teamColor2 ?? widget.teamColor);
+
+    final bool filled = revealed; // only fill when found/passed
+
+    return SizedBox(
+      width: d + 8,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: _scale,
+            builder: (_, child) =>
+                Transform.scale(scale: _scale.value, child: child),
+            child: Container(
+              width: d,
+              height: d,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: filled
+                    ? LinearGradient(
+                        colors: [c1, c1, c2, c2],
+                        stops: const [0.0, 0.5, 0.5, 1.0],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      )
+                    : null,
+                color: filled ? null : Colors.transparent,
+                border: Border.all(
+                  color: Colors.white,
+                  width: filled ? 1.5 : 1.2,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x55000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: numFontSize,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                    shadows: const [
+                      Shadow(color: Colors.black54, blurRadius: 3),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (revealed && widget.chipRadius >= 13) ...[
+            const SizedBox(height: 1),
+            SizedBox(
+              width: d + 8,
+              child: Text(
+                _shortName,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: widget.isFound
+                      ? AppColors.accentBright
+                      : AppColors.amber,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _SubChip  —  compact chip for bench players
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SubChip extends StatefulWidget {
+  final Lineup player;
+  final bool isFound;
+  final bool isPassed;
+  final bool showNumber;
+  final Color teamColor;
+  final Color? teamColor2;
+
+  const _SubChip({
+    required this.player,
+    required this.isFound,
+    required this.isPassed,
+    required this.showNumber,
+    required this.teamColor,
+    this.teamColor2,
+  });
+
+  @override
+  State<_SubChip> createState() => _SubChipState();
+}
+
+class _SubChipState extends State<_SubChip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _scale = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.4, end: 0.9), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.0), weight: 30),
+    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void didUpdateWidget(_SubChip old) {
+    super.didUpdateWidget(old);
+    if (!old.isFound && widget.isFound) {
+      _ctrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String get _shortName => widget.player.playerName.trim().split(' ').last;
+
+  @override
+  Widget build(BuildContext context) {
+    final revealed = widget.isFound || widget.isPassed;
+
+    final label = revealed
+        ? (widget.player.playerNumber > 0
+              ? '${widget.player.playerNumber}'
+              : '✓')
+        : (widget.showNumber && widget.player.playerNumber > 0
+              ? '${widget.player.playerNumber}'
+              : '?');
+
+    const double d = 32;
+
+    final Color c1 = widget.isPassed ? AppColors.amber : widget.teamColor;
+    final Color c2 = widget.isPassed
+        ? AppColors.amber
+        : (widget.teamColor2 ?? widget.teamColor);
+    final bool filled = revealed;
+
+    return AnimatedBuilder(
+      animation: _scale,
+      builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: d,
+            height: d,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: filled
+                  ? LinearGradient(
+                      colors: [c1, c1, c2, c2],
+                      stops: const [0.0, 0.5, 0.5, 1.0],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    )
+                  : null,
+              color: filled ? null : Colors.transparent,
+              border: Border.all(
+                color: Colors.white,
+                width: filled ? 1.5 : 1.2,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x55000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+                ),
+              ),
+            ),
+          ),
+          if (revealed) ...[
+            const SizedBox(height: 2),
+            SizedBox(
+              width: 44,
+              child: Text(
+                _shortName,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: widget.isFound
+                      ? AppColors.accentBright
+                      : AppColors.amber,
+                  fontSize: 7,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _PlayerCard  —  card for fallback list view
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PlayerCard extends StatelessWidget {
   final Lineup player;
   final bool isFound;
-  final bool isPassed; // revealed via "Passer" — shown in amber
+  final bool isPassed;
   final bool showNumber;
 
   const _PlayerCard({
@@ -932,7 +1620,6 @@ class _PlayerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final revealed = isFound || isPassed;
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
@@ -962,7 +1649,7 @@ class _PlayerCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 8,
                       fontWeight: FontWeight.w800,
-                      color: Color.fromARGB(255, 255, 255, 255),
+                      color: Colors.white,
                     ),
                   ),
                 ),

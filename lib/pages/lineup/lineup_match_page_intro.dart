@@ -19,6 +19,7 @@ class LineupMatchPageIntro extends StatelessWidget {
     "Moyenne",
     "Difficile",
     "Impossible",
+    "Test",
   ];
 
   static const List<IconData> _ruleIcons = [
@@ -53,6 +54,8 @@ class LineupMatchPageIntro extends StatelessWidget {
         return const Color(0xFFDA3633);
       case "Impossible":
         return const Color(0xFF8957E5);
+      case "Test":
+        return const Color(0xFF4A90D9);
       default:
         return _textSecondary;
     }
