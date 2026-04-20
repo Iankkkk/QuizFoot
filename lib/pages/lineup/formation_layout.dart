@@ -49,7 +49,7 @@ const Map<String, List<List<String>>> kFormationLines = {
   '3-2-4-1': [
     ['GB'],
     ['DC', 'DC', 'DC'],
-    ['MC', 'MC'],
+    ['MDC', 'MDC'],
     ['MG', 'MOC', 'MOC', 'MD'],
     ['BU'],
   ],
@@ -100,7 +100,10 @@ List<Lineup?> assignPlayersToSlots(List<Lineup> starters, String formation) {
 /// Returns the (x, y) fractions [0..1] for a given slot.
 ///
 /// Home team: GK at bottom (y≈0.93), attackers toward center (y≈0.56).
-/// Away team: mirror (GK at y≈0.07, attackers toward y≈0.44).
+/// Away team: mirror on both axes — GK at top (y≈0.07), attackers toward y≈0.44.
+/// X is mirrored for the away team so that DG/DD (defined left→right from the
+/// team's own perspective) stay consistent with the player's point of view
+/// when the team is flipped at the top of the pitch.
 Offset slotFraction({
   required int lineIndex,
   required int slotIndex,
@@ -108,7 +111,8 @@ Offset slotFraction({
   required int totalLines,
   required bool isHomeTeam,
 }) {
-  final double x = (slotIndex + 1) / (totalSlotsInLine + 1);
+  final double xRaw = (slotIndex + 1) / (totalSlotsInLine + 1);
+  final double x = isHomeTeam ? xRaw : 1.0 - xRaw;
 
   const double gkY = 0.93; // GK side
   const double attackY = 0.56; // nearest to center line

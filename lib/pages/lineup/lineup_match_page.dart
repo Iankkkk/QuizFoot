@@ -35,7 +35,7 @@ Color _parseTeamColor(String? name) {
     case 'blanc':
       return const Color(0xFFF0F0F0);
     case 'noir':
-      return const Color(0xFF1F2937);
+      return const Color.fromARGB(255, 0, 0, 0);
     case 'rouge':
       return const Color(0xFFDC2626);
     case 'bleu':
@@ -98,12 +98,15 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   // ── Game state ────────────────────────────────────────────────────────────
   final Set<String> _foundPlayers = {};
   final Set<String> _passedPlayers = {};
+  final Set<String> _hintedPlayers = {};
   int _errors = 0;
   int _score = 0;
+  int _hintsUsed = 0;
   bool _showNumbersHint = false;
   bool _gameOver = false;
 
   static const int _maxErrors = 6;
+  static const int _maxFreeHints = 3;
 
   // ── Tabs (fallback only) ──────────────────────────────────────────────────
   late TabController _tabController;
@@ -187,8 +190,10 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         _lineups = all.where((l) => l.matchId == matchId).toList();
         _foundPlayers.clear();
         _passedPlayers.clear();
+        _hintedPlayers.clear();
         _errors = 0;
         _score = 0;
+        _hintsUsed = 0;
         _isLoading = false;
       });
     } on ApiException catch (e) {
@@ -228,13 +233,25 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     final List<Lineup> closeMatches = [];
 
     for (final l in _lineups) {
-      final fullNorm = _norm(l.playerName);
-      final lastNorm = _norm(_lastName(l.playerName));
-      if (fullNorm == answer ||
-          lastNorm == answer ||
-          lastNorm.similarityTo(answer) >= 0.8) {
+      bool isExact = false;
+      double bestSim = 0.0;
+
+      for (final name in l.allNames) {
+        final fullNorm = _norm(name);
+        final lastNorm = _norm(_lastName(name));
+        if (fullNorm == answer ||
+            lastNorm == answer ||
+            lastNorm.similarityTo(answer) >= 0.8) {
+          isExact = true;
+          break;
+        }
+        final sim = lastNorm.similarityTo(answer);
+        if (sim > bestSim) bestSim = sim;
+      }
+
+      if (isExact) {
         exactMatches.add(l);
-      } else if (lastNorm.similarityTo(answer) >= 0.5) {
+      } else if (bestSim >= 0.5) {
         closeMatches.add(l);
       }
     }
@@ -312,6 +329,104 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         const Duration(milliseconds: 700),
         () => _endGame(defeat: true),
       );
+    }
+  }
+
+  // First letter of the canonical last name, uppercased.
+  String _firstLetter(Lineup l) {
+    final last = _lastName(l.playerName);
+    return last.isEmpty ? '?' : last[0].toUpperCase();
+  }
+
+  Future<void> _onChipTap(Lineup player) async {
+    if (_gameOver) return;
+    // Nothing to reveal on already-resolved or already-hinted players.
+    if (_foundPlayers.contains(player.playerName) ||
+        _passedPlayers.contains(player.playerName) ||
+        _hintedPlayers.contains(player.playerName)) {
+      return;
+    }
+
+    final remaining = _maxFreeHints - _hintsUsed;
+    final canHint = remaining > 0;
+    final lastName = _lastName(player.playerName);
+    final letter = _firstLetter(player);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: const Text(
+          'Indice',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Poste : ${player.position}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            Text(
+              'Équipe : ${player.teamName}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              canHint
+                  ? 'Révéler la 1ère lettre du nom ?\n($remaining indice${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''})'
+                  : 'Tu as utilisé tes $_maxFreeHints indices.',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+              ),
+            ),
+            if (!canHint) ...[const SizedBox(height: 6)],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          if (canHint)
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text(
+                'Révéler',
+                style: TextStyle(
+                  color: AppColors.accentBright,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && canHint) {
+      HapticFeedback.lightImpact();
+      setState(() {
+        _hintedPlayers.add(player.playerName);
+        _hintsUsed++;
+      });
     }
   }
 
@@ -660,12 +775,18 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             crossAxisSpacing: 8,
             childAspectRatio: 0.78,
           ),
-          itemBuilder: (_, i) => _PlayerCard(
-            player: starters[i],
-            isFound: _foundPlayers.contains(starters[i].playerName),
-            isPassed: _passedPlayers.contains(starters[i].playerName),
-            showNumber: _showNumbersHint,
-          ),
+          itemBuilder: (_, i) {
+            final p = starters[i];
+            final hinted = _hintedPlayers.contains(p.playerName);
+            return _PlayerCard(
+              player: p,
+              isFound: _foundPlayers.contains(p.playerName),
+              isPassed: _passedPlayers.contains(p.playerName),
+              showNumber: _showNumbersHint,
+              hintLetter: hinted ? _firstLetter(p) : null,
+              onTap: () => _onChipTap(p),
+            );
+          },
         ),
         if (subs.isNotEmpty) ...[
           const SizedBox(height: 20),
@@ -685,15 +806,21 @@ class _LineupMatchPageState extends State<LineupMatchPage>
               scrollDirection: Axis.horizontal,
               itemCount: subs.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) => SizedBox(
-                width: 72,
-                child: _PlayerCard(
-                  player: subs[i],
-                  isFound: _foundPlayers.contains(subs[i].playerName),
-                  isPassed: _passedPlayers.contains(subs[i].playerName),
-                  showNumber: _showNumbersHint,
-                ),
-              ),
+              itemBuilder: (_, i) {
+                final p = subs[i];
+                final hinted = _hintedPlayers.contains(p.playerName);
+                return SizedBox(
+                  width: 72,
+                  child: _PlayerCard(
+                    player: p,
+                    isFound: _foundPlayers.contains(p.playerName),
+                    isPassed: _passedPlayers.contains(p.playerName),
+                    showNumber: _showNumbersHint,
+                    hintLetter: hinted ? _firstLetter(p) : null,
+                    onTap: () => _onChipTap(p),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -827,6 +954,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         final x = frac.dx * size.width;
         final y = frac.dy * size.height;
 
+        final bool isHinted =
+            player != null && _hintedPlayers.contains(player.playerName);
         widgets.add(
           Positioned(
             left: x - chipRadius - 4,
@@ -838,6 +967,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
               isPassed:
                   player != null && _passedPlayers.contains(player.playerName),
               showNumber: _showNumbersHint,
+              hintLetter: isHinted ? _firstLetter(player) : null,
+              onTap: player == null ? null : () => _onChipTap(player),
               chipRadius: chipRadius,
               teamColor: teamColor,
               teamColor2: teamColor2,
@@ -922,11 +1053,14 @@ class _LineupMatchPageState extends State<LineupMatchPage>
               final sub = subs[i];
               final found = _foundPlayers.contains(sub.playerName);
               final passed = _passedPlayers.contains(sub.playerName);
+              final hinted = _hintedPlayers.contains(sub.playerName);
               return _SubChip(
                 player: sub,
                 isFound: found,
                 isPassed: passed,
                 showNumber: _showNumbersHint,
+                hintLetter: hinted ? _firstLetter(sub) : null,
+                onTap: () => _onChipTap(sub),
                 teamColor: teamColor,
                 teamColor2: teamColor2,
               );
@@ -1261,6 +1395,8 @@ class _PitchChip extends StatefulWidget {
   final bool isFound;
   final bool isPassed;
   final bool showNumber;
+  final String? hintLetter;
+  final VoidCallback? onTap;
   final double chipRadius;
   final Color teamColor;
   final Color? teamColor2;
@@ -1273,6 +1409,8 @@ class _PitchChip extends StatefulWidget {
     required this.chipRadius,
     required this.teamColor,
     this.teamColor2,
+    this.hintLetter,
+    this.onTap,
   });
 
   @override
@@ -1327,6 +1465,8 @@ class _PitchChipState extends State<_PitchChip>
       label = widget.player!.playerNumber > 0
           ? '${widget.player!.playerNumber}'
           : '✓';
+    } else if (widget.hintLetter != null) {
+      label = widget.hintLetter!;
     } else if (widget.showNumber &&
         widget.player != null &&
         widget.player!.playerNumber > 0) {
@@ -1347,77 +1487,81 @@ class _PitchChipState extends State<_PitchChip>
 
     final bool filled = revealed; // only fill when found/passed
 
-    return SizedBox(
-      width: d + 8,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedBuilder(
-            animation: _scale,
-            builder: (_, child) =>
-                Transform.scale(scale: _scale.value, child: child),
-            child: Container(
-              width: d,
-              height: d,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: filled
-                    ? LinearGradient(
-                        colors: [c1, c1, c2, c2],
-                        stops: const [0.0, 0.5, 0.5, 1.0],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      )
-                    : null,
-                color: filled ? null : Colors.transparent,
-                border: Border.all(
-                  color: Colors.white,
-                  width: filled ? 1.5 : 1.2,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x55000000),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  label,
-                  style: TextStyle(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.player == null || revealed ? null : widget.onTap,
+      child: SizedBox(
+        width: d + 8,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedBuilder(
+              animation: _scale,
+              builder: (_, child) =>
+                  Transform.scale(scale: _scale.value, child: child),
+              child: Container(
+                width: d,
+                height: d,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: filled
+                      ? LinearGradient(
+                          colors: [c1, c1, c2, c2],
+                          stops: const [0.0, 0.5, 0.5, 1.0],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        )
+                      : null,
+                  color: filled ? null : Colors.transparent,
+                  border: Border.all(
                     color: Colors.white,
-                    fontSize: numFontSize,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
-                    shadows: const [
-                      Shadow(color: Colors.black54, blurRadius: 3),
-                    ],
+                    width: filled ? 1.5 : 1.2,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x55000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: numFontSize,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                      shadows: const [
+                        Shadow(color: Colors.black54, blurRadius: 3),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          if (revealed && widget.chipRadius >= 13) ...[
-            const SizedBox(height: 1),
-            SizedBox(
-              width: d + 8,
-              child: Text(
-                _shortName,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: widget.isFound
-                      ? AppColors.accentBright
-                      : AppColors.amber,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
+            if (revealed && widget.chipRadius >= 13) ...[
+              const SizedBox(height: 1),
+              SizedBox(
+                width: d + 8,
+                child: Text(
+                  _shortName,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: widget.isFound
+                        ? const Color.fromARGB(255, 181, 237, 187)
+                        : AppColors.amber,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1432,6 +1576,8 @@ class _SubChip extends StatefulWidget {
   final bool isFound;
   final bool isPassed;
   final bool showNumber;
+  final String? hintLetter;
+  final VoidCallback? onTap;
   final Color teamColor;
   final Color? teamColor2;
 
@@ -1442,6 +1588,8 @@ class _SubChip extends StatefulWidget {
     required this.showNumber,
     required this.teamColor,
     this.teamColor2,
+    this.hintLetter,
+    this.onTap,
   });
 
   @override
@@ -1487,13 +1635,18 @@ class _SubChipState extends State<_SubChip>
   Widget build(BuildContext context) {
     final revealed = widget.isFound || widget.isPassed;
 
-    final label = revealed
-        ? (widget.player.playerNumber > 0
-              ? '${widget.player.playerNumber}'
-              : '✓')
-        : (widget.showNumber && widget.player.playerNumber > 0
-              ? '${widget.player.playerNumber}'
-              : '?');
+    final String label;
+    if (revealed) {
+      label = widget.player.playerNumber > 0
+          ? '${widget.player.playerNumber}'
+          : '✓';
+    } else if (widget.hintLetter != null) {
+      label = widget.hintLetter!;
+    } else if (widget.showNumber && widget.player.playerNumber > 0) {
+      label = '${widget.player.playerNumber}';
+    } else {
+      label = '?';
+    }
 
     const double d = 32;
 
@@ -1503,72 +1656,77 @@ class _SubChipState extends State<_SubChip>
         : (widget.teamColor2 ?? widget.teamColor);
     final bool filled = revealed;
 
-    return AnimatedBuilder(
-      animation: _scale,
-      builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: d,
-            height: d,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: filled
-                  ? LinearGradient(
-                      colors: [c1, c1, c2, c2],
-                      stops: const [0.0, 0.5, 0.5, 1.0],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    )
-                  : null,
-              color: filled ? null : Colors.transparent,
-              border: Border.all(
-                color: Colors.white,
-                width: filled ? 1.5 : 1.2,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x55000000),
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                label,
-                style: const TextStyle(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: revealed ? null : widget.onTap,
+      child: AnimatedBuilder(
+        animation: _scale,
+        builder: (_, child) =>
+            Transform.scale(scale: _scale.value, child: child),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: d,
+              height: d,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: filled
+                    ? LinearGradient(
+                        colors: [c1, c1, c2, c2],
+                        stops: const [0.0, 0.5, 0.5, 1.0],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      )
+                    : null,
+                color: filled ? null : Colors.transparent,
+                border: Border.all(
                   color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                  shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+                  width: filled ? 1.5 : 1.2,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x55000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                    shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+                  ),
                 ),
               ),
             ),
-          ),
-          if (revealed) ...[
-            const SizedBox(height: 2),
-            SizedBox(
-              width: 44,
-              child: Text(
-                _shortName,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: widget.isFound
-                      ? AppColors.accentBright
-                      : AppColors.amber,
-                  fontSize: 7,
-                  fontWeight: FontWeight.w700,
+            if (revealed) ...[
+              const SizedBox(height: 2),
+              SizedBox(
+                width: 44,
+                child: Text(
+                  _shortName,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: widget.isFound
+                        ? AppColors.accentBright
+                        : AppColors.amber,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1583,15 +1741,20 @@ class _PlayerCard extends StatelessWidget {
   final bool isFound;
   final bool isPassed;
   final bool showNumber;
+  final String? hintLetter;
+  final VoidCallback? onTap;
 
   const _PlayerCard({
     required this.player,
     required this.isFound,
     required this.isPassed,
     required this.showNumber,
+    this.hintLetter,
+    this.onTap,
   });
 
   String get _displayName => player.playerName.trim().split(' ').last;
+  String get _hiddenLabel => hintLetter ?? player.position;
 
   Color get _borderColor {
     if (isFound) return AppColors.accentBright;
@@ -1620,54 +1783,60 @@ class _PlayerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final revealed = isFound || isPassed;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        color: _bgColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _borderColor, width: revealed ? 1.5 : 1),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Image.asset(
-                'assets/images/shirt.png',
-                width: 30,
-                height: 30,
-                color: _shirtColor,
-              ),
-              if ((revealed || showNumber) && player.playerNumber > 0)
-                Positioned(
-                  top: 9,
-                  child: Text(
-                    '${player.playerNumber}',
-                    style: const TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: revealed ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: _bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _borderColor, width: revealed ? 1.5 : 1),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Image.asset(
+                  'assets/images/shirt.png',
+                  width: 30,
+                  height: 30,
+                  color: _shirtColor,
+                ),
+                if ((revealed || showNumber) && player.playerNumber > 0)
+                  Positioned(
+                    top: 9,
+                    child: Text(
+                      '${player.playerNumber}',
+                      style: const TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text(
-            revealed ? _displayName : player.position,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: revealed ? FontWeight.w700 : FontWeight.w500,
-              color: _nameColor,
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 5),
+            Text(
+              revealed ? _displayName : _hiddenLabel,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: revealed ? FontWeight.w700 : FontWeight.w500,
+                color: hintLetter != null && !revealed
+                    ? AppColors.accentBright
+                    : _nameColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
