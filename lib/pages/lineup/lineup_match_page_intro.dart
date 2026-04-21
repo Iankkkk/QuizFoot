@@ -10,16 +10,27 @@ const _textPrimary = Color(0xFFE6EDF3);
 const _textSecondary = Color(0xFF8B949E);
 // ─────────────────────────────────────────────────────────────────
 
-class LineupMatchPageIntro extends StatelessWidget {
+class LineupMatchPageIntro extends StatefulWidget {
   const LineupMatchPageIntro({super.key});
 
+  @override
+  State<LineupMatchPageIntro> createState() => _LineupMatchPageIntroState();
+}
+
+class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> {
   static const List<String> _difficulties = [
     "Très Facile",
     "Facile",
     "Moyenne",
     "Difficile",
     "Impossible",
-    "Test",
+  ];
+
+  static const List<String> _eras = [
+    "Toutes",
+    "Avant 2010",
+    "2010-2019",
+    "2020-2026",
   ];
 
   static const List<IconData> _ruleIcons = [
@@ -29,7 +40,7 @@ class LineupMatchPageIntro extends StatelessWidget {
     Icons.error_outline,
     Icons.emoji_events_outlined,
     Icons.star_outline,
-    Icons.visibility_outlined,
+    Icons.abc_outlined,
   ];
 
   static const List<String> _rules = [
@@ -37,10 +48,12 @@ class LineupMatchPageIntro extends StatelessWidget {
     "Il n'y a aucune limite de temps.",
     "Tape le NOM DE FAMILLE du joueur.",
     "6 erreurs maximum sont autorisées.",
-    "Les titulaires et les remplaçants sont à trouver.",
-    "Chaque bonne réponse rapporte un point.",
-    "Tu peux voir les numéros des joueurs, mais ça coûte 2 points !",
+    "Les titulaires et les remplaçants entrés en jeu sont à trouver.",
+    "Chaque bonne réponse rapporte 1 point.",
+    "Tu as 5 indices gratuits, en cliquant sur l'un des joueurs pour révéler la 1ère lettre de son nom OU son numéro",
   ];
+
+  final Set<String> _selectedEras = {};
 
   Color _getDifficultyColor(String diff) {
     switch (diff) {
@@ -54,14 +67,12 @@ class LineupMatchPageIntro extends StatelessWidget {
         return const Color(0xFFDA3633);
       case "Impossible":
         return const Color(0xFF8957E5);
-      case "Test":
-        return const Color(0xFF4A90D9);
       default:
         return _textSecondary;
     }
   }
 
-  void _showDifficultyPicker(BuildContext context) {
+  void _showDifficultyPicker() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -109,7 +120,10 @@ class LineupMatchPageIntro extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => LineupMatchPage(difficulty: diff),
+                              builder: (_) => LineupMatchPage(
+                                difficulty: diff,
+                                eras: Set.from(_selectedEras),
+                              ),
                             ),
                           );
                         },
@@ -148,7 +162,7 @@ class LineupMatchPageIntro extends StatelessWidget {
                       ),
                     ),
                   );
-                }).toList(),
+                }),
                 const SizedBox(height: 8),
               ],
             ),
@@ -189,7 +203,6 @@ class LineupMatchPageIntro extends StatelessWidget {
           children: [
             const SizedBox(height: 8),
 
-            // ── Logo ─────────────────────────────────────────────
             Center(
               child: Image.asset(
                 'assets/images/logo.png',
@@ -199,7 +212,6 @@ class LineupMatchPageIntro extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── Règles ───────────────────────────────────────────
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -247,7 +259,69 @@ class LineupMatchPageIntro extends StatelessWidget {
 
             const SizedBox(height: 28),
 
-            // ── Bouton jouer ─────────────────────────────────────
+            // ── Catégorie ─────────────────────────────────────────
+            const Text(
+              'Catégorie',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _eras.map((era) {
+                  final isAll = era == 'Toutes';
+                  final selected = isAll
+                      ? _selectedEras.isEmpty
+                      : _selectedEras.contains(era);
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      if (isAll) {
+                        _selectedEras.clear();
+                      } else {
+                        if (_selectedEras.contains(era)) {
+                          _selectedEras.remove(era);
+                        } else {
+                          _selectedEras.add(era);
+                          if (_selectedEras.length == 3) _selectedEras.clear();
+                        }
+                      }
+                    }),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? _accentBright.withOpacity(0.15)
+                            : _card,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: selected ? _accentBright : _border,
+                          width: selected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Text(
+                        era,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: selected ? _accentBright : _textSecondary,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: _accentBright,
@@ -258,7 +332,7 @@ class LineupMatchPageIntro extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () => _showDifficultyPicker(context),
+              onPressed: _showDifficultyPicker,
               child: const Text(
                 "Jouer !",
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),

@@ -48,6 +48,8 @@ Color _parseTeamColor(String? name) {
       return const Color(0xFF16A34A);
     case 'jaune':
       return const Color(0xFFFACC15);
+    case 'orange':
+      return const Color.fromARGB(255, 225, 104, 6);
     default:
       return const Color(0xFF4A5568);
   }
@@ -81,8 +83,9 @@ int _difficultyToLevel(String difficulty) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class LineupMatchPage extends StatefulWidget {
-  const LineupMatchPage({super.key, required this.difficulty});
+  const LineupMatchPage({super.key, required this.difficulty, this.eras});
   final String difficulty;
+  final Set<String>? eras;
 
   @override
   State<LineupMatchPage> createState() => _LineupMatchPageState();
@@ -98,15 +101,14 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   // ── Game state ────────────────────────────────────────────────────────────
   final Set<String> _foundPlayers = {};
   final Set<String> _passedPlayers = {};
-  final Set<String> _hintedPlayers = {};
+  final Map<String, String> _hints = {};
+  final List<String> _wrongAnswers = [];
   int _errors = 0;
   int _score = 0;
-  int _hintsUsed = 0;
-  bool _showNumbersHint = false;
   bool _gameOver = false;
 
   static const int _maxErrors = 6;
-  static const int _maxFreeHints = 3;
+  static const int _maxFreeHints = 5;
 
   // ── Tabs (fallback only) ──────────────────────────────────────────────────
   late TabController _tabController;
@@ -151,19 +153,21 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
       List<Match> filtered;
 
-      // "Test" mode: only matches where BOTH formations are supported
-      if (widget.difficulty == 'Test') {
-        filtered = matches
-            .where(
-              (m) =>
-                  isFormationSupported(m.formationHome) &&
-                  isFormationSupported(m.formationAway),
-            )
-            .toList();
-      } else {
-        final level = _difficultyToLevel(widget.difficulty);
-        filtered = matches.where((m) => m.level == level).toList();
-      }
+      final level = _difficultyToLevel(widget.difficulty);
+      filtered = matches.where((m) {
+        if (m.level != level) return false;
+        final eras = widget.eras;
+        if (eras == null || eras.isEmpty) return true;
+        final yearMatch = RegExp(r'\d{4}').firstMatch(m.date);
+        final year = int.tryParse(yearMatch?.group(0) ?? '');
+        if (year == null) return true;
+        return eras.any((era) {
+          if (era == 'Avant 2010') return year < 2010;
+          if (era == '2010-2019') return year >= 2010 && year <= 2019;
+          if (era == '2020-2026') return year >= 2020;
+          return false;
+        });
+      }).toList();
 
       if (filtered.isEmpty) {
         _showFeedback('Aucun match pour cette difficulté', AppColors.red);
@@ -190,10 +194,10 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         _lineups = all.where((l) => l.matchId == matchId).toList();
         _foundPlayers.clear();
         _passedPlayers.clear();
-        _hintedPlayers.clear();
+        _hints.clear();
+        _wrongAnswers.clear();
         _errors = 0;
         _score = 0;
-        _hintsUsed = 0;
         _isLoading = false;
       });
     } on ApiException catch (e) {
@@ -316,7 +320,10 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
     // ❌ Wrong
     HapticFeedback.heavyImpact();
-    setState(() => _errors++);
+    setState(() {
+      _errors++;
+      _wrongAnswers.add(raw);
+    });
     _showFeedback(
       'Pas dans cette compo  (${_maxErrors - _errors} restante${_maxErrors - _errors > 1 ? 's' : ''})',
       AppColors.red,
@@ -340,19 +347,22 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   Future<void> _onChipTap(Lineup player) async {
     if (_gameOver) return;
+    if (_inputFocus.hasFocus) {
+      _inputFocus.unfocus();
+      return;
+    }
     // Nothing to reveal on already-resolved or already-hinted players.
     if (_foundPlayers.contains(player.playerName) ||
         _passedPlayers.contains(player.playerName) ||
-        _hintedPlayers.contains(player.playerName)) {
+        _hints.containsKey(player.playerName)) {
       return;
     }
 
-    final remaining = _maxFreeHints - _hintsUsed;
+    final remaining = _maxFreeHints - _hints.length;
     final canHint = remaining > 0;
-    final lastName = _lastName(player.playerName);
-    final letter = _firstLetter(player);
+    final hasNumber = player.playerNumber > 0;
 
-    final confirmed = await showDialog<bool>(
+    final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.card,
@@ -388,45 +398,56 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             const SizedBox(height: 14),
             Text(
               canHint
-                  ? 'Révéler la 1ère lettre du nom ?\n($remaining indice${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''})'
+                  ? '$remaining indice${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''}'
                   : 'Tu as utilisé tes $_maxFreeHints indices.',
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 14,
               ),
             ),
-            if (!canHint) ...[const SizedBox(height: 6)],
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(ctx).pop(null),
             child: const Text(
               'Annuler',
               style: TextStyle(color: AppColors.textSecondary),
             ),
           ),
-          if (canHint)
+          if (canHint) ...[
             TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
+              onPressed: () => Navigator.of(ctx).pop('letter'),
               child: const Text(
-                'Révéler',
+                '1ère lettre',
                 style: TextStyle(
                   color: AppColors.accentBright,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
+            if (hasNumber)
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop('number'),
+                child: const Text(
+                  'Numéro',
+                  style: TextStyle(
+                    color: AppColors.amber,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
 
-    if (confirmed == true && canHint) {
+    if (choice != null) {
       HapticFeedback.lightImpact();
-      setState(() {
-        _hintedPlayers.add(player.playerName);
-        _hintsUsed++;
-      });
+      final content = choice == 'letter'
+          ? _firstLetter(player)
+          : '${player.playerNumber}';
+      setState(() => _hints[player.playerName] = content);
     }
   }
 
@@ -528,28 +549,34 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       child: Scaffold(
         backgroundColor: AppColors.bg,
         resizeToAvoidBottomInset: true,
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppColors.accentBright),
-              )
-            : Column(
-                children: [
-                  SafeArea(
-                    bottom: false,
-                    child: Column(
-                      children: [
-                        _buildAppBar(),
-                        _buildStatusBar(),
-                        if (!_isPitchMode) _buildTabBar(),
-                      ],
+        body: GestureDetector(
+          onTap: () => _inputFocus.unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.accentBright,
+                  ),
+                )
+              : Column(
+                  children: [
+                    SafeArea(
+                      bottom: false,
+                      child: Column(
+                        children: [
+                          _buildAppBar(),
+                          _buildStatusBar(),
+                          if (!_isPitchMode) _buildTabBar(),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _isPitchMode ? _buildPitchView() : _buildTabView(),
-                  ),
-                  _buildInputBar(),
-                ],
-              ),
+                    Expanded(
+                      child: _isPitchMode ? _buildPitchView() : _buildTabView(),
+                    ),
+                    _buildInputBar(),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -686,14 +713,23 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 );
               }),
               const SizedBox(width: 10),
-              Text(
-                _errors == 0
-                    ? '0 erreur'
-                    : '$_errors erreur${_errors > 1 ? 's' : ''}  ·  ${_maxErrors - _errors} restante${_maxErrors - _errors > 1 ? 's' : ''}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: _errors >= 4 ? AppColors.red : AppColors.textSecondary,
+              GestureDetector(
+                onTap: _errors > 0 ? _showWrongAnswers : null,
+                child: Text(
+                  _errors == 0
+                      ? '0 erreur'
+                      : '$_errors erreur${_errors > 1 ? 's' : ''}  ·  ${_maxErrors - _errors} restante${_maxErrors - _errors > 1 ? 's' : ''}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _errors >= 4
+                        ? AppColors.red
+                        : AppColors.textSecondary,
+                    decoration: _errors > 0 ? TextDecoration.underline : null,
+                    decorationColor: _errors >= 4
+                        ? AppColors.red
+                        : AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
@@ -777,13 +813,11 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           ),
           itemBuilder: (_, i) {
             final p = starters[i];
-            final hinted = _hintedPlayers.contains(p.playerName);
             return _PlayerCard(
               player: p,
               isFound: _foundPlayers.contains(p.playerName),
               isPassed: _passedPlayers.contains(p.playerName),
-              showNumber: _showNumbersHint,
-              hintLetter: hinted ? _firstLetter(p) : null,
+              hintContent: _hints[p.playerName],
               onTap: () => _onChipTap(p),
             );
           },
@@ -808,15 +842,13 @@ class _LineupMatchPageState extends State<LineupMatchPage>
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
                 final p = subs[i];
-                final hinted = _hintedPlayers.contains(p.playerName);
                 return SizedBox(
                   width: 72,
                   child: _PlayerCard(
                     player: p,
                     isFound: _foundPlayers.contains(p.playerName),
                     isPassed: _passedPlayers.contains(p.playerName),
-                    showNumber: _showNumbersHint,
-                    hintLetter: hinted ? _firstLetter(p) : null,
+                    hintContent: _hints[p.playerName],
                     onTap: () => _onChipTap(p),
                   ),
                 );
@@ -954,8 +986,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         final x = frac.dx * size.width;
         final y = frac.dy * size.height;
 
-        final bool isHinted =
-            player != null && _hintedPlayers.contains(player.playerName);
         widgets.add(
           Positioned(
             left: x - chipRadius - 4,
@@ -966,8 +996,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                   player != null && _foundPlayers.contains(player.playerName),
               isPassed:
                   player != null && _passedPlayers.contains(player.playerName),
-              showNumber: _showNumbersHint,
-              hintLetter: isHinted ? _firstLetter(player) : null,
+              hintContent: player != null ? _hints[player.playerName] : null,
               onTap: player == null ? null : () => _onChipTap(player),
               chipRadius: chipRadius,
               teamColor: teamColor,
@@ -1051,15 +1080,11 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
               final sub = subs[i];
-              final found = _foundPlayers.contains(sub.playerName);
-              final passed = _passedPlayers.contains(sub.playerName);
-              final hinted = _hintedPlayers.contains(sub.playerName);
               return _SubChip(
                 player: sub,
-                isFound: found,
-                isPassed: passed,
-                showNumber: _showNumbersHint,
-                hintLetter: hinted ? _firstLetter(sub) : null,
+                isFound: _foundPlayers.contains(sub.playerName),
+                isPassed: _passedPlayers.contains(sub.playerName),
+                hintContent: _hints[sub.playerName],
                 onTap: () => _onChipTap(sub),
                 teamColor: teamColor,
                 teamColor2: teamColor2,
@@ -1166,27 +1191,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: _showNumbersHint || _gameOver ? null : _askNumbersHint,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: _showNumbersHint ? AppColors.border : AppColors.bg,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Icon(
-                      Icons.lightbulb_outline_rounded,
-                      size: 20,
-                      color: _showNumbersHint
-                          ? AppColors.textSecondary
-                          : AppColors.amber,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
                   onTap: _gameOver ? null : _passPlayer,
                   child: Container(
                     width: 44,
@@ -1212,55 +1216,6 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   }
 
   // ── Dialogs ───────────────────────────────────────────────────────────────
-
-  Future<void> _askNumbersHint() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
-        ),
-        title: const Text(
-          'Afficher les numéros ?',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: const Text(
-          'Les numéros de tous les joueurs seront révélés.\nCoûte 3 points.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.amber,
-              foregroundColor: Colors.white,
-              elevation: 0,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Afficher  (-3 pts)'),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true && mounted) {
-      setState(() {
-        _showNumbersHint = true;
-        _score -= 3;
-      });
-      _showFeedback('Numéros affichés  (-3 pts)', AppColors.amber);
-    }
-  }
 
   Future<bool> _showExitDialog() async {
     return await showDialog<bool>(
@@ -1301,6 +1256,69 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           ),
         ) ??
         false;
+  }
+
+  void _showWrongAnswers() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        decoration: const BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Liste des erreurs',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ..._wrongAnswers.map(
+                (w) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.close, color: AppColors.red, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        w,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1394,8 +1412,7 @@ class _PitchChip extends StatefulWidget {
   final Lineup? player;
   final bool isFound;
   final bool isPassed;
-  final bool showNumber;
-  final String? hintLetter;
+  final String? hintContent;
   final VoidCallback? onTap;
   final double chipRadius;
   final Color teamColor;
@@ -1405,11 +1422,10 @@ class _PitchChip extends StatefulWidget {
     required this.player,
     required this.isFound,
     required this.isPassed,
-    required this.showNumber,
     required this.chipRadius,
     required this.teamColor,
     this.teamColor2,
-    this.hintLetter,
+    this.hintContent,
     this.onTap,
   });
 
@@ -1465,12 +1481,8 @@ class _PitchChipState extends State<_PitchChip>
       label = widget.player!.playerNumber > 0
           ? '${widget.player!.playerNumber}'
           : '✓';
-    } else if (widget.hintLetter != null) {
-      label = widget.hintLetter!;
-    } else if (widget.showNumber &&
-        widget.player != null &&
-        widget.player!.playerNumber > 0) {
-      label = '${widget.player!.playerNumber}';
+    } else if (widget.hintContent != null) {
+      label = widget.hintContent!;
     } else {
       label = '?';
     }
@@ -1575,8 +1587,7 @@ class _SubChip extends StatefulWidget {
   final Lineup player;
   final bool isFound;
   final bool isPassed;
-  final bool showNumber;
-  final String? hintLetter;
+  final String? hintContent;
   final VoidCallback? onTap;
   final Color teamColor;
   final Color? teamColor2;
@@ -1585,10 +1596,9 @@ class _SubChip extends StatefulWidget {
     required this.player,
     required this.isFound,
     required this.isPassed,
-    required this.showNumber,
     required this.teamColor,
     this.teamColor2,
-    this.hintLetter,
+    this.hintContent,
     this.onTap,
   });
 
@@ -1640,10 +1650,8 @@ class _SubChipState extends State<_SubChip>
       label = widget.player.playerNumber > 0
           ? '${widget.player.playerNumber}'
           : '✓';
-    } else if (widget.hintLetter != null) {
-      label = widget.hintLetter!;
-    } else if (widget.showNumber && widget.player.playerNumber > 0) {
-      label = '${widget.player.playerNumber}';
+    } else if (widget.hintContent != null) {
+      label = widget.hintContent!;
     } else {
       label = '?';
     }
@@ -1740,21 +1748,19 @@ class _PlayerCard extends StatelessWidget {
   final Lineup player;
   final bool isFound;
   final bool isPassed;
-  final bool showNumber;
-  final String? hintLetter;
+  final String? hintContent;
   final VoidCallback? onTap;
 
   const _PlayerCard({
     required this.player,
     required this.isFound,
     required this.isPassed,
-    required this.showNumber,
-    this.hintLetter,
+    this.hintContent,
     this.onTap,
   });
 
   String get _displayName => player.playerName.trim().split(' ').last;
-  String get _hiddenLabel => hintLetter ?? player.position;
+  String get _hiddenLabel => hintContent ?? player.position;
 
   Color get _borderColor {
     if (isFound) return AppColors.accentBright;
@@ -1807,7 +1813,7 @@ class _PlayerCard extends StatelessWidget {
                   height: 30,
                   color: _shirtColor,
                 ),
-                if ((revealed || showNumber) && player.playerNumber > 0)
+                if (revealed && player.playerNumber > 0)
                   Positioned(
                     top: 9,
                     child: Text(
@@ -1830,7 +1836,7 @@ class _PlayerCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: revealed ? FontWeight.w700 : FontWeight.w500,
-                color: hintLetter != null && !revealed
+                color: hintContent != null && !revealed
                     ? AppColors.accentBright
                     : _nameColor,
               ),
