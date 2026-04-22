@@ -38,6 +38,13 @@ const Map<String, List<List<String>>> kFormationLines = {
     ['MG', 'MC', 'MC', 'MC', 'MD'],
     ['BU', 'BU'],
   ],
+  '3-4-1-2': [
+    ['GB'],
+    ['DC', 'DC', 'DC'],
+    ['MG', 'MC', 'MC', 'MD'],
+    ['MOC'],
+    ['BU', 'BU'],
+  ],
   '4-1-2-1-2': [
     ['GB'],
     ['DG', 'DC', 'DC', 'DD'],

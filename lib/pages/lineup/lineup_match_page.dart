@@ -50,6 +50,8 @@ Color _parseTeamColor(String? name) {
       return const Color(0xFFFACC15);
     case 'orange':
       return const Color.fromARGB(255, 225, 104, 6);
+    case 'violet':
+      return const Color.fromARGB(255, 121, 12, 200);
     default:
       return const Color(0xFF4A5568);
   }
@@ -60,6 +62,9 @@ Color? _parseTeamColor2(String? name) {
   if (name == null || name.trim().isEmpty) return null;
   return _parseTeamColor(name);
 }
+
+Color _labelColor(Color bg) =>
+    bg.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
 
 int _difficultyToLevel(String difficulty) {
   switch (difficulty) {
@@ -92,7 +97,7 @@ class LineupMatchPage extends StatefulWidget {
 }
 
 class _LineupMatchPageState extends State<LineupMatchPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // ── Data ──────────────────────────────────────────────────────────────────
   bool _isLoading = true;
   Match? _selectedMatch;
@@ -117,10 +122,13 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
 
-  // ── Feedback ──────────────────────────────────────────────────────────────
+  // ── Feedback toast ────────────────────────────────────────────────────────
   String? _feedbackText;
   Color _feedbackColor = AppColors.accentBright;
   Timer? _feedbackTimer;
+  late AnimationController _toastCtrl;
+  late Animation<double> _toastOpacity;
+  late Animation<double> _toastSlide;
 
   // ── Timing ────────────────────────────────────────────────────────────────
   late final DateTime _startTime;
@@ -132,12 +140,27 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     super.initState();
     _startTime = DateTime.now();
     _tabController = TabController(length: 2, vsync: this);
+    _toastCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
+    );
+    _toastOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 7),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 65),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 21),
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 7),
+    ]).animate(_toastCtrl);
+    _toastSlide = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 70),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -20.0), weight: 30),
+    ]).animate(CurvedAnimation(parent: _toastCtrl, curve: Curves.easeOut));
     _loadMatches();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _toastCtrl.dispose();
     _inputController.dispose();
     _inputFocus.dispose();
     _feedbackTimer?.cancel();
@@ -217,7 +240,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       _feedbackText = text;
       _feedbackColor = color;
     });
-    _feedbackTimer = Timer(const Duration(milliseconds: 2000), () {
+    _toastCtrl.forward(from: 0);
+    _feedbackTimer = Timer(const Duration(milliseconds: 2800), () {
       if (mounted) setState(() => _feedbackText = null);
     });
   }
@@ -571,7 +595,12 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                       ),
                     ),
                     Expanded(
-                      child: _isPitchMode ? _buildPitchView() : _buildTabView(),
+                      child: Stack(
+                        children: [
+                          _isPitchMode ? _buildPitchView() : _buildTabView(),
+                          _buildToast(),
+                        ],
+                      ),
                     ),
                     _buildInputBar(),
                   ],
@@ -1098,6 +1127,53 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   // ── Input bar ─────────────────────────────────────────────────────────────
 
+  Widget _buildToast() {
+    return Positioned(
+      left: 24,
+      right: 24,
+      bottom: 20,
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _toastCtrl,
+          builder: (_, __) => Opacity(
+            opacity: _toastOpacity.value,
+            child: Transform.translate(
+              offset: Offset(0, _toastSlide.value),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 11,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _feedbackColor,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.28),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    _feedbackText ?? '',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      shadows: [Shadow(color: Colors.black38, blurRadius: 4)],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInputBar() {
     return SafeArea(
       top: false,
@@ -1107,107 +1183,83 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: _feedbackText != null
-                  ? Padding(
-                      key: ValueKey(_feedbackText),
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        _feedbackText!,
-                        style: TextStyle(
-                          color: _feedbackColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    )
-                  : const SizedBox(key: ValueKey('empty'), height: 0),
+            Expanded(
+              child: TextField(
+                controller: _inputController,
+                focusNode: _inputFocus,
+                enabled: !_gameOver,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Nom du joueur...',
+                  hintStyle: const TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.bg,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: AppColors.accentBright,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _checkPlayer(),
+              ),
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _inputController,
-                    focusNode: _inputFocus,
-                    enabled: !_gameOver,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Nom du joueur...',
-                      hintStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                      ),
-                      filled: true,
-                      fillColor: AppColors.bg,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: AppColors.accentBright,
-                          width: 1.5,
-                        ),
-                      ),
-                    ),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _checkPlayer(),
-                  ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accentBright,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accentBright,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 14,
-                    ),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: _gameOver ? null : _checkPlayer,
-                  child: const Text(
-                    'OK',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                  ),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _gameOver ? null : _passPlayer,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.bg,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: const Icon(
-                      Icons.skip_next_rounded,
-                      size: 20,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
+              ),
+              onPressed: _gameOver ? null : _checkPlayer,
+              child: const Text(
+                'OK',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _gameOver ? null : _passPlayer,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
                 ),
-              ],
+                child: const Icon(
+                  Icons.skip_next_rounded,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
           ],
         ),
@@ -1434,22 +1486,39 @@ class _PitchChip extends StatefulWidget {
 }
 
 class _PitchChipState extends State<_PitchChip>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _scale;
+  late Animation<double> _glow;
+  late AnimationController _rippleCtrl;
+  late Animation<double> _rippleAnim;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 900),
     );
     _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.4, end: 0.9), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.0), weight: 30),
-    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.55), weight: 18),
+      TweenSequenceItem(tween: Tween(begin: 1.55, end: 0.78), weight: 16),
+      TweenSequenceItem(tween: Tween(begin: 0.78, end: 1.22), weight: 14),
+      TweenSequenceItem(tween: Tween(begin: 1.22, end: 0.90), weight: 12),
+      TweenSequenceItem(tween: Tween(begin: 0.90, end: 1.10), weight: 11),
+      TweenSequenceItem(tween: Tween(begin: 1.10, end: 0.96), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 0.96, end: 1.03), weight: 9),
+      TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0), weight: 10),
+    ]).animate(_ctrl);
+    _glow = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 80),
+    ]).animate(_ctrl);
+    _rippleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+    _rippleAnim = CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut);
   }
 
   @override
@@ -1457,12 +1526,14 @@ class _PitchChipState extends State<_PitchChip>
     super.didUpdateWidget(old);
     if (!old.isFound && widget.isFound) {
       _ctrl.forward(from: 0);
+      _rippleCtrl.forward(from: 0);
     }
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _rippleCtrl.dispose();
     super.dispose();
   }
 
@@ -1507,49 +1578,73 @@ class _PitchChipState extends State<_PitchChip>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedBuilder(
-              animation: _scale,
-              builder: (_, child) =>
-                  Transform.scale(scale: _scale.value, child: child),
-              child: Container(
-                width: d,
-                height: d,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: filled
-                      ? LinearGradient(
-                          colors: [c1, c1, c2, c2],
-                          stops: const [0.0, 0.5, 0.5, 1.0],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        )
-                      : null,
-                  color: filled ? null : Colors.transparent,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: filled ? 1.5 : 1.2,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x55000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
+            SizedBox(
+              width: d,
+              height: d,
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_ctrl, _rippleCtrl]),
+                builder: (_, __) => Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: Size(d, d),
+                      painter: _RipplePainter(
+                        progress: _rippleAnim.value,
+                        chipRadius: d / 2,
+                        color: c1,
+                      ),
+                    ),
+                    Transform.scale(
+                      scale: _scale.value,
+                      child: Container(
+                        width: d,
+                        height: d,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: filled
+                              ? LinearGradient(
+                                  colors: [c1, c1, c2, c2],
+                                  stops: const [0.0, 0.5, 0.5, 1.0],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                )
+                              : null,
+                          color: filled ? null : Colors.transparent,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: filled ? 1.5 : 1.2,
+                          ),
+                          boxShadow: [
+                            const BoxShadow(
+                              color: Color(0x55000000),
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                            BoxShadow(
+                              color: c1.withOpacity(_glow.value * 0.8),
+                              blurRadius: _glow.value * 24,
+                              spreadRadius: _glow.value * 5,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: filled ? _labelColor(c1) : Colors.white,
+                              fontSize: numFontSize,
+                              fontWeight: FontWeight.w800,
+                              height: 1,
+                              shadows: const [
+                                Shadow(color: Colors.black54, blurRadius: 3),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
-                ),
-                child: Center(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: numFontSize,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                      shadows: const [
-                        Shadow(color: Colors.black54, blurRadius: 3),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -1607,22 +1702,39 @@ class _SubChip extends StatefulWidget {
 }
 
 class _SubChipState extends State<_SubChip>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _scale;
+  late Animation<double> _glow;
+  late AnimationController _rippleCtrl;
+  late Animation<double> _rippleAnim;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 900),
     );
     _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.4, end: 0.9), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.0), weight: 30),
-    ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.55), weight: 18),
+      TweenSequenceItem(tween: Tween(begin: 1.55, end: 0.78), weight: 16),
+      TweenSequenceItem(tween: Tween(begin: 0.78, end: 1.22), weight: 14),
+      TweenSequenceItem(tween: Tween(begin: 1.22, end: 0.90), weight: 12),
+      TweenSequenceItem(tween: Tween(begin: 0.90, end: 1.10), weight: 11),
+      TweenSequenceItem(tween: Tween(begin: 1.10, end: 0.96), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 0.96, end: 1.03), weight: 9),
+      TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0), weight: 10),
+    ]).animate(_ctrl);
+    _glow = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 80),
+    ]).animate(_ctrl);
+    _rippleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+    _rippleAnim = CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut);
   }
 
   @override
@@ -1630,12 +1742,14 @@ class _SubChipState extends State<_SubChip>
     super.didUpdateWidget(old);
     if (!old.isFound && widget.isFound) {
       _ctrl.forward(from: 0);
+      _rippleCtrl.forward(from: 0);
     }
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _rippleCtrl.dispose();
     super.dispose();
   }
 
@@ -1667,53 +1781,80 @@ class _SubChipState extends State<_SubChip>
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: revealed ? null : widget.onTap,
-      child: AnimatedBuilder(
-        animation: _scale,
-        builder: (_, child) =>
-            Transform.scale(scale: _scale.value, child: child),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: d,
-              height: d,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: filled
-                    ? LinearGradient(
-                        colors: [c1, c1, c2, c2],
-                        stops: const [0.0, 0.5, 0.5, 1.0],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      )
-                    : null,
-                color: filled ? null : Colors.transparent,
-                border: Border.all(
-                  color: Colors.white,
-                  width: filled ? 1.5 : 1.2,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x55000000),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: d,
+            height: d,
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_ctrl, _rippleCtrl]),
+              builder: (_, __) => Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: Size(d, d),
+                    painter: _RipplePainter(
+                      progress: _rippleAnim.value,
+                      chipRadius: d / 2,
+                      color: c1,
+                    ),
+                  ),
+                  Transform.scale(
+                    scale: _scale.value,
+                    child: Container(
+                      width: d,
+                      height: d,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: filled
+                            ? LinearGradient(
+                                colors: [c1, c1, c2, c2],
+                                stops: const [0.0, 0.5, 0.5, 1.0],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              )
+                            : null,
+                        color: filled ? null : Colors.transparent,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: filled ? 1.5 : 1.2,
+                        ),
+                        boxShadow: [
+                          const BoxShadow(
+                            color: Color(0x55000000),
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                          BoxShadow(
+                            color: c1.withOpacity(_glow.value * 0.8),
+                            blurRadius: _glow.value * 24,
+                            spreadRadius: _glow.value * 5,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: filled ? _labelColor(c1) : Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                            shadows: const [
+                              Shadow(color: Colors.black54, blurRadius: 3),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: Center(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
-                    shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
-                  ),
-                ),
-              ),
             ),
+          ),
             if (revealed) ...[
               const SizedBox(height: 2),
               SizedBox(
@@ -1735,7 +1876,6 @@ class _SubChipState extends State<_SubChip>
             ],
           ],
         ),
-      ),
     );
   }
 }
@@ -1818,10 +1958,10 @@ class _PlayerCard extends StatelessWidget {
                     top: 9,
                     child: Text(
                       '${player.playerNumber}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 8,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: _labelColor(_shirtColor),
                       ),
                     ),
                   ),
@@ -1846,4 +1986,37 @@ class _PlayerCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _RipplePainter
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RipplePainter extends CustomPainter {
+  final double progress;
+  final double chipRadius;
+  final Color color;
+
+  const _RipplePainter({
+    required this.progress,
+    required this.chipRadius,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = chipRadius + progress * 32;
+    final opacity = (1.0 - progress).clamp(0.0, 1.0);
+    final strokeWidth = 3.0 * (1.0 - progress * 0.6);
+    final paint = Paint()
+      ..color = color.withOpacity(opacity * 0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(_RipplePainter old) => old.progress != progress;
 }
