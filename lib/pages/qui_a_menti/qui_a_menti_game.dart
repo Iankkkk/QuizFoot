@@ -47,6 +47,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
   // ── State ──────────────────────────────────────────────────────────────────
 
   bool _isLoading = true;
+  String? _errorMessage;
 
   /// The loaded claim (statement + 10 candidates).
   late Claim _claim;
@@ -74,6 +75,12 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
 
   /// Number of validations used so far (0 – 3).
   int _validationCount = 0;
+
+  // ── Claim entrance ────────────────────────────────────────────────────────
+
+  late final AnimationController _claimEntranceController;
+  late final Animation<double> _claimScale;
+  late final Animation<double> _claimOpacity;
 
   // ── Confetti ──────────────────────────────────────────────────────────────
 
@@ -119,6 +126,19 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
   void initState() {
     super.initState();
     _startTime = DateTime.now();
+    _claimEntranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _claimScale = CurvedAnimation(
+      parent: _claimEntranceController,
+      curve: Curves.easeOutBack,
+    );
+    _claimOpacity = CurvedAnimation(
+      parent: _claimEntranceController,
+      curve: Curves.easeIn,
+    );
+
     _confettiController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2500),
@@ -160,6 +180,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _claimEntranceController.dispose();
     _confettiController.dispose();
     _outcomeController.dispose();
     super.dispose();
@@ -168,16 +189,14 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
   // ── Data ──────────────────────────────────────────────────────────────────
 
   /// Fetches a random claim from the API and initialises game state.
-  Future<void> _loadClaim() async {
+  /// Retries once silently before showing the error screen.
+  Future<void> _loadClaim({bool isRetry = false}) async {
     try {
       final claims = await QuiAMentiApi.fetchRandomClaim();
-      if (claims.isEmpty) throw Exception('Aucun claim trouvé.');
+      final valid = claims.where((c) => c.candidates.length == 10).toList();
+      if (valid.isEmpty) throw Exception('Aucun claim valide trouvé.');
 
-      final picked = claims[Random().nextInt(claims.length)];
-
-      if (picked.candidates.length != 10) {
-        throw Exception('Ce claim ne contient pas exactement 10 joueurs.');
-      }
+      final picked = valid[Random().nextInt(valid.length)];
 
       // Shuffle candidates so the order is unpredictable each game.
       final shuffled = List<Candidate>.from(picked.candidates)..shuffle();
@@ -190,10 +209,13 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
         _isLoading = false;
       });
 
+      _claimEntranceController.forward();
       _startCountdown();
     } on ApiException catch (e) {
+      if (!isRetry) { _loadClaim(isRetry: true); return; }
       _showError(e.userMessage);
     } catch (_) {
+      if (!isRetry) { _loadClaim(isRetry: true); return; }
       _showError('Erreur inattendue. Réessaie.');
     }
   }
@@ -269,12 +291,12 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
     _validationCount++;
 
     final bool perfect = correct == 10;
-    final bool invertedPerfect = correct == 0; // everything is flipped
+    final bool veryLow = correct <= 2; // 0 or 2 → too informative to continue
     final bool lastAttempt = _validationCount >= 3;
 
     setState(() => _lastScore = correct);
 
-    if (perfect || invertedPerfect || lastAttempt) {
+    if (perfect || veryLow || lastAttempt) {
       final bool showConfetti = perfect && _validationCount == 1;
       final bool showWinParticles = perfect && _validationCount > 1;
       final bool showDefeat = !perfect;
@@ -302,17 +324,22 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
         if (mounted) _endGame(timedOut: false, correctCount: correct);
       });
     } else {
-      // Lock 1 card in VRAI + 1 in FAUX only if score strictly exceeds
-      // current locked count + 2, ensuring at least 1 unknown correct card
-      // remains among the unlocked ones (prevents trivial deduction).
-      if (correct > _lockedCardNames.length + 2) {
-        setState(() => _revealOnePerBucket());
-        // Double medium impact — signals the card lock
-        HapticFeedback.mediumImpact();
-        Future.delayed(
-          const Duration(milliseconds: 120),
-          HapticFeedback.mediumImpact,
-        );
+      if (_previousSnapshots.length == 1) {
+        // First validation: random reveals based on score.
+        final int revealsPerBucket = correct == 8 ? 2 : (correct >= 6 ? 1 : 0);
+        if (revealsPerBucket > 0) {
+          setState(() => _revealPerBucket(revealsPerBucket));
+          HapticFeedback.mediumImpact();
+          Future.delayed(const Duration(milliseconds: 120), HapticFeedback.mediumImpact);
+        }
+      } else {
+        // Subsequent validations: lock whatever the user correctly moved.
+        final int beforeCount = _lockedCardNames.length;
+        setState(() => _revealNewlyCorrect());
+        if (_lockedCardNames.length > beforeCount) {
+          HapticFeedback.mediumImpact();
+          Future.delayed(const Duration(milliseconds: 120), HapticFeedback.mediumImpact);
+        }
       }
     }
   }
@@ -329,27 +356,37 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
     return correct;
   }
 
-  /// Locks one correctly-placed card in the VRAI bucket and one in the FAUX
-  /// bucket. Locked cards cannot be moved and act as confirmed hints.
-  void _revealOnePerBucket() {
-    // Pick 1 from VRAI (a true candidate correctly placed there)
+  /// Locks every candidate the user correctly moved since the previous attempt.
+  void _revealNewlyCorrect() {
+    if (_previousSnapshots.length < 2) return;
+    final prev = _previousSnapshots[_previousSnapshots.length - 2];
+    final curr = _previousSnapshots[_previousSnapshots.length - 1];
+
+    for (final c in _claim.candidates) {
+      if (_lockedCardNames.contains(c.name)) continue;
+      final currBucket = curr[c.name];
+      if (currBucket == null) continue;
+      if (currBucket == prev[c.name]) continue; // didn't move
+      final isNowCorrect = (currBucket == 'true' && c.isTrue) ||
+                           (currBucket == 'false' && !c.isTrue);
+      if (isNowCorrect) _lockedCardNames.add(c.name);
+    }
+  }
+
+  /// Locks [count] correctly-placed cards per bucket as confirmed hints.
+  void _revealPerBucket(int count) {
     final trueRevealable = _trueBucket
         .where((c) => c.isTrue && !_lockedCardNames.contains(c.name))
-        .toList();
-    if (trueRevealable.isNotEmpty) {
-      _lockedCardNames.add(
-        trueRevealable[Random().nextInt(trueRevealable.length)].name,
-      );
+        .toList()..shuffle();
+    for (int i = 0; i < count && i < trueRevealable.length; i++) {
+      _lockedCardNames.add(trueRevealable[i].name);
     }
 
-    // Pick 1 from FAUX (a false candidate correctly placed there)
     final falseRevealable = _falseBucket
         .where((c) => !c.isTrue && !_lockedCardNames.contains(c.name))
-        .toList();
-    if (falseRevealable.isNotEmpty) {
-      _lockedCardNames.add(
-        falseRevealable[Random().nextInt(falseRevealable.length)].name,
-      );
+        .toList()..shuffle();
+    for (int i = 0; i < count && i < falseRevealable.length; i++) {
+      _lockedCardNames.add(falseRevealable[i].name);
     }
   }
 
@@ -410,12 +447,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
   }
 
   void _showError(String message) {
-    setState(() => _isLoading = false);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.red),
-      );
-    }
+    if (mounted) setState(() { _isLoading = false; _errorMessage = message; });
   }
 
   /// Formatted timer string "MM:SS".
@@ -462,11 +494,43 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
                           color: AppColors.accentBright,
                         ),
                       )
+                    : _errorMessage != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.wifi_off_rounded, color: AppColors.textSecondary, size: 48),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accentBright,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  elevation: 0,
+                                ),
+                                onPressed: () {
+                                  setState(() { _isLoading = true; _errorMessage = null; });
+                                  _loadClaim();
+                                },
+                                child: const Text('Réessayer'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
                     : Column(
                         children: [
                           _buildAppBar(),
                           _buildClaimCard(),
-                          _buildAttemptsBar(),
+                          if (!_showConfetti && !_showWinParticles) _buildAttemptsBar(),
                           if (_lastScore != null)
                             _buildScoreBanner(_lastScore!),
                           const SizedBox(height: 4),
@@ -610,45 +674,51 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
     );
   }
 
-  /// Banner showing the score of the last validation (e.g. "6/10 corrects").
-  /// Color scales from red (0) to green (10).
+  /// Banner showing score + validated players count after a validation.
   Widget _buildScoreBanner(int score) {
-    final Color color;
-    if (score == 10)
-      color = AppColors.accentBright;
-    else if (score >= 8)
-      color = AppColors.accentBright;
-    else if (score >= 6)
-      color = AppColors.amber;
+    final Color scoreColor;
+    if (score >= 8)
+      scoreColor = AppColors.accentBright;
+    else if (score == 6)
+      scoreColor = AppColors.amber;
     else
-      color = AppColors.red;
+      scoreColor = AppColors.red;
 
-    final String label = score == 10
-        ? '10/10 — Parfait ! 🎉'
-        : score == 0
-        ? '0/10 — Tout est inversé 😅'
-        : '$score/10 corrects';
+    final int validated = _lockedCardNames.length;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          Icon(Icons.equalizer_rounded, color: color, size: 16),
-          const SizedBox(width: 8),
+          Icon(Icons.check_circle_outline, color: scoreColor, size: 16),
+          const SizedBox(width: 6),
           Text(
-            label,
+            '$score bien placés',
             style: TextStyle(
-              color: color,
+              color: scoreColor,
               fontWeight: FontWeight.w700,
               fontSize: 14,
             ),
           ),
+          if (validated > 0) ...[
+            const SizedBox(width: 16),
+            const Icon(Icons.lock_outline, color: AppColors.textSecondary, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              '$validated joueur${validated > 1 ? 's' : ''} validé${validated > 1 ? 's' : ''}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -656,34 +726,60 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
 
   /// Card that displays the claim statement.
   Widget _buildClaimCard() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.campaign_outlined,
-            color: AppColors.accentBright,
-            size: 22,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _claim.claim,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-                height: 1.4,
-              ),
+    return FadeTransition(
+      opacity: _claimOpacity,
+      child: ScaleTransition(
+        scale: _claimScale,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          decoration: BoxDecoration(
+            color: AppColors.accentBright.withOpacity(0.07),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.accentBright.withOpacity(0.45),
+              width: 1.5,
             ),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.accentBright.withOpacity(0.12),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.campaign_outlined, color: AppColors.accentBright, size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'L\'AFFIRMATION',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.accentBright,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                child: Text(
+                  _claim.claim,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

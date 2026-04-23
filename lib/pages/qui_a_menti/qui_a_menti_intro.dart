@@ -32,8 +32,8 @@ class QuiAMentiIntro extends StatelessWidget {
     'Une affirmation est posée : vraie pour 5 joueurs, fausse pour les 5 autres',
     'Classe les 10 joueurs dans les colonnes VRAI et FAUX',
     '3 validations maximum — à chaque erreur, un indice t\'est révélé',
-    'Plus tu réussis tôt, plus tu gagnes de points : 100 → 60 → 30',
-    '5 minutes pour tout classer',
+    'Plus tu réussis tôt, plus tu gagnes de points',
+    '5 minutes maximum pour tout classer',
   ];
 
   // ── Build ─────────────────────────────────────────────────────────────────
