@@ -8,6 +8,9 @@ class Match {
   final String formationHome;
   final String formationAway;
   final int level;
+  final int? homeGoals;
+  final int? awayGoals;
+  final String? penalties;
   final String colorHome;
   final String? colorHome2;
   final String colorAway;
@@ -23,6 +26,9 @@ class Match {
     required this.formationHome,
     required this.formationAway,
     required this.level,
+    this.homeGoals,
+    this.awayGoals,
+    this.penalties,
     this.colorHome = '',
     this.colorHome2,
     this.colorAway = '',
@@ -45,6 +51,9 @@ class Match {
       formationHome: json['formation_home'] as String,
       formationAway: json['formation_away'] as String,
       level:         int.tryParse(json['level'].toString()) ?? 1,
+      homeGoals:     int.tryParse(json['home_goals']?.toString() ?? ''),
+      awayGoals:     int.tryParse(json['away_goals']?.toString() ?? ''),
+      penalties:     _nullIfEmpty(json['penalties']),
       colorHome:     _nullIfEmpty(json['color_home'])  ?? '',
       colorHome2:    _nullIfEmpty(json['color_home2']),
       colorAway:     _nullIfEmpty(json['color_away'])  ?? '',

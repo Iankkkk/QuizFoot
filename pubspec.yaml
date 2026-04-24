@@ -34,7 +34,31 @@ flutter:
     - assets/images/logo_app.png
     - assets/images/correct.jpg
     - assets/images/wrong.jpg
-    - assets/logos/
+    - assets/logos/Champions League/
+    - assets/logos/Austria - Bundesliga/
+    - assets/logos/Belgium - Jupiler Pro League/
+    - assets/logos/Bulgaria - efbet Liga/
+    - assets/logos/Croatia - SuperSport HNL/
+    - assets/logos/Czech Republic - Chance Liga/
+    - assets/logos/Denmark - Superliga/
+    - assets/logos/England - Premier League/
+    - assets/logos/France - Ligue 1/
+    - assets/logos/Germany - Bundesliga/
+    - assets/logos/Greece - Super League 1/
+    - assets/logos/Italy - Serie A/
+    - assets/logos/Netherlands - Eredivisie/
+    - assets/logos/Norway - Eliteserien/
+    - assets/logos/Poland - PKO BP Ekstraklasa/
+    - assets/logos/Portugal - Liga Portugal/
+    - assets/logos/Romania - SuperLiga/
+    - assets/logos/Russia - Premier Liga/
+    - assets/logos/Scotland - Scottish Premiership/
+    - assets/logos/Serbia - Super liga Srbije/
+    - assets/logos/Spain - LaLiga/
+    - assets/logos/Sweden - Allsvenskan/
+    - assets/logos/Switzerland - Super League/
+    - assets/logos/Türkiye - Süper Lig/
+    - assets/logos/Ukraine - Premier Liga/
     - assets/images/shirt.png
 
   uses-material-design: true

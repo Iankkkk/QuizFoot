@@ -88,9 +88,10 @@ int _difficultyToLevel(String difficulty) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class LineupMatchPage extends StatefulWidget {
-  const LineupMatchPage({super.key, required this.difficulty, this.eras});
+  const LineupMatchPage({super.key, required this.difficulty, this.eras, this.preselectedMatch});
   final String difficulty;
   final Set<String>? eras;
+  final Match? preselectedMatch;
 
   @override
   State<LineupMatchPage> createState() => _LineupMatchPageState();
@@ -171,6 +172,11 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   Future<void> _loadMatches() async {
     setState(() => _isLoading = true);
+    if (widget.preselectedMatch != null) {
+      setState(() => _selectedMatch = widget.preselectedMatch);
+      await _loadLineups(widget.preselectedMatch!.matchId);
+      return;
+    }
     try {
       final matches = await loadMatches();
 
