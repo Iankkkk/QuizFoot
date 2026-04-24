@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import '../../data/lineup_game_data.dart';
 import '../../data/api_exception.dart';
@@ -34,10 +35,12 @@ Color _parseColor(String? name) {
 /// Returns null for multi-league competitions (UCL, etc.).
 String? _leagueFolder(String competition) {
   final c = competition.toLowerCase();
+  if (c.contains('euro') || c.contains('coupe du monde') || c.contains('world cup') || c.contains('ligue des nations') || c.contains('copa')) return 'pays';
   if (c.contains('champions league') || c.contains('ligue des champions')) return 'Champions League';
-  if (c.contains('ligue 1'))        return 'France - Ligue 1';
+  if (c.contains('ligue 1') || c.contains('coupe de france') || c.contains('coupe de la ligue')) return 'France - Ligue 1';
+  if (c.contains('premier league') || c.contains('community shield') || c.contains('fa cup')) return 'England - Premier League';
   if (c.contains('premier league')) return 'England - Premier League';
-  if (c.contains('laliga') || c.contains('la liga')) return 'Spain - LaLiga';
+  if (c.contains('laliga') || c.contains('la liga')) return 'Spain - La Liga';
   if (c.contains('bundesliga') && !c.contains('austria')) return 'Germany - Bundesliga';
   if (c.contains('serie a'))        return 'Italy - Serie A';
   if (c.contains('eredivisie'))     return 'Netherlands - Eredivisie';
@@ -270,27 +273,8 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
   Widget _buildCompetitionHeader(Match match) {
     return Column(
       children: [
-        // Competition logo circle
-        Container(
-          width: 76,
-          height: 76,
-          decoration: BoxDecoration(
-            color: _card,
-            shape: BoxShape.circle,
-            border: Border.all(color: _accentBright.withOpacity(0.35), width: 1.5),
-          ),
-          child: ClipOval(
-            child: Image.asset(
-              'assets/images/competitions/${match.competition.toLowerCase().replaceAll(' ', '_').replaceAll("'", '').replaceAll('-', '_')}.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.emoji_events_outlined,
-                color: _accentBright,
-                size: 34,
-              ),
-            ),
-          ),
-        ),
+        // Competition logo
+        _buildCompetitionLogo(match.competition),
         const SizedBox(height: 10),
         Text(
           match.competition.toUpperCase(),
@@ -301,17 +285,42 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
             letterSpacing: 2,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
           match.matchName,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: _textSecondary,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+            color: _textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            height: 1.2,
           ),
         ),
       ],
+    );
+  }
+
+  // Competitions qui gardent leurs couleurs d'origine
+  static const _coloredLogos = {'Euro', 'Coupe du Monde'};
+
+  Widget _buildCompetitionLogo(String competition) {
+    final img = Image.asset(
+      'assets/logos/competitions/$competition.png',
+      width: 80,
+      height: 80,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => const Icon(
+        Icons.emoji_events_outlined,
+        color: _accentBright,
+        size: 34,
+      ),
+    );
+
+    if (_coloredLogos.contains(competition)) return img;
+
+    return ColorFiltered(
+      colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+      child: img,
     );
   }
 
@@ -496,8 +505,10 @@ class _TeamLogo extends StatelessWidget {
 
     if (folder == null) return fallback;
 
+    final fileName = folder == 'pays' ? removeDiacritics(name.toLowerCase()) : name;
+
     return Image.asset(
-      'assets/logos/$folder/$name.png',
+      'assets/logos/$folder/$fileName.png',
       width: 64,
       height: 64,
       fit: BoxFit.contain,

@@ -34,6 +34,8 @@ flutter:
     - assets/images/logo_app.png
     - assets/images/correct.jpg
     - assets/images/wrong.jpg
+    - assets/logos/competitions/
+    - assets/logos/pays/
     - assets/logos/Champions League/
     - assets/logos/Austria - Bundesliga/
     - assets/logos/Belgium - Jupiler Pro League/
@@ -54,7 +56,7 @@ flutter:
     - assets/logos/Russia - Premier Liga/
     - assets/logos/Scotland - Scottish Premiership/
     - assets/logos/Serbia - Super liga Srbije/
-    - assets/logos/Spain - LaLiga/
+    - assets/logos/Spain - La Liga/
     - assets/logos/Sweden - Allsvenskan/
     - assets/logos/Switzerland - Super League/
     - assets/logos/Türkiye - Süper Lig/
