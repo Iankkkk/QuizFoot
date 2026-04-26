@@ -149,8 +149,9 @@ class _LineupScorePageState extends State<LineupScorePage>
         total:      widget.lineups.length,
         errors:       widget.errors,
         hintsUsed:    widget.hintsUsed,
-        wrongAnswers: widget.wrongAnswers,
-        defeat:       widget.defeat,
+        wrongAnswers:  widget.wrongAnswers,
+        foundPlayers:  widget.foundPlayers.toList(),
+        defeat:        widget.defeat,
         timeTaken:  widget.timeTaken,
       ),
     );

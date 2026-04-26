@@ -379,14 +379,16 @@ class _HomePageState extends State<HomePage> {
               title: 'Qui a menti ?',
               subtitle: '1 affirmation, 10 joueurs : 5 menteurs !',
               icon: Icons.psychology_alt_outlined,
-              onTap: () => Navigator.pushNamed(context, '/qui_a_menti'),
+              locked: true,
+              onTap: () {},
             ),
             const SizedBox(height: 12),
             _GameButton(
               title: 'Parcours Joueur',
               subtitle: 'Retrouve le joueur grâce à sa carrière',
               icon: Icons.emoji_events_outlined,
-              onTap: () => Navigator.pushNamed(context, '/parcours_joueur'),
+              locked: true,
+              onTap: () {},
             ),
             const SizedBox(height: 12),
             _GameButton(
@@ -534,66 +536,75 @@ class _GameButton extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
+  final bool locked;
   const _GameButton({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    this.locked = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: _accent.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: _accentBright, size: 24),
+    return Opacity(
+      opacity: locked ? 0.45 : 1.0,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: locked ? null : onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+            decoration: BoxDecoration(
+              color: _card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _border),
+            ),
+            child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _accent.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        color: _textPrimary,
-                      ),
+              child: Icon(icon, color: locked ? _textSecondary : _accentBright, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: _textPrimary,
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: _textSecondary,
-                      ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    locked ? 'Bientôt disponible' : subtitle,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: _textSecondary,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const Icon(Icons.chevron_right, color: _textSecondary, size: 22),
-            ],
-          ),
+            ),
+            Icon(
+              locked ? Icons.lock_outline : Icons.chevron_right,
+              color: _textSecondary,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
         ),
       ),
     );

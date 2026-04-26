@@ -71,6 +71,7 @@ class GameResult {
     required int errors,
     required int hintsUsed,
     required List<String> wrongAnswers,
+    required List<String> foundPlayers,
     required bool defeat,
     required Duration timeTaken,
   }) {
@@ -91,8 +92,9 @@ class GameResult {
         'total':        total,
         'errors':       errors,
         'hintsUsed':    hintsUsed,
-        'wrongAnswers': wrongAnswers,
-        'defeat':       defeat,
+        'wrongAnswers':  wrongAnswers,
+        'foundPlayers':  foundPlayers,
+        'defeat':        defeat,
       },
     );
   }

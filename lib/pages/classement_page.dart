@@ -230,6 +230,7 @@ class _LeaderboardList extends StatelessWidget {
               score: entry.value,
               games: games[entry.key] ?? 0,
               isMe: entry.key == myPseudo,
+              gameType: gameType,
             );
           },
         );
@@ -246,6 +247,7 @@ class _LeaderboardRow extends StatelessWidget {
   final double score;
   final int games;
   final bool isMe;
+  final String gameType;
 
   const _LeaderboardRow({
     required this.rank,
@@ -253,6 +255,7 @@ class _LeaderboardRow extends StatelessWidget {
     required this.score,
     required this.games,
     required this.isMe,
+    required this.gameType,
   });
 
   Color get _rankColor {
@@ -322,9 +325,9 @@ class _LeaderboardRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          const Text(
-            '%',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+          Text(
+            gameType == 'compos' ? '%' : 'pts',
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
           ),
         ],
       ),
