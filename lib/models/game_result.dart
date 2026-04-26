@@ -44,14 +44,13 @@ class GameResult {
     required Duration timeTaken,
   }) {
     final maxRaw = total * 5;
-    final ratio  = maxRaw > 0 ? score / maxRaw : 0.0;
     return GameResult(
       id:              DateTime.now().microsecondsSinceEpoch.toString(),
       gameType:        GameType.coupDoeil,
       difficulty:      difficulty,
       rawScore:        score,
       maxRawScore:     maxRaw,
-      normalizedScore: (ratio * 100 * difficultyMultiplier(difficulty)).clamp(0, 200),
+      normalizedScore: score.toDouble(),
       timeTaken:       timeTaken,
       playedAt:        DateTime.now(),
       details: {
@@ -69,26 +68,29 @@ class GameResult {
     required int found,
     required int total,
     required int errors,
+    required int hintsUsed,
+    required List<String> wrongAnswers,
     required bool defeat,
     required Duration timeTaken,
   }) {
-    final pct = total > 0 ? (found / total * 100) : 0.0;
-    final raw = (pct - (errors / 6 * 20)).clamp(0.0, 100.0).round();
+    final score = total > 0 ? (found / total * 100).round() : 0;
     return GameResult(
       id:              DateTime.now().microsecondsSinceEpoch.toString(),
       gameType:        GameType.compos,
       difficulty:      difficulty,
-      rawScore:        raw,
+      rawScore:        score,
       maxRawScore:     100,
-      normalizedScore: (raw * difficultyMultiplier(difficulty)).clamp(0, 200),
+      normalizedScore: score.toDouble(),
       timeTaken:       timeTaken,
       playedAt:        DateTime.now(),
       details: {
-        'matchName': matchName,
-        'found':     found,
-        'total':     total,
-        'errors':    errors,
-        'defeat':    defeat,
+        'matchName':    matchName,
+        'found':        found,
+        'total':        total,
+        'errors':       errors,
+        'hintsUsed':    hintsUsed,
+        'wrongAnswers': wrongAnswers,
+        'defeat':       defeat,
       },
     );
   }

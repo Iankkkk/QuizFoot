@@ -192,18 +192,20 @@ class _LeaderboardList extends StatelessWidget {
           );
         }
 
-        // Meilleur score par pseudo
-        final Map<String, double> bests = {};
+        // Moyenne des scores par pseudo
+        final Map<String, double> totals = {};
         final Map<String, int> games = {};
         for (final doc in snap.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
           final pseudo = data['pseudo'] as String? ?? '?';
           final score = (data['normalizedScore'] as num?)?.toDouble() ?? 0;
-          if (!bests.containsKey(pseudo) || score > bests[pseudo]!) {
-            bests[pseudo] = score;
-          }
+          totals[pseudo] = (totals[pseudo] ?? 0) + score;
           games[pseudo] = (games[pseudo] ?? 0) + 1;
         }
+        final Map<String, double> bests = {
+          for (final e in totals.entries)
+            e.key: e.value / games[e.key]!,
+        };
 
         if (bests.isEmpty) {
           return const Center(
@@ -321,7 +323,7 @@ class _LeaderboardRow extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           const Text(
-            'pts',
+            '%',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
           ),
         ],

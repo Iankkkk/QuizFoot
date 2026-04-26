@@ -33,6 +33,8 @@ class LineupScorePage extends StatefulWidget {
   final Set<String> passedPlayers;
   final int score;
   final int errors;
+  final int hintsUsed;
+  final List<String> wrongAnswers;
   final Duration timeTaken;
   final bool defeat;
   final String difficulty;
@@ -45,6 +47,8 @@ class LineupScorePage extends StatefulWidget {
     required this.passedPlayers,
     required this.score,
     required this.errors,
+    required this.hintsUsed,
+    required this.wrongAnswers,
     required this.timeTaken,
     required this.defeat,
     required this.difficulty,
@@ -106,7 +110,10 @@ class _LineupScorePageState extends State<LineupScorePage>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     );
-    _counterValue = IntTween(begin: 0, end: widget.score).animate(
+    final pct = widget.lineups.isNotEmpty
+        ? (widget.foundPlayers.length / widget.lineups.length * 100).round()
+        : 0;
+    _counterValue = IntTween(begin: 0, end: pct).animate(
       CurvedAnimation(parent: _counterController, curve: Curves.easeOut),
     );
 
@@ -140,8 +147,10 @@ class _LineupScorePageState extends State<LineupScorePage>
         matchName:  widget.match.matchName,
         found:      widget.foundPlayers.length,
         total:      widget.lineups.length,
-        errors:     widget.errors,
-        defeat:     widget.defeat,
+        errors:       widget.errors,
+        hintsUsed:    widget.hintsUsed,
+        wrongAnswers: widget.wrongAnswers,
+        defeat:       widget.defeat,
         timeTaken:  widget.timeTaken,
       ),
     );
@@ -154,19 +163,23 @@ class _LineupScorePageState extends State<LineupScorePage>
       widget.foundPlayers.length == widget.lineups.length &&
       widget.passedPlayers.isEmpty;
 
+  int get _pct => widget.lineups.isNotEmpty
+      ? (widget.foundPlayers.length / widget.lineups.length * 100).round()
+      : 0;
+
   Color get _scoreColor {
-    if (_isPerfect)          return const Color(0xFFFFD740); // gold
-    if (widget.score >= 20)  return AppColors.accentBright;
-    if (widget.score >= 15)  return AppColors.amber;
-    if (widget.defeat)       return AppColors.red;
+    if (_isPerfect)    return const Color(0xFFFFD740); // gold
+    if (_pct >= 80)    return AppColors.accentBright;
+    if (_pct >= 50)    return AppColors.amber;
+    if (widget.defeat) return AppColors.red;
     return AppColors.textSecondary;
   }
 
   String get _message {
-    if (_isPerfect)          return 'Exceptionnel ! Compo parfaite';
-    if (widget.score >= 20)  return 'Excellent score !';
-    if (widget.score >= 15)  return 'Bon score !';
-    if (widget.defeat)       return 'Trop d\'erreurs... Rejoue !';
+    if (_isPerfect)    return 'Exceptionnel ! Compo parfaite';
+    if (_pct >= 80)    return 'Excellent score !';
+    if (_pct >= 50)    return 'Bon score !';
+    if (widget.defeat) return 'Trop d\'erreurs... Rejoue !';
     return 'Pas mal, rejoue pour faire mieux !';
   }
 
@@ -287,7 +300,7 @@ class _LineupScorePageState extends State<LineupScorePage>
 
             // Score counter
             Text(
-              '${_counterValue.value}',
+              '${_counterValue.value}%',
               style: TextStyle(
                 fontSize: 72,
                 fontWeight: FontWeight.w800,
@@ -304,7 +317,7 @@ class _LineupScorePageState extends State<LineupScorePage>
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: widget.score >= 15 || _isPerfect
+                color: _pct >= 50 || _isPerfect
                     ? AppColors.textPrimary
                     : AppColors.textSecondary,
               ),

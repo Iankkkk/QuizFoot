@@ -36,7 +36,7 @@ class _HomePageState extends State<HomePage> {
 
   // Stats locales
   int _totalGames = 0;
-  double _avgScore = 0;
+  Duration _totalTime = Duration.zero;
   String _favGame = '—';
 
   // Stat communauté (Firestore)
@@ -60,15 +60,22 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadStats() async {
     final results = await GameHistoryService.instance.getAll();
     if (!mounted || results.isEmpty) return;
-    final avg = results.fold(0.0, (s, r) => s + r.normalizedScore) / results.length;
+    final totalTime = results.fold(Duration.zero, (acc, r) => acc + r.timeTaken);
     final coupDoeilCount = results.where((r) => r.gameType == GameType.coupDoeil).length;
     final composCount    = results.where((r) => r.gameType == GameType.compos).length;
     final fav = coupDoeilCount >= composCount ? "Coup d'Œil" : 'Compos';
     setState(() {
       _totalGames = results.length;
-      _avgScore   = avg;
+      _totalTime  = totalTime;
       _favGame    = fav;
     });
+  }
+
+  String _formatTime(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes % 60;
+    if (h > 0) return '${h}h${m}min';
+    return '${m}min';
   }
 
   Future<void> _loadCommunityStats() async {
@@ -287,7 +294,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _StatItem(label: 'Parties jouées', value: '$_totalGames'),
-                      _StatItem(label: 'Score moyen', value: _totalGames > 0 ? _avgScore.toStringAsFixed(0) : '—'),
+                      _StatItem(label: 'Temps total', value: _totalGames > 0 ? _formatTime(_totalTime) : '—'),
                       _StatItem(label: 'Jeu préféré', value: _favGame),
                     ],
                   ),

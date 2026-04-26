@@ -637,6 +637,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           passedPlayers: Set.from(_passedPlayers),
           score: _score,
           errors: _errors,
+          hintsUsed: _hints.length,
+          wrongAnswers: List.from(_wrongAnswers),
           timeTaken: timeTaken,
           defeat: defeat,
           difficulty: widget.difficulty,
@@ -1916,7 +1918,9 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: revealed ? null : widget.onTap,
-      child: Column(
+      child: SizedBox(
+        width: 32,
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1997,9 +2001,7 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
           ),
           if (revealed) ...[
             const SizedBox(height: 2),
-            SizedBox(
-              width: 72,
-              child: Text(
+            Text(
                 _shortName,
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -2013,9 +2015,9 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
                   height: 1.2,
                 ),
               ),
-            ),
           ],
         ],
+      ),
       ),
     );
   }
