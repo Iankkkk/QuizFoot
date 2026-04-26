@@ -6,36 +6,25 @@
 //
 // Navigation:
 //   "Accueil"  → pops back to the home page
-//   "Rejouer"  → calls [onReplay], which the game page provides.
-//               Using a callback avoids a circular import between this file
-//               and quiz_test.dart.
+//   "Rejouer"  → navigates to a new QuizTest with the same difficulty/category.
 
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/question_result.dart';
+import '../../models/game_result.dart';
+import '../../services/game_history_service.dart';
 import 'quiz_test.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QuizScorePage
 // ─────────────────────────────────────────────────────────────────────────────
 
-class QuizScorePage extends StatelessWidget {
-  /// Total points earned during the quiz.
+class QuizScorePage extends StatefulWidget {
   final int score;
-
-  /// Total number of questions (always 10 in the current setup).
   final int total;
-
-  /// Wall-clock duration from the first question to the last answer.
   final Duration timeTaken;
-
-  /// Per-question outcomes built during the game.
   final List<QuestionResult> results;
-
-  /// Difficulty used during this quiz — passed back to [QuizTest] on replay.
   final String difficulty;
-
-  /// Category filter used during this quiz — null means all categories.
   final String? category;
 
   const QuizScorePage({
@@ -48,25 +37,52 @@ class QuizScorePage extends StatelessWidget {
     this.category,
   });
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  @override
+  State<QuizScorePage> createState() => _QuizScorePageState();
+}
 
-  /// Icon shown in the per-question list row.
-  IconData _rowIcon(QuestionResult result) {
-    if (result.correct) return Icons.check;
-    if (result.attempted) return Icons.close;   // wrong answer(s) before skipping
-    return Icons.arrow_forward;                  // skipped without attempting
+class _QuizScorePageState extends State<QuizScorePage> {
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _saveResult());
   }
 
-  /// Accent color for a row based on its outcome.
+  Future<void> _saveResult() async {
+    if (!mounted) return;
+    final correct = widget.results.where((r) => r.correct).length;
+    final wrong   = widget.results.where((r) => !r.correct && r.attempted).length;
+    final skipped = widget.results.where((r) => !r.correct && !r.attempted).length;
+    await GameHistoryService.instance.save(
+      GameResult.coupDoeil(
+        difficulty: widget.difficulty,
+        score:      widget.score,
+        total:      widget.total,
+        correct:    correct,
+        wrong:      wrong,
+        skipped:    skipped,
+        timeTaken:  widget.timeTaken,
+      ),
+    );
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  IconData _rowIcon(QuestionResult result) {
+    if (result.correct) return Icons.check;
+    if (result.attempted) return Icons.close;
+    return Icons.arrow_forward;
+  }
+
   Color _rowColor(QuestionResult result) {
     if (result.correct) return AppColors.accentBright;
     if (result.attempted) return AppColors.red;
     return AppColors.textSecondary;
   }
 
-  /// Motivational message based on the score ratio (score / maxPossible).
   String _scoreMessage() {
-    final ratio = score / (total * 5);
+    final ratio = widget.score / (widget.total * 5);
     if (ratio == 1.0) return 'Score parfait 🏆';
     if (ratio >= 0.75) return "Super score ! T'es un bon !";
     if (ratio >= 0.5)  return 'Pas mal grand ! Continue !';
@@ -74,9 +90,8 @@ class QuizScorePage extends StatelessWidget {
     return 'Clairement un mauvais score. Ressaisis toi.';
   }
 
-  /// Color of the large score number — green, amber, or red.
   Color _scoreColor() {
-    final ratio = score / (total * 5);
+    final ratio = widget.score / (widget.total * 5);
     if (ratio >= 0.75) return AppColors.accentBright;
     if (ratio >= 0.5)  return AppColors.amber;
     return AppColors.red;
@@ -86,23 +101,19 @@ class QuizScorePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int minutes   = timeTaken.inMinutes;
-    final int seconds   = timeTaken.inSeconds % 60;
-    final int maxScore  = total * 5;
-    final int correct   = results.where((r) => r.correct).length;
-    final int wrong     = results.where((r) => !r.correct && r.attempted).length;
-    final int skipped   = results.where((r) => !r.correct && !r.attempted).length;
+    final int minutes  = widget.timeTaken.inMinutes;
+    final int seconds  = widget.timeTaken.inSeconds % 60;
+    final int maxScore = widget.total * 5;
+    final int correct  = widget.results.where((r) => r.correct).length;
+    final int wrong    = widget.results.where((r) => !r.correct && r.attempted).length;
+    final int skipped  = widget.results.where((r) => !r.correct && !r.attempted).length;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Column(
           children: [
-
-            // ── Header ────────────────────────────────────────────────────
             _buildHeader(context),
-
-            // ── Score card ────────────────────────────────────────────────
             _buildScoreCard(
               maxScore: maxScore,
               correct:  correct,
@@ -111,8 +122,6 @@ class QuizScorePage extends StatelessWidget {
               minutes:  minutes,
               seconds:  seconds,
             ),
-
-            // ── Section label ─────────────────────────────────────────────
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Align(
@@ -128,11 +137,7 @@ class QuizScorePage extends StatelessWidget {
                 ),
               ),
             ),
-
-            // ── Per-question list ─────────────────────────────────────────
             Expanded(child: _buildResultList()),
-
-            // ── Action buttons ────────────────────────────────────────────
             _buildButtons(context),
           ],
         ),
@@ -140,15 +145,11 @@ class QuizScorePage extends StatelessWidget {
     );
   }
 
-  // ── Private widget builders ───────────────────────────────────────────────
-
-  /// Top bar with a back arrow and the page title.
   Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
         children: [
-          // Back button — goes to the home page
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
@@ -176,7 +177,6 @@ class QuizScorePage extends StatelessWidget {
     );
   }
 
-  /// Large card showing the score, message, and four stat chips.
   Widget _buildScoreCard({
     required int maxScore,
     required int correct,
@@ -197,9 +197,8 @@ class QuizScorePage extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Score number in large text
             Text(
-              '$score',
+              '${widget.score}',
               style: TextStyle(
                 fontSize: 72,
                 fontWeight: FontWeight.w800,
@@ -216,7 +215,6 @@ class QuizScorePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            // Motivational message
             Text(
               _scoreMessage(),
               textAlign: TextAlign.center,
@@ -227,7 +225,6 @@ class QuizScorePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            // Four quick stats in a row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -263,14 +260,13 @@ class QuizScorePage extends StatelessWidget {
     );
   }
 
-  /// Scrollable list showing one row per question.
   Widget _buildResultList() {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      itemCount: results.length,
+      itemCount: widget.results.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final result = results[index];
+        final result = widget.results[index];
         final color  = _rowColor(result);
 
         return Container(
@@ -282,7 +278,6 @@ class QuizScorePage extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Outcome icon (check / close / arrow)
               Container(
                 width: 32,
                 height: 32,
@@ -293,7 +288,6 @@ class QuizScorePage extends StatelessWidget {
                 child: Icon(_rowIcon(result), color: color, size: 18),
               ),
               const SizedBox(width: 12),
-              // Player name
               Expanded(
                 child: Text(
                   result.playerName,
@@ -304,7 +298,6 @@ class QuizScorePage extends StatelessWidget {
                   ),
                 ),
               ),
-              // Points earned (or dash if none)
               Text(
                 result.correct
                     ? '+${result.points} pt${result.points > 1 ? 's' : ''}'
@@ -322,13 +315,11 @@ class QuizScorePage extends StatelessWidget {
     );
   }
 
-  /// "Accueil" + "Rejouer ↺" buttons at the bottom of the page.
   Widget _buildButtons(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Row(
         children: [
-          // Goes back to the home page
           Expanded(
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
@@ -345,8 +336,6 @@ class QuizScorePage extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Restarts the quiz with the same difficulty and category.
-          // Navigation uses the score page's own context — not a captured one.
           Expanded(
             flex: 2,
             child: ElevatedButton(
@@ -361,8 +350,8 @@ class QuizScorePage extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => QuizTest(
-                    difficulty: difficulty,
-                    category:   category,
+                    difficulty: widget.difficulty,
+                    category:   widget.category,
                   ),
                 ),
               ),
@@ -379,11 +368,9 @@ class QuizScorePage extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _StatChip — private helper widget
+// _StatChip
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// A small vertical chip showing an icon, a value, and a sublabel.
-/// Used in the score card's stats row.
 class _StatChip extends StatelessWidget {
   final IconData icon;
   final String label;

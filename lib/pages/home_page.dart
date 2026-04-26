@@ -6,6 +6,11 @@ import 'package:quiz_foot/data/anecdotes_data.dart';
 import 'package:quiz_foot/data/players_data.dart';
 import 'package:quiz_foot/data/data_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/game_history_service.dart';
+import '../models/game_result.dart';
+import 'profil_page.dart';
+import 'classement_page.dart';
 
 // ── Palette MPG-inspired ──────────────────────────────────────────
 const _bg = Color(0xFF171923);
@@ -27,12 +32,53 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   String _randomAnecdote = '';
+  String _pseudo = '';
+
+  // Stats locales
+  int _totalGames = 0;
+  double _avgScore = 0;
+  String _favGame = '—';
+
+  // Stat communauté (Firestore)
+  int _communityGames = 0;
 
   @override
   void initState() {
     super.initState();
     _loadAnecdote();
     _warmCache();
+    _loadPseudo();
+    _loadStats();
+    _loadCommunityStats();
+  }
+
+  Future<void> _loadPseudo() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _pseudo = prefs.getString('pseudo') ?? '');
+  }
+
+  Future<void> _loadStats() async {
+    final results = await GameHistoryService.instance.getAll();
+    if (!mounted || results.isEmpty) return;
+    final avg = results.fold(0.0, (s, r) => s + r.normalizedScore) / results.length;
+    final coupDoeilCount = results.where((r) => r.gameType == GameType.coupDoeil).length;
+    final composCount    = results.where((r) => r.gameType == GameType.compos).length;
+    final fav = coupDoeilCount >= composCount ? "Coup d'Œil" : 'Compos';
+    setState(() {
+      _totalGames = results.length;
+      _avgScore   = avg;
+      _favGame    = fav;
+    });
+  }
+
+  Future<void> _loadCommunityStats() async {
+    try {
+      final agg = await FirebaseFirestore.instance
+          .collection('scores')
+          .count()
+          .get();
+      if (mounted) setState(() => _communityGames = agg.count ?? 0);
+    } catch (_) {}
   }
 
   Future<void> _warmCache() async {
@@ -69,9 +115,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
+    if (index == 0) _loadStats();
   }
 
   Widget _buildContent() {
@@ -81,9 +126,9 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return _buildGamesPage();
       case 2:
-        return _buildHistoryContent();
+        return ClassementPage(pseudo: _pseudo);
       case 3:
-        return _buildProfileContent();
+        return ProfilPage(pseudo: _pseudo);
       default:
         return _buildHomeContent();
     }
@@ -240,10 +285,10 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: const [
-                      _StatItem(label: 'Parties jouées', value: '127'),
-                      _StatItem(label: 'Score moyen', value: '7.4'),
-                      _StatItem(label: 'Jeu préféré', value: "Coup d'œil"),
+                    children: [
+                      _StatItem(label: 'Parties jouées', value: '$_totalGames'),
+                      _StatItem(label: 'Score moyen', value: _totalGames > 0 ? _avgScore.toStringAsFixed(0) : '—'),
+                      _StatItem(label: 'Jeu préféré', value: _favGame),
                     ],
                   ),
                 ],
@@ -267,17 +312,17 @@ class _HomePageState extends State<HomePage> {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 clipBehavior: Clip.none,
-                children: const [
-                  _HighlightCard(
+                children: [
+                  const _HighlightCard(
                     title: '🔥 Nouveau mode Compos',
                     subtitle:
                         'Revis les matchs mythiques et devine les compos !',
                   ),
                   _HighlightCard(
-                    title: '⭐ 1000 parties jouées',
+                    title: '⭐ $_communityGames parties jouées',
                     subtitle: 'Merci à la communauté Tempo !',
                   ),
-                  _HighlightCard(
+                  const _HighlightCard(
                     title: '⚽ Zidane ou Platini ?',
                     subtitle: 'Teste ton flair dans Qui a menti ?',
                   ),
@@ -352,23 +397,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildHistoryContent() {
-    return const Center(
-      child: Text(
-        'Historique des scores...',
-        style: TextStyle(color: _textSecondary, fontSize: 16),
-      ),
-    );
-  }
-
-  Widget _buildProfileContent() {
-    return const Center(
-      child: Text(
-        'Profil utilisateur...',
-        style: TextStyle(color: _textSecondary, fontSize: 16),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -408,8 +436,8 @@ class _HomePageState extends State<HomePage> {
             label: 'Jeux',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Historique',
+            icon: Icon(Icons.emoji_events_outlined),
+            label: 'Classement',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "577482120939",
+    "project_id": "tempo-ab8cd",
+    "storage_bucket": "tempo-ab8cd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:577482120939:android:b9c4b2b5a3dddc88a928ae",
+        "android_client_info": {
+          "package_name": "com.tempo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3wFpLsReftNfQOi4d0LQ0gLAI2TAA8zQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

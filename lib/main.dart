@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'pages/home_page.dart';
+import 'pages/onboarding_page.dart';
 import 'pages/result_page.dart';
 import 'pages/history_page.dart';
 import 'pages/qui_a_menti/qui_a_menti_intro.dart';
@@ -8,12 +12,17 @@ import 'pages/parcours_joueur_page.dart';
 import 'pages/lineup/lineup_match_page.dart';
 import 'pages/coup_doeil/quiz_test_intro.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  final prefs = await SharedPreferences.getInstance();
+  final pseudo = prefs.getString('pseudo') ?? '';
+  runApp(MyApp(hasPseudo: pseudo.isNotEmpty));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool hasPseudo;
+  const MyApp({super.key, required this.hasPseudo});
 
   @override
   Widget build(BuildContext context) {
@@ -93,9 +102,8 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      initialRoute: '/',
+      home: hasPseudo ? const HomePage() : const OnboardingPage(),
       routes: {
-        '/': (context) => const HomePage(),
         '/quiz_test': (context) => const QuizTestIntro(),
         '/result_page': (context) => const ResultPage(score: 0),
         '/history_page': (context) => const HistoryPage(),

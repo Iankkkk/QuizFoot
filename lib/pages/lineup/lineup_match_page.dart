@@ -83,12 +83,104 @@ int _difficultyToLevel(String difficulty) {
   }
 }
 
+String? _leagueFolder(String competition) {
+  final c = competition.toLowerCase();
+  if (c.contains('euro') ||
+      c.contains('coupe du monde') ||
+      c.contains('world cup') ||
+      c.contains('ligue des nations') ||
+      c.contains('copa') ||
+      c.contains('barrage coupe du monde'))
+    return 'pays';
+  if (c.contains('champions league') || c.contains('ligue des champions'))
+    return 'Champions League';
+  if (c.contains('ligue 1') ||
+      c.contains('coupe de france') ||
+      c.contains('coupe de la ligue'))
+    return 'France - Ligue 1';
+  if (c.contains('premier league') ||
+      c.contains('community shield') ||
+      c.contains('fa cup'))
+    return 'England - Premier League';
+  if (c.contains('laliga') || c.contains('la liga') || c.contains('liga'))
+    return 'Spain - La Liga';
+  if (c.contains('bundesliga') && !c.contains('austria'))
+    return 'Germany - Bundesliga';
+  if (c.contains('serie a')) return 'Italy - Serie A';
+  if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
+  if (c.contains('liga portugal')) return 'Portugal - Liga Portugal';
+  if (c.contains('jupiler')) return 'Belgium - Jupiler Pro League';
+  return null;
+}
+
+const _coloredCompLogos = {'Euro', 'Coupe du Monde'};
+
+Widget _teamLogoSmall(
+  String name,
+  String colorName,
+  String? folder, {
+  double size = 28,
+}) {
+  final bg = _parseTeamColor(colorName);
+  final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+  final fallback = Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: bg,
+      shape: BoxShape.circle,
+      border: Border.all(color: const Color(0xFF2D3148), width: 1.5),
+    ),
+    child: Center(
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: size * 0.38,
+          fontWeight: FontWeight.w800,
+          color: bg.computeLuminance() < 0.4 ? Colors.white : Colors.black87,
+        ),
+      ),
+    ),
+  );
+  if (folder == null) return fallback;
+  final fileName = folder == 'pays'
+      ? removeDiacritics(name.toLowerCase())
+      : name;
+  return Image.asset(
+    'assets/logos/$folder/$fileName.png',
+    width: size,
+    height: size,
+    fit: BoxFit.contain,
+    errorBuilder: (_, __, ___) => fallback,
+  );
+}
+
+Widget _competitionLogoSmall(String competition) {
+  final img = Image.asset(
+    'assets/logos/competitions/$competition.png',
+    width: 36,
+    height: 36,
+    fit: BoxFit.contain,
+    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+  );
+  if (_coloredCompLogos.contains(competition)) return img;
+  return ColorFiltered(
+    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+    child: img,
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LineupMatchPage
 // ─────────────────────────────────────────────────────────────────────────────
 
 class LineupMatchPage extends StatefulWidget {
-  const LineupMatchPage({super.key, required this.difficulty, this.eras, this.preselectedMatch});
+  const LineupMatchPage({
+    super.key,
+    required this.difficulty,
+    this.eras,
+    this.preselectedMatch,
+  });
   final String difficulty;
   final Set<String>? eras;
   final Match? preselectedMatch;
@@ -355,7 +447,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       _wrongAnswers.add(raw);
     });
     _showFeedback(
-      'Pas dans cette compo  (${_maxErrors - _errors} restante${_maxErrors - _errors > 1 ? 's' : ''})',
+      'Pas dans cette compo  (${_maxErrors - _errors} erreurs restante${_maxErrors - _errors > 1 ? 's' : ''})',
       AppColors.red,
     );
     _inputController.clear();
@@ -371,8 +463,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   // First letter of the canonical last name, uppercased.
   String _firstLetter(Lineup l) {
-    final last = _lastName(l.playerName);
-    return last.isEmpty ? '?' : last[0].toUpperCase();
+    final name = l.playerName.trim();
+    return name.isEmpty ? '?' : name[0].toUpperCase();
   }
 
   Future<void> _onChipTap(Lineup player) async {
@@ -619,76 +711,100 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   // ── App bar ───────────────────────────────────────────────────────────────
 
   Widget _buildAppBar() {
+    final match = _selectedMatch;
+    final folder = match != null ? _leagueFolder(match.competition) : null;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: const BoxDecoration(
         color: AppColors.card,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          GestureDetector(
-            onTap: () async {
-              final leave = await _showExitDialog();
-              if (leave && mounted) Navigator.of(context).pop();
-            },
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.bg,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
+          // Ligne 1 : flèche à gauche, compétition · date centré
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: () async {
+                    final leave = await _showExitDialog();
+                    if (leave && mounted) Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: AppColors.textPrimary,
+                      size: 18,
+                    ),
+                  ),
+                ),
               ),
-              child: const Icon(
-                Icons.arrow_back,
-                color: AppColors.textPrimary,
-                size: 20,
-              ),
-            ),
+              if (match != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _competitionLogoSmall(match.competition),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${match.competition}  ·  ${match.date}',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _selectedMatch?.matchName ?? 'Compos',
+          const SizedBox(height: 12),
+          // Ligne 2 : logo home + titre centré + logo away
+          Row(
+            children: [
+              if (match != null)
+                _teamLogoSmall(
+                  match.homeTeam,
+                  match.colorHome,
+                  folder,
+                  size: 48,
+                )
+              else
+                const SizedBox(width: 44),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  match?.matchName ?? '',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    letterSpacing: -0.3,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  '${_selectedMatch?.competition ?? ''}  ·  ${_selectedMatch?.date ?? ''}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.bg,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Text(
-              '$_score pts',
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
               ),
-            ),
+              const SizedBox(width: 10),
+              if (match != null)
+                _teamLogoSmall(
+                  match.awayTeam,
+                  match.colorAway,
+                  folder,
+                  size: 48,
+                )
+              else
+                const SizedBox(width: 44),
+            ],
           ),
         ],
       ),
@@ -699,75 +815,60 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   Widget _buildStatusBar() {
     final pct = _totalPlayers == 0 ? 0.0 : _revealedCount / _totalPlayers;
+    final errorColor = _errors >= 4 ? AppColors.red : AppColors.textSecondary;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       color: AppColors.card,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: pct,
-                    backgroundColor: AppColors.border,
-                    valueColor: const AlwaysStoppedAnimation(
-                      AppColors.accentBright,
-                    ),
-                    minHeight: 5,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                '$_revealedCount / $_totalPlayers',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            ],
+          Text(
+            '$_revealedCount/$_totalPlayers',
+            style: const TextStyle(
+              color: AppColors.accentBright,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              ...List.generate(_maxErrors, (i) {
-                final used = i < _errors;
-                return Expanded(
-                  child: Container(
-                    margin: EdgeInsets.only(right: i < _maxErrors - 1 ? 4 : 0),
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: used ? AppColors.red : AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: _errors > 0 ? _showWrongAnswers : null,
-                child: Text(
-                  _errors == 0
-                      ? '0 erreur'
-                      : '$_errors erreur${_errors > 1 ? 's' : ''}  ·  ${_maxErrors - _errors} restante${_maxErrors - _errors > 1 ? 's' : ''}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _errors >= 4
-                        ? AppColors.red
-                        : AppColors.textSecondary,
-                    decoration: _errors > 0 ? TextDecoration.underline : null,
-                    decorationColor: _errors >= 4
-                        ? AppColors.red
-                        : AppColors.textSecondary,
+          const SizedBox(width: 10),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct,
+                backgroundColor: AppColors.border,
+                valueColor: const AlwaysStoppedAnimation(
+                  AppColors.accentBright,
+                ),
+                minHeight: 6,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: _errors > 0 ? _showWrongAnswers : null,
+            child: Row(
+              children: List.generate(
+                _maxErrors,
+                (i) => Container(
+                  width: 8,
+                  height: 8,
+                  margin: EdgeInsets.only(left: i > 0 ? 4 : 0),
+                  decoration: BoxDecoration(
+                    color: i < _errors ? AppColors.red : AppColors.border,
+                    shape: BoxShape.circle,
                   ),
                 ),
               ),
-            ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$_errors/${_maxErrors}',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: errorColor,
+            ),
           ),
         ],
       ),
@@ -1023,7 +1124,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
         widgets.add(
           Positioned(
-            left: x - chipRadius - 4,
+            left: x - chipRadius - 15,
             top: y - chipRadius - 2,
             child: _PitchChip(
               player: player,
@@ -1107,7 +1208,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           ),
         ),
         SizedBox(
-          height: 44,
+          height: 56,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1184,88 +1285,112 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.card,
-          border: Border(top: BorderSide(color: AppColors.border)),
+          border: const Border(top: BorderSide(color: AppColors.border)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
+            ),
+          ],
         ),
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _inputController,
-                focusNode: _inputFocus,
-                enabled: !_gameOver,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 15,
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _inputController,
+                    focusNode: _inputFocus,
+                    enabled: !_gameOver,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Nom de joueur...',
+                      hintStyle: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 15,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.person_search_rounded,
+                        color: AppColors.accentBright,
+                        size: 22,
+                      ),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 16,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.accentBright,
+                          width: 1.2,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.accentBright,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _checkPlayer(),
+                  ),
                 ),
-                decoration: InputDecoration(
-                  hintText: 'Nom du joueur...',
-                  hintStyle: const TextStyle(color: AppColors.textSecondary),
-                  filled: true,
-                  fillColor: AppColors.bg,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentBright,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 16,
+                    ),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border),
+                  onPressed: _gameOver ? null : _checkPlayer,
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: AppColors.accentBright,
-                      width: 1.5,
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _gameOver ? null : _passPlayer,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Icon(
+                      Icons.skip_next_rounded,
+                      size: 22,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _checkPlayer(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentBright,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 14,
-                ),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: _gameOver ? null : _checkPlayer,
-              child: const Text(
-                'OK',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _gameOver ? null : _passPlayer,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: const Icon(
-                  Icons.skip_next_rounded,
-                  size: 20,
-                  color: AppColors.textSecondary,
-                ),
-              ),
+              ],
             ),
           ],
         ),
@@ -1491,8 +1616,7 @@ class _PitchChip extends StatefulWidget {
   State<_PitchChip> createState() => _PitchChipState();
 }
 
-class _PitchChipState extends State<_PitchChip>
-    with TickerProviderStateMixin {
+class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _scale;
   late Animation<double> _glow;
@@ -1545,7 +1669,7 @@ class _PitchChipState extends State<_PitchChip>
 
   String get _shortName {
     if (widget.player == null) return '';
-    return widget.player!.playerName.trim().split(' ').last;
+    return widget.player!.playerName.trim();
   }
 
   @override
@@ -1580,7 +1704,7 @@ class _PitchChipState extends State<_PitchChip>
       behavior: HitTestBehavior.opaque,
       onTap: widget.player == null || revealed ? null : widget.onTap,
       child: SizedBox(
-        width: d + 8,
+        width: d + 30,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1616,7 +1740,7 @@ class _PitchChipState extends State<_PitchChip>
                                   end: Alignment.centerRight,
                                 )
                               : null,
-                          color: filled ? null : Colors.transparent,
+                          color: filled ? null : Colors.white.withOpacity(0.10),
                           border: Border.all(
                             color: Colors.white,
                             width: filled ? 1.5 : 1.2,
@@ -1638,13 +1762,18 @@ class _PitchChipState extends State<_PitchChip>
                           child: Text(
                             label,
                             style: TextStyle(
-                              color: filled ? _labelColor(c1) : Colors.white,
+                              color: filled && c1 == c2 ? _labelColor(c1) : Colors.white,
                               fontSize: numFontSize,
                               fontWeight: FontWeight.w800,
                               height: 1,
-                              shadows: const [
-                                Shadow(color: Colors.black54, blurRadius: 3),
-                              ],
+                              shadows: filled && c1 != c2
+                                  ? const [
+                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1)),
+                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, -1)),
+                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, 1)),
+                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
+                                    ]
+                                  : const [Shadow(color: Colors.black54, blurRadius: 3)],
                             ),
                           ),
                         ),
@@ -1657,18 +1786,19 @@ class _PitchChipState extends State<_PitchChip>
             if (revealed && widget.chipRadius >= 13) ...[
               const SizedBox(height: 1),
               SizedBox(
-                width: d + 8,
+                width: d + 30,
                 child: Text(
                   _shortName,
                   textAlign: TextAlign.center,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: widget.isFound
                         ? const Color.fromARGB(255, 181, 237, 187)
                         : AppColors.amber,
-                    fontSize: 8,
+                    fontSize: 9,
                     fontWeight: FontWeight.w700,
+                    height: 1.2,
                   ),
                 ),
               ),
@@ -1707,8 +1837,7 @@ class _SubChip extends StatefulWidget {
   State<_SubChip> createState() => _SubChipState();
 }
 
-class _SubChipState extends State<_SubChip>
-    with TickerProviderStateMixin {
+class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _scale;
   late Animation<double> _glow;
@@ -1759,7 +1888,7 @@ class _SubChipState extends State<_SubChip>
     super.dispose();
   }
 
-  String get _shortName => widget.player.playerName.trim().split(' ').last;
+  String get _shortName => widget.player.playerName.trim();
 
   @override
   Widget build(BuildContext context) {
@@ -1823,7 +1952,7 @@ class _SubChipState extends State<_SubChip>
                                 end: Alignment.centerRight,
                               )
                             : null,
-                        color: filled ? null : Colors.transparent,
+                        color: filled ? null : Colors.white.withOpacity(0.10),
                         border: Border.all(
                           color: Colors.white,
                           width: filled ? 1.5 : 1.2,
@@ -1845,13 +1974,18 @@ class _SubChipState extends State<_SubChip>
                         child: Text(
                           label,
                           style: TextStyle(
-                            color: filled ? _labelColor(c1) : Colors.white,
+                            color: filled && c1 == c2 ? _labelColor(c1) : Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                             height: 1,
-                            shadows: const [
-                              Shadow(color: Colors.black54, blurRadius: 3),
-                            ],
+                            shadows: filled && c1 != c2
+                                ? const [
+                                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1)),
+                                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, -1)),
+                                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, 1)),
+                                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
+                                  ]
+                                : const [Shadow(color: Colors.black54, blurRadius: 3)],
                           ),
                         ),
                       ),
@@ -1861,27 +1995,28 @@ class _SubChipState extends State<_SubChip>
               ),
             ),
           ),
-            if (revealed) ...[
-              const SizedBox(height: 2),
-              SizedBox(
-                width: 44,
-                child: Text(
-                  _shortName,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: widget.isFound
-                        ? AppColors.accentBright
-                        : AppColors.amber,
-                    fontSize: 7,
-                    fontWeight: FontWeight.w700,
-                  ),
+          if (revealed) ...[
+            const SizedBox(height: 2),
+            SizedBox(
+              width: 72,
+              child: Text(
+                _shortName,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: widget.isFound
+                      ? AppColors.accentBright
+                      : AppColors.amber,
+                  fontSize: 7,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
-            ],
+            ),
           ],
-        ),
+        ],
+      ),
     );
   }
 }
@@ -1905,7 +2040,7 @@ class _PlayerCard extends StatelessWidget {
     this.onTap,
   });
 
-  String get _displayName => player.playerName.trim().split(' ').last;
+  String get _displayName => player.playerName.trim();
   String get _hiddenLabel => hintContent ?? player.position;
 
   Color get _borderColor {
@@ -1980,7 +2115,7 @@ class _PlayerCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: revealed ? FontWeight.w700 : FontWeight.w500,
                 color: hintContent != null && !revealed
                     ? AppColors.accentBright

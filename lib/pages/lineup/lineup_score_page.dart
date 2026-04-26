@@ -17,6 +17,8 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/match_model.dart';
 import '../../models/lineup_model.dart';
+import '../../models/game_result.dart';
+import '../../services/game_history_service.dart';
 import 'lineup_match_page.dart';
 import 'lineup_match_page_intro.dart';
 
@@ -127,6 +129,22 @@ class _LineupScorePageState extends State<LineupScorePage>
     await _counterController.forward();
     await Future.delayed(const Duration(milliseconds: 150));
     if (widget.defeat) await _endController.forward();
+    _saveResult();
+  }
+
+  Future<void> _saveResult() async {
+    if (!mounted) return;
+    await GameHistoryService.instance.save(
+      GameResult.compos(
+        difficulty: widget.difficulty,
+        matchName:  widget.match.matchName,
+        found:      widget.foundPlayers.length,
+        total:      widget.lineups.length,
+        errors:     widget.errors,
+        defeat:     widget.defeat,
+        timeTaken:  widget.timeTaken,
+      ),
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
