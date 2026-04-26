@@ -372,8 +372,6 @@ class _ProfilPageState extends State<ProfilPage> {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
           Text(

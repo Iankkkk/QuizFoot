@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_result.dart';
 import 'firestore_service.dart';
@@ -7,9 +6,23 @@ class GameHistoryService {
   GameHistoryService._();
   static final GameHistoryService instance = GameHistoryService._();
 
-  static const _keyResults = 'game_results_v1';
-  static const _keyPseudo  = 'pseudo';
-  static const _maxResults = 200;
+  static const _keyPseudo = 'pseudo';
+
+  // ── Cache mémoire (TTL 5 min) ─────────────────────────────────────────────
+
+  List<GameResult>? _cache;
+  DateTime? _cacheTime;
+  static const _cacheTtl = Duration(minutes: 5);
+
+  bool get _cacheValid =>
+      _cache != null &&
+      _cacheTime != null &&
+      DateTime.now().difference(_cacheTime!) < _cacheTtl;
+
+  void invalidateCache() {
+    _cache = null;
+    _cacheTime = null;
+  }
 
   // ── Pseudo ────────────────────────────────────────────────────────────────
 
@@ -18,67 +31,23 @@ class GameHistoryService {
     return prefs.getString(_keyPseudo);
   }
 
-  Future<void> setPseudo(String pseudo) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyPseudo, pseudo.trim());
-  }
-
   Future<bool> hasPseudo() async => (await getPseudo())?.isNotEmpty == true;
 
   // ── Results ───────────────────────────────────────────────────────────────
 
-  Future<List<GameResult>> getAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw   = prefs.getStringList(_keyResults) ?? [];
-    return raw
-        .map((s) {
-          try {
-            return GameResult.fromJson(jsonDecode(s) as Map<String, dynamic>);
-          } catch (_) {
-            return null;
-          }
-        })
-        .whereType<GameResult>()
-        .toList()
+  Future<List<GameResult>> getAll({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cacheValid) return _cache!;
+    final pseudo = await getPseudo();
+    if (pseudo == null || pseudo.isEmpty) return [];
+    final results = await FirestoreService.instance.getScores(pseudo)
       ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+    _cache = results;
+    _cacheTime = DateTime.now();
+    return results;
   }
 
   Future<void> save(GameResult result) async {
-    final prefs   = await SharedPreferences.getInstance();
-    final current = prefs.getStringList(_keyResults) ?? [];
-    current.add(jsonEncode(result.toJson()));
-    if (current.length > _maxResults) {
-      current.removeRange(0, current.length - _maxResults);
-    }
-    await prefs.setStringList(_keyResults, current);
-    FirestoreService.instance.saveScore(result); // fire-and-forget
-  }
-
-  Future<void> clear() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyResults);
-  }
-
-  // ── Stats ─────────────────────────────────────────────────────────────────
-
-  Future<Map<String, dynamic>> getStats() async {
-    final results = await getAll();
-    if (results.isEmpty) return {};
-
-    final byType = <GameType, List<GameResult>>{};
-    for (final r in results) {
-      byType.putIfAbsent(r.gameType, () => []).add(r);
-    }
-
-    double bestNormalized = 0;
-    for (final r in results) {
-      if (r.normalizedScore > bestNormalized) bestNormalized = r.normalizedScore;
-    }
-
-    return {
-      'totalGames':    results.length,
-      'bestScore':     bestNormalized,
-      'byType':        byType.map((k, v) => MapEntry(k.name, v.length)),
-    };
+    await FirestoreService.instance.saveScore(result);
+    invalidateCache();
   }
 }

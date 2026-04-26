@@ -25,11 +25,11 @@ class GameResult {
 
   static double difficultyMultiplier(String difficulty) {
     switch (difficulty) {
-      case 'Très Facile': return 0.6;
-      case 'Facile':      return 0.8;
-      case 'Moyenne':     return 1.0;
-      case 'Difficile':   return 1.3;
-      case 'Impossible':  return 1.7;
+      case 'Amateur': return 0.6;
+      case 'Semi-Pro':      return 0.8;
+      case 'Pro':     return 1.0;
+      case 'International':   return 1.3;
+      case 'Légende':  return 1.7;
       default:            return 1.0;
     }
   }

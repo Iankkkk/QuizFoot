@@ -113,11 +113,11 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
 
   int _difficultyToLevel(String d) {
     switch (d) {
-      case 'Très Facile': return 1;
-      case 'Facile':      return 2;
-      case 'Moyenne':     return 3;
-      case 'Difficile':   return 4;
-      case 'Impossible':  return 5;
+      case 'Amateur': return 1;
+      case 'Semi-Pro':      return 2;
+      case 'Pro':     return 3;
+      case 'International':   return 4;
+      case 'Légende':  return 5;
       default:            return 3;
     }
   }

@@ -603,11 +603,11 @@ void _showDifficultyDialog(BuildContext context) {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _difficultyButton(context, "Très Facile"),
-          _difficultyButton(context, "Facile"),
-          _difficultyButton(context, "Moyenne"),
-          _difficultyButton(context, "Difficile"),
-          _difficultyButton(context, "Impossible"),
+          _difficultyButton(context, "Amateur"),
+          _difficultyButton(context, "Semi-Pro"),
+          _difficultyButton(context, "Pro"),
+          _difficultyButton(context, "International"),
+          _difficultyButton(context, "Légende"),
         ],
       ),
     ),

@@ -8,6 +8,8 @@ class FirestoreService {
 
   final _db = FirebaseFirestore.instance;
 
+  // ── Écriture ──────────────────────────────────────────────────────────────
+
   Future<void> saveScore(GameResult result) async {
     final pseudo = await GameHistoryService.instance.getPseudo();
     if (pseudo == null || pseudo.isEmpty) return;
@@ -23,8 +25,33 @@ class FirestoreService {
         'playedAt':        FieldValue.serverTimestamp(),
         'details':         result.details,
       });
+    } catch (_) {}
+  }
+
+  // ── Lecture ───────────────────────────────────────────────────────────────
+
+  Future<List<GameResult>> getScores(String pseudo) async {
+    try {
+      final snap = await _db
+          .collection('scores')
+          .where('pseudo', isEqualTo: pseudo)
+          .get();
+      return snap.docs.map((doc) {
+        final d = doc.data();
+        return GameResult(
+          id:              doc.id,
+          gameType:        GameType.values.firstWhere((e) => e.name == d['gameType']),
+          difficulty:      d['difficulty'] as String,
+          rawScore:        (d['rawScore'] as num).toInt(),
+          maxRawScore:     (d['maxRawScore'] as num).toInt(),
+          normalizedScore: (d['normalizedScore'] as num).toDouble(),
+          timeTaken:       Duration(milliseconds: (d['timeTakenMs'] as num).toInt()),
+          playedAt:        (d['playedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          details:         Map<String, dynamic>.from(d['details'] as Map),
+        );
+      }).toList();
     } catch (_) {
-      // Silencieux — le score local est déjà sauvegardé
+      return [];
     }
   }
 }

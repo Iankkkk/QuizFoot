@@ -35,7 +35,7 @@ import 'quiz_score_page.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class QuizTest extends StatefulWidget {
-  /// One of the keys in [kDifficultyPlans] (e.g. 'Moyenne').
+  /// One of the keys in [kDifficultyPlans] (e.g. 'Pro').
   final String difficulty;
 
   /// Optional category filter. null means all categories are included.
@@ -275,13 +275,13 @@ class _QuizTestState extends State<QuizTest> {
   /// Returns the points a correct answer is worth right now,
   /// based on the elapsed time on the current question.
   ///
-  ///  < 4s  → 5 pts  |  < 7s  → 4 pts  |  < 10s → 3 pts
+  ///  < 6s  → 5 pts  |  < 9s  → 4 pts  |  < 12s → 3 pts
   ///  < 20s → 2 pts  |  20s+  → 1 pt
   int _computePoints(Duration elapsed) {
     final seconds = elapsed.inSeconds;
-    if (seconds < 4)  return 5;
-    if (seconds < 7)  return 4;
-    if (seconds < 10) return 3;
+    if (seconds < 6)  return 5;
+    if (seconds < 9)  return 4;
+    if (seconds < 12) return 3;
     if (seconds < 20) return 2;
     return 1;
   }
@@ -289,10 +289,10 @@ class _QuizTestState extends State<QuizTest> {
   /// Points the player would earn if they answered correctly right now.
   int _currentPoints() {
     final seconds = _elapsed.inSeconds;
-    if (seconds < 4)  return 5;
-    if (seconds < 7)  return 4;
-    if (seconds < 15) return 3;
-    if (seconds < 30) return 2;
+    if (seconds < 6)  return 5;
+    if (seconds < 9)  return 4;
+    if (seconds < 12) return 3;
+    if (seconds < 20) return 2;
     return 1;
   }
 

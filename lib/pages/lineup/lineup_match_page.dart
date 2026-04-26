@@ -68,15 +68,15 @@ Color _labelColor(Color bg) =>
 
 int _difficultyToLevel(String difficulty) {
   switch (difficulty) {
-    case 'Très Facile':
+    case 'Amateur':
       return 1;
-    case 'Facile':
+    case 'Semi-Pro':
       return 2;
-    case 'Moyenne':
+    case 'Pro':
       return 3;
-    case 'Difficile':
+    case 'International':
       return 4;
-    case 'Impossible':
+    case 'Légende':
       return 5;
     default:
       return 3;

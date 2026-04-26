@@ -51,7 +51,7 @@ class AppColors {
   /// Four-point zone / good.
   static const Color greenLight = Color(0xFF7CB95A);
 
-  /// "Impossible" difficulty badge.
+  /// "Légende" difficulty badge.
   static const Color purple = Color(0xFF8957E5);
 
   // ── Difficulty ──────────────────────────────────────────────────────
@@ -59,15 +59,15 @@ class AppColors {
   /// Used in the intro page's difficulty picker and category chips.
   static Color forDifficulty(String difficulty) {
     switch (difficulty) {
-      case 'Très Facile':
+      case 'Amateur':
         return const Color(0xFF238636);
-      case 'Facile':
+      case 'Semi-Pro':
         return accent;
-      case 'Moyenne':
+      case 'Pro':
         return amber;
-      case 'Difficile':
+      case 'International':
         return red;
-      case 'Impossible':
+      case 'Légende':
         return purple;
       default:
         return textSecondary;

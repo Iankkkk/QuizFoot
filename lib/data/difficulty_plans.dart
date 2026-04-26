@@ -10,31 +10,31 @@
 
 /// Difficulty plans for the Coup d'œil game.
 ///
-/// Example for "Moyenne": pick 3 players at level 3, 3 at level 4, 4 at level 5.
+/// Example for "Pro": pick 3 players at level 3, 3 at level 4, 4 at level 5.
 const Map<String, List<Map<int, int>>> kDifficultyPlans = {
-  'Très Facile': [
+  'Amateur': [
     {1: 8}, // 8 very famous players
     {2: 2}, // 2 well-known players
   ],
-  'Facile': [
+  'Semi-Pro': [
     {1: 1},
     {2: 5},
     {3: 3},
     {4: 1},
   ],
-  'Moyenne': [
+  'Pro': [
     {3: 3},
     {4: 3},
     {5: 4},
   ],
-  'Difficile': [
+  'International': [
     {4: 1},
     {5: 3},
     {6: 3},
     {7: 2},
     {8: 1},
   ],
-  'Impossible': [
+  'Légende': [
     {8: 2},
     {9: 4},
     {10: 4}, // 4 very obscure players

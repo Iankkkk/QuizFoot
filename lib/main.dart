@@ -110,7 +110,7 @@ class MyApp extends StatelessWidget {
         '/qui_a_menti': (context) => const QuiAMentiIntro(),
         '/parcours_joueur': (context) => const ParcoursJoueurPage(),
         '/lineup_match': (context) =>
-            const LineupMatchPage(difficulty: 'Moyenne'),
+            const LineupMatchPage(difficulty: 'Pro'),
       },
     );
   }

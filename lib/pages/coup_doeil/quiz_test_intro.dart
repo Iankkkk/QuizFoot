@@ -29,11 +29,11 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
 
   /// Available difficulty labels, in ascending order.
   static const List<String> _difficulties = [
-    'Très Facile',
-    'Facile',
-    'Moyenne',
-    'Difficile',
-    'Impossible',
+    'Amateur',
+    'Semi-Pro',
+    'Pro',
+    'International',
+    'Légende',
   ];
 
   /// Icons paired with each rule string (same index).

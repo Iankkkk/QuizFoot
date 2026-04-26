@@ -19,11 +19,11 @@ class LineupMatchPageIntro extends StatefulWidget {
 
 class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> {
   static const List<String> _difficulties = [
-    "Très Facile",
-    "Facile",
-    "Moyenne",
-    "Difficile",
-    "Impossible",
+    "Amateur",
+    "Semi-Pro",
+    "Pro",
+    "International",
+    "Légende",
   ];
 
   static const List<String> _eras = [
@@ -57,15 +57,15 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> {
 
   Color _getDifficultyColor(String diff) {
     switch (diff) {
-      case "Très Facile":
+      case "Amateur":
         return const Color(0xFF238636);
-      case "Facile":
+      case "Semi-Pro":
         return const Color(0xFF2EA043);
-      case "Moyenne":
+      case "Pro":
         return const Color(0xFFD29922);
-      case "Difficile":
+      case "International":
         return const Color(0xFFDA3633);
-      case "Impossible":
+      case "Légende":
         return const Color(0xFF8957E5);
       default:
         return _textSecondary;
