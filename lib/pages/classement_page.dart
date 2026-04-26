@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../constants/app_colors.dart';
+import '../data/players_data.dart';
 
 const _difficulties = ['Amateur', 'Semi-Pro', 'Pro', 'International', 'Légende'];
 
@@ -99,6 +100,56 @@ class _LeaderboardTab extends StatefulWidget {
 
 class _LeaderboardTabState extends State<_LeaderboardTab> {
   String _selectedDifficulty = 'Pro';
+  String? _selectedCategory;
+  List<String> _categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.gameType == 'coupDoeil') _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final players = await loadPlayers();
+      final cats = players
+          .expand((p) => p.categories)
+          .map((c) => c.trim())
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      if (mounted) setState(() => _categories = cats);
+    } catch (_) {}
+  }
+
+  Widget _buildPill({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentBright : AppColors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.accentBright : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : AppColors.textSecondary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,40 +165,71 @@ class _LeaderboardTabState extends State<_LeaderboardTab> {
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
               final d = _difficulties[i];
-              final selected = d == _selectedDifficulty;
-              return GestureDetector(
+              return _buildPill(
+                label: d,
+                selected: d == _selectedDifficulty,
                 onTap: () => setState(() => _selectedDifficulty = d),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.accentBright : AppColors.card,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.accentBright
-                          : AppColors.border,
-                    ),
-                  ),
-                  child: Text(
-                    d,
-                    style: TextStyle(
-                      color: selected ? Colors.black : AppColors.textSecondary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
               );
             },
           ),
         ),
+        // ── Category dropdown (Coup d'Œil only) ───────────────────────────
+        if (widget.gameType == 'coupDoeil' && _categories.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _selectedCategory != null ? AppColors.accentBright : AppColors.border,
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _selectedCategory,
+                  isDense: true,
+                  dropdownColor: AppColors.card,
+                  iconEnabledColor: AppColors.textSecondary,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontFamily: 'Poppins',
+                  ),
+                  hint: const Text(
+                    'Toutes catégories',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Toutes catégories'),
+                    ),
+                    ..._categories.map((c) => DropdownMenuItem<String?>(
+                          value: c,
+                          child: Text(c),
+                        )),
+                  ],
+                  onChanged: (val) => setState(() => _selectedCategory = val),
+                ),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         // ── Leaderboard ────────────────────────────────────────────────────
         Expanded(
           child: _LeaderboardList(
             gameType: widget.gameType,
             difficulty: _selectedDifficulty,
+            category: widget.gameType == 'coupDoeil' ? _selectedCategory : null,
             myPseudo: widget.myPseudo,
           ),
         ),
@@ -161,22 +243,25 @@ class _LeaderboardTabState extends State<_LeaderboardTab> {
 class _LeaderboardList extends StatelessWidget {
   final String gameType;
   final String difficulty;
+  final String? category;
   final String myPseudo;
 
   const _LeaderboardList({
     required this.gameType,
     required this.difficulty,
+    this.category,
     required this.myPseudo,
   });
 
   @override
   Widget build(BuildContext context) {
+    var query = FirebaseFirestore.instance
+        .collection('scores')
+        .where('gameType', isEqualTo: gameType)
+        .where('difficulty', isEqualTo: difficulty);
+    if (category != null) query = query.where('category', isEqualTo: category);
     return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('scores')
-          .where('gameType', isEqualTo: gameType)
-          .where('difficulty', isEqualTo: difficulty)
-          .get(),
+      future: query.get(),
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
           return const Center(

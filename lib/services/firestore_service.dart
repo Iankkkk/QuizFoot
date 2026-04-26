@@ -18,6 +18,7 @@ class FirestoreService {
         'pseudo':          pseudo,
         'gameType':        result.gameType.name,
         'difficulty':      result.difficulty,
+        'category':        result.details['category'] ?? '',
         'rawScore':        result.rawScore,
         'maxRawScore':     result.maxRawScore,
         'normalizedScore': result.normalizedScore,

@@ -42,6 +42,7 @@ class GameResult {
     required int wrong,
     required int skipped,
     required Duration timeTaken,
+    String? category,
   }) {
     final maxRaw = total * 5;
     return GameResult(
@@ -54,10 +55,11 @@ class GameResult {
       timeTaken:       timeTaken,
       playedAt:        DateTime.now(),
       details: {
-        'total':   total,
-        'correct': correct,
-        'wrong':   wrong,
-        'skipped': skipped,
+        'total':    total,
+        'correct':  correct,
+        'wrong':    wrong,
+        'skipped':  skipped,
+        if (category != null) 'category': category,
       },
     );
   }

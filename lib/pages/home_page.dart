@@ -60,14 +60,21 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadStats() async {
     final results = await GameHistoryService.instance.getAll();
     if (!mounted || results.isEmpty) return;
-    final totalTime = results.fold(Duration.zero, (acc, r) => acc + r.timeTaken);
-    final coupDoeilCount = results.where((r) => r.gameType == GameType.coupDoeil).length;
-    final composCount    = results.where((r) => r.gameType == GameType.compos).length;
+    final totalTime = results.fold(
+      Duration.zero,
+      (acc, r) => acc + r.timeTaken,
+    );
+    final coupDoeilCount = results
+        .where((r) => r.gameType == GameType.coupDoeil)
+        .length;
+    final composCount = results
+        .where((r) => r.gameType == GameType.compos)
+        .length;
     final fav = coupDoeilCount >= composCount ? "Coup d'Œil" : 'Compos';
     setState(() {
       _totalGames = results.length;
-      _totalTime  = totalTime;
-      _favGame    = fav;
+      _totalTime = totalTime;
+      _favGame = fav;
     });
   }
 
@@ -100,6 +107,10 @@ class _HomePageState extends State<HomePage> {
     await prefs.remove('players_expiry');
     await prefs.remove('anecdotes_json');
     await prefs.remove('anecdotes_expiry');
+    await prefs.remove('matches_json');
+    await prefs.remove('matches_expiry');
+    await prefs.remove('lineups_json');
+    await prefs.remove('lineups_expiry');
     DataCache.instance.invalidateAll();
     await _loadAnecdote();
     await _warmCache();
@@ -154,14 +165,16 @@ class _HomePageState extends State<HomePage> {
             // ── Header ──────────────────────────────────────────
             Align(
               alignment: Alignment.centerRight,
-              child: IconButton(
-                onPressed: _clearCache,
-                icon: const Icon(
-                  Icons.refresh,
-                  color: _textSecondary,
-                  size: 20,
+              child: Opacity(
+                opacity: 0.25,
+                child: IconButton(
+                  onPressed: _clearCache,
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: _textSecondary,
+                    size: 16,
+                  ),
                 ),
-                tooltip: 'Vider le cache',
               ),
             ),
             Center(
@@ -294,7 +307,10 @@ class _HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _StatItem(label: 'Parties jouées', value: '$_totalGames'),
-                      _StatItem(label: 'Temps total', value: _totalGames > 0 ? _formatTime(_totalTime) : '—'),
+                      _StatItem(
+                        label: 'Temps total',
+                        value: _totalGames > 0 ? _formatTime(_totalTime) : '—',
+                      ),
                       _StatItem(label: 'Jeu préféré', value: _favGame),
                     ],
                   ),
@@ -406,7 +422,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -446,7 +461,7 @@ class _HomePageState extends State<HomePage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.emoji_events_outlined),
-            label: 'Classement',
+            label: 'Classements',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -563,48 +578,52 @@ class _GameButton extends StatelessWidget {
               border: Border.all(color: _border),
             ),
             child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _accent.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: locked ? _textSecondary : _accentBright, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: _textPrimary,
-                    ),
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _accent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    locked ? 'Bientôt disponible' : subtitle,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: _textSecondary,
-                    ),
+                  child: Icon(
+                    icon,
+                    color: locked ? _textSecondary : _accentBright,
+                    size: 24,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: _textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        locked ? 'Bientôt disponible' : subtitle,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: _textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  locked ? Icons.lock_outline : Icons.chevron_right,
+                  color: _textSecondary,
+                  size: 20,
+                ),
+              ],
             ),
-            Icon(
-              locked ? Icons.lock_outline : Icons.chevron_right,
-              color: _textSecondary,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
+          ),
         ),
       ),
     );

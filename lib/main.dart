@@ -6,17 +6,18 @@ import 'firebase_options.dart';
 import 'pages/home_page.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/result_page.dart';
-import 'pages/history_page.dart';
 import 'pages/qui_a_menti/qui_a_menti_intro.dart';
 import 'pages/parcours_joueur_page.dart';
 import 'pages/lineup/lineup_match_page.dart';
 import 'pages/coup_doeil/quiz_test_intro.dart';
+import 'data/lineup_game_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   final prefs = await SharedPreferences.getInstance();
   final pseudo = prefs.getString('pseudo') ?? '';
+  preloadComposData(); // fire-and-forget, no await
   runApp(MyApp(hasPseudo: pseudo.isNotEmpty));
 }
 
@@ -106,7 +107,6 @@ class MyApp extends StatelessWidget {
       routes: {
         '/quiz_test': (context) => const QuizTestIntro(),
         '/result_page': (context) => const ResultPage(score: 0),
-        '/history_page': (context) => const HistoryPage(),
         '/qui_a_menti': (context) => const QuiAMentiIntro(),
         '/parcours_joueur': (context) => const ParcoursJoueurPage(),
         '/lineup_match': (context) =>

@@ -93,7 +93,7 @@ class _ProfilPageState extends State<ProfilPage> {
                       results: _compos,
                       extraStats: [
                         _StatData('Score moyen', _composAvg.toStringAsFixed(1)),
-                        _StatData('Complétées', '$_composCompleted'),
+                        _StatData('Compos parfaites', '$_composCompleted'),
                       ],
                     ),
                     if (_results.isNotEmpty) ...[
@@ -119,11 +119,14 @@ class _ProfilPageState extends State<ProfilPage> {
       (a, b) => a.normalizedScore > b.normalizedScore ? a : b,
     );
     final isCompos = best.gameType == GameType.compos;
+    final bestCat = best.details['category'] as String?;
     final label = isCompos
         ? (best.details['matchName'] as String? ?? 'Compos')
-        : "Coup d'Œil · ${best.difficulty}";
+        : (bestCat != null && bestCat.isNotEmpty)
+            ? "Coup d'Œil · ${best.difficulty} · $bestCat"
+            : "Coup d'Œil · ${best.difficulty}";
     final date =
-        '${best.playedAt.day}/${best.playedAt.month}/${best.playedAt.year}';
+        '${best.playedAt.day}/${best.playedAt.month}/${best.playedAt.year % 100}';
     final mins = best.timeTaken.inMinutes;
     final secs = best.timeTaken.inSeconds % 60;
 
@@ -255,30 +258,31 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
+  String get _bestCoupDoeil => _coupDoeil.isEmpty
+      ? '—'
+      : '${_coupDoeil.map((r) => r.normalizedScore).reduce((a, b) => a > b ? a : b).toStringAsFixed(0)} pts';
+
+  String get _bestCompos => _compos.isEmpty
+      ? '—'
+      : '${_compos.map((r) => r.normalizedScore).reduce((a, b) => a > b ? a : b).toStringAsFixed(0)}%';
+
   Widget _buildGlobalStats() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _StatTile(label: 'Parties', value: '${_results.length}'),
+          Expanded(child: _StatTile(label: 'Parties', value: '${_results.length}', small: true)),
           _divider(),
-          _StatTile(label: 'Temps total', value: _formatDuration(_totalTime)),
+          Expanded(child: _StatTile(label: 'Temps total', value: _formatDuration(_totalTime), small: true)),
           _divider(),
-          _StatTile(
-            label: 'Meilleur score',
-            value: _results.isEmpty
-                ? '—'
-                : _results
-                    .map((r) => r.normalizedScore)
-                    .reduce((a, b) => a > b ? a : b)
-                    .toStringAsFixed(0),
-          ),
+          Expanded(child: _StatTile(label: "Meilleur Coup d'Œil", value: _bestCoupDoeil, small: true)),
+          _divider(),
+          Expanded(child: _StatTile(label: 'Meilleur Compos', value: _bestCompos, small: true)),
         ],
       ),
     );
@@ -344,10 +348,13 @@ class _ProfilPageState extends State<ProfilPage> {
 
   Widget _buildResultRow(GameResult r) {
     final isCompos = r.gameType == GameType.compos;
+    final cat = r.details['category'] as String?;
     final label = isCompos
         ? (r.details['matchName'] as String? ?? 'Compos')
-        : "Coup d'Œil · ${r.difficulty}";
-    final date = '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year}';
+        : (cat != null && cat.isNotEmpty)
+            ? "Coup d'Œil · ${r.difficulty} · $cat"
+            : "Coup d'Œil · ${r.difficulty}";
+    final date = '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year % 100}';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -374,18 +381,23 @@ class _ProfilPageState extends State<ProfilPage> {
               ),
             ),
           ),
-          Text(
-            date,
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            r.normalizedScore.toStringAsFixed(0),
-            style: const TextStyle(
-              color: AppColors.accentBright,
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-            ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                date,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              ),
+              Text(
+                r.normalizedScore.toStringAsFixed(0),
+                style: const TextStyle(
+                  color: AppColors.accentBright,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -420,7 +432,8 @@ class _StatData {
 class _StatTile extends StatelessWidget {
   final String label;
   final String value;
-  const _StatTile({required this.label, required this.value});
+  final bool small;
+  const _StatTile({required this.label, required this.value, this.small = false});
 
   @override
   Widget build(BuildContext context) {
@@ -428,18 +441,19 @@ class _StatTile extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 18,
+            fontSize: small ? 14 : 18,
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.textSecondary,
-            fontSize: 11,
+            fontSize: 10,
           ),
         ),
       ],

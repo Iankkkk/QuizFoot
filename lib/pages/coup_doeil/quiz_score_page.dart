@@ -63,6 +63,7 @@ class _QuizScorePageState extends State<QuizScorePage> {
         wrong:      wrong,
         skipped:    skipped,
         timeTaken:  widget.timeTaken,
+        category:   widget.category,
       ),
     );
   }
