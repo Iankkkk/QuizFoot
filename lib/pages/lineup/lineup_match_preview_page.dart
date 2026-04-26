@@ -56,11 +56,13 @@ String? _leagueFolder(String competition) {
 class LineupMatchPreviewPage extends StatefulWidget {
   final String difficulty;
   final Set<String>? eras;
+  final Match? preselectedMatch;
 
   const LineupMatchPreviewPage({
     super.key,
     required this.difficulty,
     this.eras,
+    this.preselectedMatch,
   });
 
   @override
@@ -124,6 +126,14 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
 
   Future<void> _loadMatch() async {
     try {
+      if (widget.preselectedMatch != null) {
+        setState(() { _match = widget.preselectedMatch; _isLoading = false; });
+        _entranceController.forward();
+        _progressController.forward();
+        _navTimer = Timer(const Duration(seconds: _countdownSeconds), _goToGame);
+        return;
+      }
+
       final matches = await loadMatches();
       final level   = _difficultyToLevel(widget.difficulty);
 

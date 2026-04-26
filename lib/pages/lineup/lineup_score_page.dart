@@ -81,6 +81,7 @@ class _LineupScorePageState extends State<LineupScorePage>
   void initState() {
     super.initState();
     _setupAnimations();
+    _saveResult();
     _playSequence();
   }
 
@@ -136,14 +137,13 @@ class _LineupScorePageState extends State<LineupScorePage>
     await _counterController.forward();
     await Future.delayed(const Duration(milliseconds: 150));
     if (widget.defeat) await _endController.forward();
-    _saveResult();
   }
 
   Future<void> _saveResult() async {
-    if (!mounted) return;
     await GameHistoryService.instance.save(
       GameResult.compos(
         difficulty: widget.difficulty,
+        matchId:    widget.match.matchId,
         matchName:  widget.match.matchName,
         found:      widget.foundPlayers.length,
         total:      widget.lineups.length,

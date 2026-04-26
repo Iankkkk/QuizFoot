@@ -23,6 +23,8 @@ import '../../data/lineup_game_data.dart';
 import '../../data/api_exception.dart';
 import '../../models/match_model.dart';
 import '../../models/lineup_model.dart';
+import '../../models/game_result.dart';
+import '../../services/game_history_service.dart';
 import 'formation_layout.dart';
 import 'lineup_score_page.dart';
 
@@ -223,6 +225,10 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   late Animation<double> _toastOpacity;
   late Animation<double> _toastSlide;
 
+  // ── Hint banner ───────────────────────────────────────────────────────────
+  bool _showHintBanner = false;
+  Timer? _hintBannerTimer;
+
   // ── Timing ────────────────────────────────────────────────────────────────
   late final DateTime _startTime;
 
@@ -257,6 +263,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     _inputController.dispose();
     _inputFocus.dispose();
     _feedbackTimer?.cancel();
+    _hintBannerTimer?.cancel();
     super.dispose();
   }
 
@@ -271,11 +278,14 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     }
     try {
       final matches = await loadMatches();
-
-      List<Match> filtered;
+      final history = await GameHistoryService.instance.getAll();
+      final playedIds = history
+          .where((r) => r.gameType == GameType.compos)
+          .map((r) => r.details['matchId'] as String? ?? '')
+          .toSet();
 
       final level = _difficultyToLevel(widget.difficulty);
-      filtered = matches.where((m) {
+      List<Match> filtered = matches.where((m) {
         if (m.level != level) return false;
         final eras = widget.eras;
         if (eras == null || eras.isEmpty) return true;
@@ -296,7 +306,13 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         return;
       }
 
-      final picked = (List<Match>.from(filtered)..shuffle()).first;
+      // Exclure les matchs déjà joués ; si tous joués, tout réafficher
+      final unplayed = filtered
+          .where((m) => !playedIds.contains(m.matchId))
+          .toList();
+      final pool = unplayed.isNotEmpty ? unplayed : filtered;
+
+      final picked = (List<Match>.from(pool)..shuffle()).first;
       setState(() => _selectedMatch = picked);
       await _loadLineups(picked.matchId);
     } on ApiException catch (e) {
@@ -320,6 +336,11 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         _errors = 0;
         _score = 0;
         _isLoading = false;
+        _showHintBanner = false;
+      });
+      _hintBannerTimer?.cancel();
+      _hintBannerTimer = Timer(const Duration(seconds: 20), () {
+        if (mounted) setState(() => _showHintBanner = true);
       });
     } on ApiException catch (e) {
       _showFeedback(e.userMessage, AppColors.red);
@@ -472,6 +493,10 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     if (_inputFocus.hasFocus) {
       _inputFocus.unfocus();
       return;
+    }
+    if (_showHintBanner) {
+      _hintBannerTimer?.cancel();
+      setState(() => _showHintBanner = false);
     }
     // Nothing to reveal on already-resolved or already-hinted players.
     if (_foundPlayers.contains(player.playerName) ||
@@ -690,6 +715,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                         children: [
                           _buildAppBar(),
                           _buildStatusBar(),
+                          if (_showHintBanner) _buildHintBanner(),
                           if (!_isPitchMode) _buildTabBar(),
                         ],
                       ),
@@ -814,6 +840,41 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   }
 
   // ── Status bar ────────────────────────────────────────────────────────────
+
+  Widget _buildHintBanner() {
+    return GestureDetector(
+      onTap: () {
+        _hintBannerTimer?.cancel();
+        setState(() => _showHintBanner = false);
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        color: AppColors.accentBright.withValues(alpha: 0.10),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.touch_app_outlined,
+              size: 14,
+              color: AppColors.accentBright,
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Clique sur un joueur pour obtenir un indice',
+                style: TextStyle(
+                  color: AppColors.accentBright,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const Icon(Icons.close, size: 14, color: AppColors.accentBright),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildStatusBar() {
     final pct = _totalPlayers == 0 ? 0.0 : _revealedCount / _totalPlayers;
@@ -1764,18 +1825,41 @@ class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
                           child: Text(
                             label,
                             style: TextStyle(
-                              color: filled && c1 == c2 ? _labelColor(c1) : Colors.white,
+                              color: filled && c1 == c2
+                                  ? _labelColor(c1)
+                                  : Colors.white,
                               fontSize: numFontSize,
                               fontWeight: FontWeight.w800,
                               height: 1,
                               shadows: filled && c1 != c2
                                   ? const [
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1)),
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, -1)),
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, 1)),
-                                      Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 2,
+                                        offset: Offset(-1, -1),
+                                      ),
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 2,
+                                        offset: Offset(1, -1),
+                                      ),
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 2,
+                                        offset: Offset(-1, 1),
+                                      ),
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 2,
+                                        offset: Offset(1, 1),
+                                      ),
                                     ]
-                                  : const [Shadow(color: Colors.black54, blurRadius: 3)],
+                                  : const [
+                                      Shadow(
+                                        color: Colors.black54,
+                                        blurRadius: 3,
+                                      ),
+                                    ],
                             ),
                           ),
                         ),
@@ -1921,87 +2005,110 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
       child: SizedBox(
         width: 32,
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: d,
-            height: d,
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_ctrl, _rippleCtrl]),
-              builder: (_, __) => Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  CustomPaint(
-                    size: Size(d, d),
-                    painter: _RipplePainter(
-                      progress: _rippleAnim.value,
-                      chipRadius: d / 2,
-                      color: c1,
-                    ),
-                  ),
-                  Transform.scale(
-                    scale: _scale.value,
-                    child: Container(
-                      width: d,
-                      height: d,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: filled
-                            ? LinearGradient(
-                                colors: [c1, c1, c2, c2],
-                                stops: const [0.0, 0.5, 0.5, 1.0],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )
-                            : null,
-                        color: filled ? null : Colors.white.withOpacity(0.10),
-                        border: Border.all(
-                          color: Colors.white,
-                          width: filled ? 1.5 : 1.2,
-                        ),
-                        boxShadow: [
-                          const BoxShadow(
-                            color: Color(0x55000000),
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                          BoxShadow(
-                            color: c1.withOpacity(_glow.value * 0.8),
-                            blurRadius: _glow.value * 24,
-                            spreadRadius: _glow.value * 5,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            color: filled && c1 == c2 ? _labelColor(c1) : Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                            shadows: filled && c1 != c2
-                                ? const [
-                                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1)),
-                                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, -1)),
-                                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, 1)),
-                                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
-                                  ]
-                                : const [Shadow(color: Colors.black54, blurRadius: 3)],
-                          ),
-                        ),
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: d,
+              height: d,
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_ctrl, _rippleCtrl]),
+                builder: (_, __) => Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: Size(d, d),
+                      painter: _RipplePainter(
+                        progress: _rippleAnim.value,
+                        chipRadius: d / 2,
+                        color: c1,
                       ),
                     ),
-                  ),
-                ],
+                    Transform.scale(
+                      scale: _scale.value,
+                      child: Container(
+                        width: d,
+                        height: d,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: filled
+                              ? LinearGradient(
+                                  colors: [c1, c1, c2, c2],
+                                  stops: const [0.0, 0.5, 0.5, 1.0],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                )
+                              : null,
+                          color: filled ? null : Colors.white.withOpacity(0.10),
+                          border: Border.all(
+                            color: Colors.white,
+                            width: filled ? 1.5 : 1.2,
+                          ),
+                          boxShadow: [
+                            const BoxShadow(
+                              color: Color(0x55000000),
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                            BoxShadow(
+                              color: c1.withOpacity(_glow.value * 0.8),
+                              blurRadius: _glow.value * 24,
+                              spreadRadius: _glow.value * 5,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: filled && c1 == c2
+                                  ? _labelColor(c1)
+                                  : Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              height: 1,
+                              shadows: filled && c1 != c2
+                                  ? const [
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 2,
+                                        offset: Offset(-1, -1),
+                                      ),
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 2,
+                                        offset: Offset(1, -1),
+                                      ),
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 2,
+                                        offset: Offset(-1, 1),
+                                      ),
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 2,
+                                        offset: Offset(1, 1),
+                                      ),
+                                    ]
+                                  : const [
+                                      Shadow(
+                                        color: Colors.black54,
+                                        blurRadius: 3,
+                                      ),
+                                    ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (revealed) ...[
-            const SizedBox(height: 2),
-            Text(
+            if (revealed) ...[
+              const SizedBox(height: 2),
+              Text(
                 _shortName,
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -2015,9 +2122,9 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
                   height: 1.2,
                 ),
               ),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }

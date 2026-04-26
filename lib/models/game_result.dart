@@ -64,6 +64,7 @@ class GameResult {
 
   factory GameResult.compos({
     required String difficulty,
+    required String matchId,
     required String matchName,
     required int found,
     required int total,
@@ -84,6 +85,7 @@ class GameResult {
       timeTaken:       timeTaken,
       playedAt:        DateTime.now(),
       details: {
+        'matchId':      matchId,
         'matchName':    matchName,
         'found':        found,
         'total':        total,
