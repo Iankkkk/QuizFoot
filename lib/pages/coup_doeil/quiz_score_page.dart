@@ -26,6 +26,7 @@ class QuizScorePage extends StatefulWidget {
   final List<QuestionResult> results;
   final String difficulty;
   final String? category;
+  final List<Map<String, String>> errors;
 
   const QuizScorePage({
     super.key,
@@ -35,6 +36,7 @@ class QuizScorePage extends StatefulWidget {
     required this.results,
     required this.difficulty,
     this.category,
+    this.errors = const [],
   });
 
   @override
@@ -64,6 +66,7 @@ class _QuizScorePageState extends State<QuizScorePage> {
         skipped:    skipped,
         timeTaken:  widget.timeTaken,
         category:   widget.category,
+        errors:     widget.errors,
       ),
     );
   }

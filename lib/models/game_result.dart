@@ -43,6 +43,7 @@ class GameResult {
     required int skipped,
     required Duration timeTaken,
     String? category,
+    List<Map<String, String>> errors = const [],
   }) {
     final maxRaw = total * 5;
     return GameResult(
@@ -60,6 +61,7 @@ class GameResult {
         'wrong':    wrong,
         'skipped':  skipped,
         if (category != null) 'category': category,
+        if (errors.isNotEmpty) 'errors': errors,
       },
     );
   }

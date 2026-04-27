@@ -79,6 +79,9 @@ class _QuizTestState extends State<QuizTest> {
   /// Ordered list of outcomes, one entry added per answered/skipped question.
   final List<QuestionResult> _questionResults = [];
 
+  /// Wrong answers: each entry has 'given' (typed) and 'expected' (correct name).
+  final List<Map<String, String>> _errors = [];
+
   /// True if the player has typed at least one wrong answer for the current
   /// question. Used to distinguish "wrong then skipped" vs "just skipped".
   bool _hadWrongAttempt = false;
@@ -379,6 +382,10 @@ class _QuizTestState extends State<QuizTest> {
     } else {
       // ── Wrong answer ─────────────────────────────────────────────────────
       // No haptic for a wrong answer — only vibrate on near-misses and successes.
+      _errors.add({
+        'given':    _answer.trim(),
+        'expected': _selectedPlayers[_currentQuestion].name,
+      });
       _questionResults.add(QuestionResult(
         playerName: _selectedPlayers[_currentQuestion].name,
         correct: false,
@@ -463,6 +470,7 @@ class _QuizTestState extends State<QuizTest> {
           results:    List.unmodifiable(_questionResults),
           difficulty: widget.difficulty,
           category:   widget.category,
+          errors:     List.unmodifiable(_errors),
         ),
       ),
     );
