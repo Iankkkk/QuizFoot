@@ -12,6 +12,8 @@ import 'pages/lineup/lineup_match_page.dart';
 import 'pages/coup_doeil/quiz_test_intro.dart';
 import 'data/lineup_game_data.dart';
 
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -103,6 +105,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+      navigatorObservers: [routeObserver],
       home: hasPseudo ? const HomePage() : const OnboardingPage(),
       routes: {
         '/quiz_test': (context) => const QuizTestIntro(),

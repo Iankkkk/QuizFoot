@@ -47,7 +47,10 @@ class GameHistoryService {
   }
 
   Future<void> save(GameResult result) async {
+    if (_cache != null) {
+      _cache = [result, ..._cache!];
+      _cacheTime = DateTime.now();
+    }
     await FirestoreService.instance.saveScore(result);
-    invalidateCache();
   }
 }

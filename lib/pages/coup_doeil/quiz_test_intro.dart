@@ -11,6 +11,9 @@
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../data/players_data.dart';
+import '../../models/game_result.dart';
+import '../../services/game_history_service.dart';
+import '../../main.dart' show routeObserver;
 import 'quiz_test.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,7 +27,7 @@ class QuizTestIntro extends StatefulWidget {
   State<QuizTestIntro> createState() => _QuizTestIntroState();
 }
 
-class _QuizTestIntroState extends State<QuizTestIntro> {
+class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
   // ── Constants ──────────────────────────────────────────────────────────────
 
   /// Available difficulty labels, in ascending order.
@@ -38,7 +41,6 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
 
   /// Icons paired with each rule string (same index).
   static const List<IconData> _ruleIcons = [
-    Icons.photo_camera_outlined,
     Icons.format_list_numbered,
     Icons.keyboard_outlined,
     Icons.timer_outlined,
@@ -47,8 +49,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
 
   /// Plain-text rules shown on the intro card.
   static const List<String> _rules = [
-    'Devine le joueur à partir de sa photo',
-    '10 photos seront affichées',
+    '10 photos de joueurs seront affichées',
     'Tape le NOM DE FAMILLE du joueur',
     'Plus tu trouves rapidement, plus tu marques de points',
     'Tu peux passer si tu bloques',
@@ -56,39 +57,76 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
 
   // ── State ──────────────────────────────────────────────────────────────────
 
-  /// Currently selected category filter. null means "all categories".
   String? _selectedCategory;
-
-  /// Category list loaded from the player dataset.
   List<String> _categories = [];
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
+  int _playerCount = 0;
+  List<GameResult> _recentResults = [];
+  GameResult? _bestResult;
+  bool _historyLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _loadHistory();
   }
 
-  // ── Data ──────────────────────────────────────────────────────────────────
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
 
-  /// Fetches the full player list and extracts a sorted, deduplicated
-  /// set of category labels. Uses the same cache as the game itself.
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _loadHistory();
+  }
+
   Future<void> _loadCategories() async {
     try {
       final players = await loadPlayers();
       final categories =
           players
-              .expand((player) => player.categories)
-              .map((category) => category.trim())
-              .where((category) => category.isNotEmpty)
+              .expand((p) => p.categories)
+              .map((c) => c.trim())
+              .where((c) => c.isNotEmpty)
               .toSet()
               .toList()
             ..sort();
-      setState(() => _categories = categories);
+      if (mounted)
+        setState(() {
+          _categories = categories;
+          _playerCount = players.length;
+        });
+    } catch (_) {}
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final all = await GameHistoryService.instance.getAll();
+      final coupDoeil = all
+          .where((r) => r.gameType == GameType.coupDoeil)
+          .toList();
+      final recent = coupDoeil.take(5).toList();
+      final best = coupDoeil.isEmpty
+          ? null
+          : coupDoeil.reduce(
+              (a, b) => a.normalizedScore > b.normalizedScore ? a : b,
+            );
+      if (mounted)
+        setState(() {
+          _recentResults = recent;
+          _bestResult = best;
+          _historyLoaded = true;
+        });
     } catch (_) {
-      // If loading fails the category row stays empty — not a blocking error
-      // since the game can still run without a category filter.
+      if (mounted) setState(() => _historyLoaded = true);
     }
   }
 
@@ -123,19 +161,156 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: _buildAppBar(),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        decoration: const BoxDecoration(
+          color: AppColors.card,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Catégorie',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: _categories.isEmpty
+                  ? _buildSkeletonChips()
+                  : _buildChipRow(),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accentBright,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: _openDifficultyPicker,
+                child: const Text(
+                  'Jouer !',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 4),
-            _buildLogo(),
-            const SizedBox(height: 16),
-            _buildRulesCard(),
-            const SizedBox(height: 40),
-            _buildCategorySection(),
-            const SizedBox(height: 28),
-            _buildPlayButton(),
+            // ── Hero ──────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1A2E1A), AppColors.bg],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    right: -10,
+                    top: -10,
+                    child: Text(
+                      '👁',
+                      style: TextStyle(
+                        fontSize: 110,
+                        color: Colors.white.withOpacity(0.05),
+                      ),
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Coup d'Œil",
+                        style: TextStyle(
+                          color: AppColors.accentBright,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Reconnais les joueurs\nen un coup d\'œil',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          TweenAnimationBuilder<int>(
+                            tween: IntTween(begin: 0, end: _playerCount),
+                            duration: const Duration(milliseconds: 900),
+                            curve: Curves.easeOut,
+                            builder: (_, val, __) => Text(
+                              '$val joueurs',
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          if (_bestResult != null) ...[
+                            const Text(
+                              '  ·  ',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              'Meilleur score : ${_bestResult!.normalizedScore.toStringAsFixed(0)} pts · ${_bestResult!.difficulty}',
+                              style: const TextStyle(
+                                color: AppColors.accentBright,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // ── Content ───────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildRulesCard(),
+                  const SizedBox(height: 28),
+                  _buildRecentResults(),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -164,13 +339,6 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
         preferredSize: const Size.fromHeight(1),
         child: Container(height: 1, color: AppColors.border),
       ),
-    );
-  }
-
-  /// App logo centered at the top.
-  Widget _buildLogo() {
-    return Center(
-      child: Image.asset('assets/images/logo.png', width: 120, height: 120),
     );
   }
 
@@ -284,6 +452,85 @@ class _QuizTestIntroState extends State<QuizTestIntro> {
   }
 
   /// Green "Jouer !" button that opens the difficulty picker.
+  Widget _buildRecentResults() {
+    if (!_historyLoaded) {
+      return const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.accentBright,
+          ),
+        ),
+      );
+    }
+    if (_recentResults.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Mes dernières parties',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        ..._recentResults.map((r) {
+          final cat = r.details['category'] as String?;
+          final mins = r.timeTaken.inMinutes;
+          final secs = r.timeTaken.inSeconds % 60;
+          final label = (cat != null && cat.isNotEmpty)
+              ? '${r.difficulty} · $cat'
+              : r.difficulty;
+          final diffColor = AppColors.forDifficulty(r.difficulty);
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: diffColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${mins}m${secs.toString().padLeft(2, '0')}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '${r.normalizedScore.toStringAsFixed(0)} pts',
+                  style: const TextStyle(
+                    color: AppColors.accentBright,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
   Widget _buildPlayButton() {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
