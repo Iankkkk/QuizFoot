@@ -201,6 +201,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   // ── Game state ────────────────────────────────────────────────────────────
   final Set<String> _foundPlayers = {};
   final Set<String> _passedPlayers = {};
+  int _foundCount = 0;
   final Map<String, String> _hints = {};
   final List<String> _wrongAnswers = [];
   int _errors = 0;
@@ -331,6 +332,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         _lineups = all.where((l) => l.matchId == matchId).toList();
         _foundPlayers.clear();
         _passedPlayers.clear();
+        _foundCount = 0;
         _hints.clear();
         _wrongAnswers.clear();
         _errors = 0;
@@ -426,6 +428,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           _foundPlayers.add(p.playerName);
         }
         _score += newFound.length;
+        _foundCount += newFound.length;
       });
       final label = newFound.length > 1
           ? '${newFound.length} joueurs trouvés ! (+${newFound.length})'
@@ -640,7 +643,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   }
 
   void _checkVictory() {
-    if (_foundPlayers.length + _passedPlayers.length == _lineups.length) {
+    if (_foundCount + _passedPlayers.length == _lineups.length) {
       Future.delayed(
         const Duration(milliseconds: 600),
         () => _endGame(defeat: false),
@@ -675,7 +678,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   // ── Computed ──────────────────────────────────────────────────────────────
 
   int get _totalPlayers => _lineups.length;
-  int get _revealedCount => _foundPlayers.length + _passedPlayers.length;
+  int get _revealedCount => _foundCount + _passedPlayers.length;
 
   bool get _isPitchMode {
     final m = _selectedMatch;

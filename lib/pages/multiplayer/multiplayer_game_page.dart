@@ -358,7 +358,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
     final answer = _norm(raw);
     final alreadyFound = _allFoundNames;
 
-    Lineup? matched;
+    final List<Lineup> allMatched = [];
     bool isClose = false;
 
     for (final l in _lineups) {
@@ -375,12 +375,12 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         final sim = lastN.similarityTo(answer);
         if (sim > bestSim) bestSim = sim;
       }
-      if (exact) { matched = l; break; }
-      if (bestSim >= 0.5) isClose = true;
+      if (exact) allMatched.add(l);
+      else if (bestSim >= 0.5) isClose = true;
     }
 
     // Already found by someone
-    if (matched == null) {
+    if (allMatched.isEmpty) {
       for (final l in _lineups) {
         if (!alreadyFound.contains(l.playerName)) continue;
         for (final name in l.allNames) {
@@ -394,23 +394,36 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
       }
     }
 
-    if (matched != null) {
+    if (allMatched.isNotEmpty) {
       HapticFeedback.mediumImpact();
       _inputController.clear();
       _inputFocus.unfocus();
-      _showFeedback('${_lastName(matched.playerName)} ✓', AppColors.accentBright);
-      final foundName = matched.playerName;
+      final label = allMatched.length > 1
+          ? '${_lastName(allMatched.first.playerName)} × ${allMatched.length} ✓'
+          : '${_lastName(allMatched.first.playerName)} ✓';
+      _showFeedback(label, AppColors.accentBright);
       _hintBannerTimer?.cancel();
-      setState(() { _localFoundNames.add(foundName); _showHintBanner = false; });
+      setState(() {
+        for (final m in allMatched) _localFoundNames.add(m.playerName);
+        _showHintBanner = false;
+      });
       _submitting = true;
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
       try {
-        await MultiplayerService.instance.submitCorrectAnswer(
-          code: widget.roomCode,
-          pseudo: widget.pseudo,
-          playerName: matched.playerName,
-        );
+        if (allMatched.length == 1) {
+          await MultiplayerService.instance.submitCorrectAnswer(
+            code: widget.roomCode,
+            pseudo: widget.pseudo,
+            playerName: allMatched.first.playerName,
+          );
+        } else {
+          await MultiplayerService.instance.submitMultipleCorrectAnswers(
+            code: widget.roomCode,
+            pseudo: widget.pseudo,
+            playerNames: allMatched.map((m) => m.playerName).toList(),
+          );
+        }
       } finally {
         if (mounted) setState(() => _submitting = false);
       }

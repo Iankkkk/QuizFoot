@@ -103,6 +103,37 @@ class MultiplayerService {
 
   // ── Turn actions ──────────────────────────────────────────────────────────
 
+  Future<void> submitMultipleCorrectAnswers({
+    required String code,
+    required String pseudo,
+    required List<String> playerNames,
+  }) async {
+    final ref = _games.doc(code);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final game = MultiplayerGame.fromDoc(snap);
+      if (game.currentTurn != pseudo) return;
+
+      final opponent = game.opponentOf;
+      final opponentData = game.players[opponent]!;
+      final found = [
+        ...game.foundPlayers.map((f) => f.toMap()),
+        ...playerNames.map((n) => FoundPlayer(name: n, foundBy: pseudo).toMap()),
+      ];
+
+      tx.update(ref, {
+        'foundPlayers': found,
+        'currentTurn': opponent,
+        'turnStartedAt': FieldValue.serverTimestamp(),
+        'suffocatedBy': null,
+      });
+
+      if (opponentData.eliminated) {
+        tx.update(ref, {'status': GameStatus.finished.name, 'winner': pseudo});
+      }
+    });
+  }
+
   Future<void> submitCorrectAnswer({
     required String code,
     required String pseudo,
