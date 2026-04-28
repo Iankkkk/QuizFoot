@@ -1,4 +1,4 @@
-enum GameType { coupDoeil, compos }
+enum GameType { coupDoeil, compos, multiplayerCompos }
 
 class GameResult {
   final String id;
@@ -99,6 +99,43 @@ class GameResult {
         'wrongAnswers':  wrongAnswers,
         'foundPlayers':  foundPlayers,
         'defeat':        defeat,
+      },
+    );
+  }
+
+  factory GameResult.multiplayerCompos({
+    required String difficulty,
+    required String matchId,
+    required String matchName,
+    required String opponentPseudo,
+    required bool won,
+    required bool abandoned,
+    required int foundByMe,
+    required int foundByOpponent,
+    required int totalPlayers,
+    required int myErrors,
+    required Duration timeTaken,
+  }) {
+    final score = totalPlayers > 0 ? (foundByMe / totalPlayers * 100).round() : 0;
+    return GameResult(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      gameType: GameType.multiplayerCompos,
+      difficulty: difficulty,
+      rawScore: score,
+      maxRawScore: 100,
+      normalizedScore: score.toDouble(),
+      timeTaken: timeTaken,
+      playedAt: DateTime.now(),
+      details: {
+        'matchId': matchId,
+        'matchName': matchName,
+        'opponentPseudo': opponentPseudo,
+        'won': won,
+        'abandoned': abandoned,
+        'foundByMe': foundByMe,
+        'foundByOpponent': foundByOpponent,
+        'totalPlayers': totalPlayers,
+        'myErrors': myErrors,
       },
     );
   }

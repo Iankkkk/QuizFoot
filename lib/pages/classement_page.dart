@@ -20,7 +20,7 @@ class _ClassementPageState extends State<ClassementPage>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 2, vsync: this);
+    _tab = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -68,6 +68,7 @@ class _ClassementPageState extends State<ClassementPage>
               tabs: const [
                 Tab(text: "Coup d'Œil"),
                 Tab(text: 'Compos'),
+                Tab(text: 'Compos 1v1'),
               ],
             ),
           ),
@@ -78,6 +79,7 @@ class _ClassementPageState extends State<ClassementPage>
               children: [
                 _LeaderboardTab(gameType: 'coupDoeil', myPseudo: widget.pseudo),
                 _LeaderboardTab(gameType: 'compos', myPseudo: widget.pseudo),
+                _MultiplayerDuelsTab(myPseudo: widget.pseudo),
               ],
             ),
           ),
@@ -423,5 +425,208 @@ class _LeaderboardRow extends StatelessWidget {
     if (rank == 1) return '🥇';
     if (rank == 2) return '🥈';
     return '🥉';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MultiplayerDuelsTab extends StatelessWidget {
+  final String myPseudo;
+  const _MultiplayerDuelsTab({required this.myPseudo});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('scores')
+          .where('gameType', isEqualTo: 'multiplayerCompos')
+          .where('details.won', isEqualTo: true)
+          .get(),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.accentBright),
+          );
+        }
+        if (snap.hasError) {
+          return const Center(
+            child: Text(
+              'Erreur de chargement',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          );
+        }
+
+        final docs = snap.data!.docs;
+        if (docs.isEmpty) {
+          return const Center(
+            child: Text(
+              'Aucun duel encore joué.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+          );
+        }
+
+        // Sort most recent first (playedAt is a Timestamp)
+        final sorted = docs.toList()
+          ..sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aTs = aData['playedAt'] as Timestamp?;
+            final bTs = bData['playedAt'] as Timestamp?;
+            if (aTs == null && bTs == null) return 0;
+            if (aTs == null) return 1;
+            if (bTs == null) return -1;
+            return bTs.compareTo(aTs);
+          });
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          itemCount: sorted.length,
+          itemBuilder: (context, i) {
+            final data = sorted[i].data() as Map<String, dynamic>;
+            final details = Map<String, dynamic>.from(data['details'] as Map? ?? {});
+            final winner = data['pseudo'] as String? ?? '?';
+            final loser = details['opponentPseudo'] as String? ?? '?';
+            final matchName = details['matchName'] as String? ?? '';
+            final foundByWinner = details['foundByMe'] as int? ?? 0;
+            final foundByLoser = details['foundByOpponent'] as int? ?? 0;
+            final difficulty = data['difficulty'] as String? ?? '';
+            final ts = data['playedAt'] as Timestamp?;
+            final date = ts != null
+                ? '${ts.toDate().day}/${ts.toDate().month}/${ts.toDate().year % 100}'
+                : '—';
+
+            final iMeWinner = winner == myPseudo;
+            final iMeLoser = loser == myPseudo;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: (iMeWinner || iMeLoser)
+                    ? AppColors.accentBright.withValues(alpha: 0.06)
+                    : AppColors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: (iMeWinner || iMeLoser) ? AppColors.accentBright : AppColors.border,
+                  width: (iMeWinner || iMeLoser) ? 1.5 : 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      // Winner
+                      _PseudoChip(
+                        pseudo: winner,
+                        isWinner: true,
+                        isMe: iMeWinner,
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          'vs',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      // Loser
+                      _PseudoChip(
+                        pseudo: loser,
+                        isWinner: false,
+                        isMe: iMeLoser,
+                      ),
+                      const Spacer(),
+                      // Score
+                      Text(
+                        '$foundByWinner – $foundByLoser',
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (matchName.isNotEmpty || difficulty.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        if (matchName.isNotEmpty)
+                          Expanded(
+                            child: Text(
+                              matchName,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        if (difficulty.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            difficulty,
+                            style: TextStyle(
+                              color: AppColors.forDifficulty(difficulty),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 8),
+                        Text(
+                          date,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _PseudoChip extends StatelessWidget {
+  final String pseudo;
+  final bool isWinner;
+  final bool isMe;
+  const _PseudoChip({required this.pseudo, required this.isWinner, required this.isMe});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isWinner ? AppColors.accentBright : AppColors.textSecondary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isWinner)
+          const Padding(
+            padding: EdgeInsets.only(right: 4),
+            child: Text('🏆', style: TextStyle(fontSize: 12)),
+          ),
+        Text(
+          pseudo,
+          style: TextStyle(
+            color: isMe ? AppColors.accentBright : color,
+            fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
   }
 }

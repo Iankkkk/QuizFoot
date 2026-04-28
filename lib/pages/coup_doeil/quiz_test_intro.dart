@@ -377,7 +377,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                       _rules[i],
                       style: const TextStyle(
                         fontSize: 14,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textPrimary,
                         height: 1.4,
                       ),
                     ),

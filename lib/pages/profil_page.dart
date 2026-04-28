@@ -34,6 +34,9 @@ class _ProfilPageState extends State<ProfilPage> {
   List<GameResult> get _compos =>
       _results.where((r) => r.gameType == GameType.compos).toList();
 
+  List<GameResult> get _multiplayerCompos =>
+      _results.where((r) => r.gameType == GameType.multiplayerCompos).toList();
+
   String _formatDuration(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes % 60;
@@ -48,6 +51,12 @@ class _ProfilPageState extends State<ProfilPage> {
 
   int get _composCompleted =>
       _compos.where((r) => r.details['found'] == r.details['total']).length;
+
+  int get _multiplayerWins =>
+      _multiplayerCompos.where((r) => r.details['won'] == true && r.details['abandoned'] != true).length;
+
+  int get _multiplayerLosses =>
+      _multiplayerCompos.where((r) => r.details['won'] == false && r.details['abandoned'] != true).length;
 
   double get _coupDoeilAvg => _coupDoeil.isEmpty
       ? 0
@@ -96,6 +105,8 @@ class _ProfilPageState extends State<ProfilPage> {
                         _StatData('Compos parfaites', '$_composCompleted'),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    _buildMultiplayerSection(),
                     if (_results.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       _buildMasterclass(),
@@ -118,13 +129,18 @@ class _ProfilPageState extends State<ProfilPage> {
     final best = _results.reduce(
       (a, b) => a.normalizedScore > b.normalizedScore ? a : b,
     );
-    final isCompos = best.gameType == GameType.compos;
     final bestCat = best.details['category'] as String?;
-    final label = isCompos
-        ? (best.details['matchName'] as String? ?? 'Compos')
-        : (bestCat != null && bestCat.isNotEmpty)
-            ? "Coup d'Œil · ${best.difficulty} · $bestCat"
-            : "Coup d'Œil · ${best.difficulty}";
+    final String label;
+    if (best.gameType == GameType.compos) {
+      label = best.details['matchName'] as String? ?? 'Compos';
+    } else if (best.gameType == GameType.multiplayerCompos) {
+      final opp = best.details['opponentPseudo'] as String? ?? '?';
+      label = 'Compos 1v1 · vs $opp';
+    } else {
+      label = (bestCat != null && bestCat.isNotEmpty)
+          ? "Coup d'Œil · ${best.difficulty} · $bestCat"
+          : "Coup d'Œil · ${best.difficulty}";
+    }
     final date =
         '${best.playedAt.day}/${best.playedAt.month}/${best.playedAt.year % 100}';
     final mins = best.timeTaken.inMinutes;
@@ -346,7 +362,163 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
+  Widget _buildMultiplayerSection() {
+    final mp = _multiplayerCompos;
+    final total = mp.length;
+    final wins = _multiplayerWins;
+    final losses = _multiplayerLosses;
+    final winRate = total > 0 ? (wins / total * 100).round() : 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.people_outline, color: Color(0xFF58A6FF), size: 16),
+              const SizedBox(width: 8),
+              const Text(
+                'Compos 1v1',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$total partie${total > 1 ? 's' : ''}',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+          if (mp.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _StatTile(label: 'Victoires', value: '$wins'),
+                _StatTile(label: 'Défaites', value: '$losses'),
+                _StatTile(label: '% victoires', value: '$winRate%'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...mp.take(3).map(_buildMultiplayerRow),
+          ] else ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Pas encore de partie jouée.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMultiplayerRow(GameResult r) {
+    final won = r.details['won'] == true;
+    final abandoned = r.details['abandoned'] == true;
+    final opponent = r.details['opponentPseudo'] as String? ?? '?';
+    final matchName = r.details['matchName'] as String? ?? '';
+    final foundByMe = r.details['foundByMe'] as int? ?? 0;
+    final foundByOpp = r.details['foundByOpponent'] as int? ?? 0;
+    final date = '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year % 100}';
+
+    final Color tagColor;
+    final String tagText;
+    if (abandoned) {
+      tagColor = AppColors.amber;
+      tagText = 'Abandon';
+    } else if (won) {
+      tagColor = AppColors.accentBright;
+      tagText = 'Victoire';
+    } else {
+      tagColor = AppColors.red;
+      tagText = 'Défaite';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: tagColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              tagText,
+              style: TextStyle(
+                color: tagColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'vs $opponent',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (matchName.isNotEmpty)
+                  Text(
+                    matchName,
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$foundByMe – $foundByOpp',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                date,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildResultRow(GameResult r) {
+    if (r.gameType == GameType.multiplayerCompos) {
+      return _buildMultiplayerRow(r);
+    }
     final isCompos = r.gameType == GameType.compos;
     final cat = r.details['category'] as String?;
     final label = isCompos
