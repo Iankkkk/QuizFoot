@@ -14,7 +14,8 @@ class LineupMatchPageIntro extends StatefulWidget {
   State<LineupMatchPageIntro> createState() => _LineupMatchPageIntroState();
 }
 
-class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteAware {
+class _LineupMatchPageIntroState extends State<LineupMatchPageIntro>
+    with RouteAware {
   static const List<String> _difficulties = [
     "Amateur",
     "Semi-Pro",
@@ -447,7 +448,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                                     _rules[i],
                                     style: const TextStyle(
                                       fontSize: 14,
-                                      color: AppColors.textSecondary,
+                                      color: AppColors.textPrimary,
                                       height: 1.4,
                                     ),
                                   ),

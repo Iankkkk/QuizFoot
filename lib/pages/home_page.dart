@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'coup_doeil/quiz_test.dart';
 import 'coup_doeil/quiz_test_intro.dart';
 import 'package:quiz_foot/pages/lineup/lineup_match_page_intro.dart';
+import 'multiplayer/multiplayer_lobby_page.dart';
 import 'package:quiz_foot/data/anecdotes_data.dart';
 import 'package:quiz_foot/data/players_data.dart';
 import 'package:quiz_foot/data/data_cache.dart';
@@ -409,11 +410,23 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 12),
             _GameButton(
               title: 'Compos',
-              subtitle: 'Devine la composition d\'un match historique',
+              subtitle:
+                  'Retrouve les compositions d\'équipes d\'un match historique',
               icon: Icons.view_module_outlined,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const LineupMatchPageIntro()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _GameButton(
+              title: 'Compos 1v1',
+              subtitle: 'Affronte un ami en temps réel',
+              icon: Icons.people_outline,
+              accent: const Color(0xFF58A6FF),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MultiplayerLobbyPage()),
               ),
             ),
           ],
@@ -552,12 +565,14 @@ class _GameButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool locked;
+  final Color? accent;
   const _GameButton({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
     this.locked = false,
+    this.accent,
   });
 
   @override
@@ -588,7 +603,7 @@ class _GameButton extends StatelessWidget {
                   ),
                   child: Icon(
                     icon,
-                    color: locked ? _textSecondary : _accentBright,
+                    color: locked ? _textSecondary : (accent ?? _accentBright),
                     size: 24,
                   ),
                 ),
