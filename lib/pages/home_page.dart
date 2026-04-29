@@ -8,20 +8,11 @@ import 'package:quiz_foot/data/players_data.dart';
 import 'package:quiz_foot/data/data_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants/app_colors.dart';
 import '../services/game_history_service.dart';
 import '../models/game_result.dart';
 import 'profil_page.dart';
 import 'classement_page.dart';
-
-// ── Palette MPG-inspired ──────────────────────────────────────────
-const _bg = Color(0xFF171923);
-const _card = Color(0xFF1E2130);
-const _border = Color(0xFF2D3148);
-const _accent = Color(0xFF2EA043);
-const _accentBright = Color(0xFF3FB950);
-const _textPrimary = Color(0xFFE6EDF3);
-const _textSecondary = Color(0xFF8B949E);
-// ─────────────────────────────────────────────────────────────────
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -172,7 +163,7 @@ class _HomePageState extends State<HomePage> {
                   onPressed: _clearCache,
                   icon: const Icon(
                     Icons.refresh,
-                    color: _textSecondary,
+                    color: AppColors.textSecondary,
                     size: 16,
                   ),
                 ),
@@ -187,16 +178,16 @@ class _HomePageState extends State<HomePage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
                       color: Colors.white,
-                      border: Border.all(color: _border, width: 1),
+                      border: Border.all(color: AppColors.border, width: 1),
                       boxShadow: [
                         BoxShadow(
-                          color: _accent.withOpacity(0.4),
+                          color: AppColors.accent.withOpacity(0.4),
                           blurRadius: 40,
                           spreadRadius: 6,
                           offset: const Offset(0, 0),
                         ),
                         BoxShadow(
-                          color: _accentBright.withOpacity(0.15),
+                          color: AppColors.accentBright.withOpacity(0.15),
                           blurRadius: 70,
                           spreadRadius: 10,
                           offset: const Offset(0, 0),
@@ -215,7 +206,7 @@ class _HomePageState extends State<HomePage> {
                       fontWeight: FontWeight.w900,
                       fontSize: 32,
                       letterSpacing: 4,
-                      color: _textPrimary,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -223,7 +214,7 @@ class _HomePageState extends State<HomePage> {
                     'Le jeu, dans la tête.',
                     style: TextStyle(
                       fontSize: 13,
-                      color: _textSecondary,
+                      color: AppColors.textSecondary,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -238,21 +229,21 @@ class _HomePageState extends State<HomePage> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: _card,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.bolt, color: _accentBright, size: 16),
+                      Icon(Icons.bolt, color: AppColors.accentBright, size: 16),
                       SizedBox(width: 6),
                       Text(
                         'Anecdote du jour',
                         style: TextStyle(
-                          color: _accentBright,
+                          color: AppColors.accentBright,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -266,13 +257,13 @@ class _HomePageState extends State<HomePage> {
                           width: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: _accentBright,
+                            color: AppColors.accentBright,
                           ),
                         )
                       : Text(
                           _randomAnecdote,
                           style: const TextStyle(
-                            color: _textPrimary,
+                            color: AppColors.textPrimary,
                             fontSize: 14,
                             height: 1.5,
                           ),
@@ -288,9 +279,9 @@ class _HomePageState extends State<HomePage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               decoration: BoxDecoration(
-                color: _card,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +291,7 @@ class _HomePageState extends State<HomePage> {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
-                      color: _textPrimary,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -327,7 +318,7 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 17,
-                color: _textPrimary,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 12),
@@ -373,13 +364,13 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 24,
-                color: _textPrimary,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
             const Text(
               'Choisis ton mode de jeu',
-              style: TextStyle(fontSize: 14, color: _textSecondary),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             _GameButton(
@@ -438,19 +429,19 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       body: _buildContent(),
       persistentFooterButtons: [
         Container(
           height: 40,
           width: double.infinity,
-          color: _card,
+          color: AppColors.card,
           alignment: Alignment.center,
           child: const Text(
             'PUB',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: _textSecondary,
+              color: AppColors.textSecondary,
               fontSize: 13,
             ),
           ),
@@ -459,9 +450,9 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavItemTapped,
-        selectedItemColor: _accentBright,
-        unselectedItemColor: _textSecondary,
-        backgroundColor: _card,
+        selectedItemColor: AppColors.accentBright,
+        unselectedItemColor: AppColors.textSecondary,
+        backgroundColor: AppColors.card,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
@@ -500,7 +491,7 @@ class _StatItem extends StatelessWidget {
         Text(
           value,
           style: const TextStyle(
-            color: _accentBright,
+            color: AppColors.accentBright,
             fontWeight: FontWeight.w800,
             fontSize: 18,
           ),
@@ -508,7 +499,7 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 3),
         Text(
           label,
-          style: const TextStyle(color: _textSecondary, fontSize: 12),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
           textAlign: TextAlign.center,
         ),
       ],
@@ -528,9 +519,9 @@ class _HighlightCard extends StatelessWidget {
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _card,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,7 +530,7 @@ class _HighlightCard extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: _textPrimary,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w700,
               fontSize: 14,
             ),
@@ -548,7 +539,7 @@ class _HighlightCard extends StatelessWidget {
           Text(
             subtitle,
             style: const TextStyle(
-              color: _textSecondary,
+              color: AppColors.textSecondary,
               fontSize: 12.5,
               height: 1.4,
             ),
@@ -588,9 +579,9 @@ class _GameButton extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
             decoration: BoxDecoration(
-              color: _card,
+              color: AppColors.card,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _border),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
@@ -598,12 +589,14 @@ class _GameButton extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: _accent.withOpacity(0.15),
+                    color: AppColors.accent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
-                    color: locked ? _textSecondary : (accent ?? _accentBright),
+                    color: locked
+                        ? AppColors.textSecondary
+                        : (accent ?? AppColors.accentBright),
                     size: 24,
                   ),
                 ),
@@ -617,7 +610,7 @@ class _GameButton extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
-                          color: _textPrimary,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -625,7 +618,7 @@ class _GameButton extends StatelessWidget {
                         locked ? 'Bientôt disponible' : subtitle,
                         style: const TextStyle(
                           fontSize: 12.5,
-                          color: _textSecondary,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -633,7 +626,7 @@ class _GameButton extends StatelessWidget {
                 ),
                 Icon(
                   locked ? Icons.lock_outline : Icons.chevron_right,
-                  color: _textSecondary,
+                  color: AppColors.textSecondary,
                   size: 20,
                 ),
               ],

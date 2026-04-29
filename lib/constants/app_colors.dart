@@ -29,7 +29,7 @@ class AppColors {
   static const Color accent = Color(0xFF2EA043);
 
   /// Bright green accent — buttons, progress bars, highlights.
-  static const Color accentBright = Color(0xFF3FB950);
+  static const Color accentBright = Color.fromARGB(255, 54, 157, 68);
 
   // ── Text ────────────────────────────────────────────────────────────
   /// Primary text color. Near-white, used for titles and body text.
