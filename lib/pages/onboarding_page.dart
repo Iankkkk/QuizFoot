@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
+import '../services/firestore_service.dart';
 import 'home_page.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -14,6 +15,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final _ctrl = TextEditingController();
   final _focus = FocusNode();
   String? _error;
+  bool _loading = false;
 
   static final _validChars = RegExp(r'^[a-zA-Z0-9_\-àâäéèêëîïôùûüç]+$');
 
@@ -32,8 +34,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
       setState(() => _error = err);
       return;
     }
+    setState(() => _loading = true);
+    final pseudo = _ctrl.text.trim();
+    final available = await FirestoreService.instance.isPseudoAvailable(pseudo);
+    if (!mounted) return;
+    if (!available) {
+      setState(() {
+        _error = 'Ce pseudo est déjà pris';
+        _loading = false;
+      });
+      return;
+    }
+    await FirestoreService.instance.reservePseudo(pseudo);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pseudo', _ctrl.text.trim());
+    await prefs.setString('pseudo', pseudo);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const HomePage()),
@@ -172,7 +186,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _confirm,
+                  onPressed: _loading ? null : _confirm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accentBright,
                     foregroundColor: Colors.black,
@@ -181,13 +195,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Commencer',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                  child: _loading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Text(
+                          'Commencer',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                 ),
               ),
               const Spacer(flex: 3),

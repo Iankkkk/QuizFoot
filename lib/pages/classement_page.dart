@@ -467,130 +467,80 @@ class _MultiplayerDuelsTab extends StatelessWidget {
           );
         }
 
-        // Sort most recent first (playedAt is a Timestamp)
-        final sorted = docs.toList()
-          ..sort((a, b) {
-            final aData = a.data() as Map<String, dynamic>;
-            final bData = b.data() as Map<String, dynamic>;
-            final aTs = aData['playedAt'] as Timestamp?;
-            final bTs = bData['playedAt'] as Timestamp?;
-            if (aTs == null && bTs == null) return 0;
-            if (aTs == null) return 1;
-            if (bTs == null) return -1;
-            return bTs.compareTo(aTs);
-          });
+        // Agréger les victoires par pseudo
+        final Map<String, int> winsByPseudo = {};
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final pseudo = data['pseudo'] as String? ?? '?';
+          winsByPseudo[pseudo] = (winsByPseudo[pseudo] ?? 0) + 1;
+        }
+        final ranked = winsByPseudo.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-          itemCount: sorted.length,
+          itemCount: ranked.length,
           itemBuilder: (context, i) {
-            final data = sorted[i].data() as Map<String, dynamic>;
-            final details = Map<String, dynamic>.from(data['details'] as Map? ?? {});
-            final winner = data['pseudo'] as String? ?? '?';
-            final loser = details['opponentPseudo'] as String? ?? '?';
-            final matchName = details['matchName'] as String? ?? '';
-            final foundByWinner = details['foundByMe'] as int? ?? 0;
-            final foundByLoser = details['foundByOpponent'] as int? ?? 0;
-            final difficulty = data['difficulty'] as String? ?? '';
-            final ts = data['playedAt'] as Timestamp?;
-            final date = ts != null
-                ? '${ts.toDate().day}/${ts.toDate().month}/${ts.toDate().year % 100}'
-                : '—';
-
-            final iMeWinner = winner == myPseudo;
-            final iMeLoser = loser == myPseudo;
+            final entry = ranked[i];
+            final pseudo = entry.key;
+            final wins = entry.value;
+            final isMe = pseudo == myPseudo;
+            final rank = i + 1;
+            const gold   = Color(0xFFFFD700);
+            const silver = Color(0xFFB0B0B0);
+            const bronze = Color(0xFFCD7F32);
+            final medalColor = rank == 1 ? gold : rank == 2 ? silver : rank == 3 ? bronze : null;
 
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
-                color: (iMeWinner || iMeLoser)
+                color: isMe
                     ? AppColors.accentBright.withValues(alpha: 0.06)
                     : AppColors.card,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: (iMeWinner || iMeLoser) ? AppColors.accentBright : AppColors.border,
-                  width: (iMeWinner || iMeLoser) ? 1.5 : 1,
+                  color: isMe ? AppColors.accentBright : AppColors.border,
+                  width: isMe ? 1.5 : 1,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      // Winner
-                      _PseudoChip(
-                        pseudo: winner,
-                        isWinner: true,
-                        isMe: iMeWinner,
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          'vs',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      // Loser
-                      _PseudoChip(
-                        pseudo: loser,
-                        isWinner: false,
-                        isMe: iMeLoser,
-                      ),
-                      const Spacer(),
-                      // Score
-                      Text(
-                        '$foundByWinner – $foundByLoser',
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (matchName.isNotEmpty || difficulty.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        if (matchName.isNotEmpty)
-                          Expanded(
-                            child: Text(
-                              matchName,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 11,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        if (difficulty.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            difficulty,
-                            style: TextStyle(
-                              color: AppColors.forDifficulty(difficulty),
-                              fontSize: 11,
+                  SizedBox(
+                    width: 28,
+                    child: medalColor != null
+                        ? Text(
+                            rank == 1 ? '🥇' : rank == 2 ? '🥈' : '🥉',
+                            style: const TextStyle(fontSize: 18),
+                          )
+                        : Text(
+                            '$rank',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
                               fontWeight: FontWeight.w600,
+                              fontSize: 14,
                             ),
                           ),
-                        ],
-                        const SizedBox(width: 8),
-                        Text(
-                          date,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      pseudo,
+                      style: TextStyle(
+                        color: isMe ? AppColors.accentBright : AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
                     ),
-                  ],
+                  ),
+                  Text(
+                    '$wins victoire${wins > 1 ? 's' : ''}',
+                    style: const TextStyle(
+                      color: AppColors.accentBright,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
                 ],
               ),
             );

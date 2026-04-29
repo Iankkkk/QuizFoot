@@ -26,6 +26,43 @@ class FirestoreService {
         'playedAt':        FieldValue.serverTimestamp(),
         'details':         result.details,
       });
+      await _db.collection('feed').add({
+        'pseudo':      pseudo,
+        'gameType':    result.gameType.name,
+        'difficulty':  result.difficulty,
+        'score':       result.rawScore,
+        'maxScore':    result.maxRawScore,
+        if (result.details['category'] != null)
+          'category':  result.details['category'],
+        if (result.details['matchName'] != null)
+          'matchName': result.details['matchName'],
+        if (result.details['opponentPseudo'] != null)
+          'opponentPseudo': result.details['opponentPseudo'],
+        'createdAt':   FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
+  // ── Pseudo ────────────────────────────────────────────────────────────────
+
+  Future<bool> isPseudoAvailable(String pseudo) async {
+    try {
+      final doc = await _db
+          .collection('pseudos')
+          .doc(pseudo.toLowerCase())
+          .get();
+      return !doc.exists;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> reservePseudo(String pseudo) async {
+    try {
+      await _db
+          .collection('pseudos')
+          .doc(pseudo.toLowerCase())
+          .set({'pseudo': pseudo, 'createdAt': FieldValue.serverTimestamp()});
     } catch (_) {}
   }
 

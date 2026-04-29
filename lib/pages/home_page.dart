@@ -312,6 +312,11 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 24),
 
+            // ── Feed activité ─────────────────────────────────────
+            _buildFeed(),
+
+            const SizedBox(height: 24),
+
             // ── À la une ─────────────────────────────────────────
             const Text(
               'À la une',
@@ -350,6 +355,104 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildFeed() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('feed')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData || snap.data!.docs.isEmpty) return const SizedBox();
+        final docs = snap.data!.docs;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Activité récente',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...docs.map((doc) {
+              final d = doc.data() as Map<String, dynamic>;
+              final pseudo         = d['pseudo'] as String? ?? '?';
+              final gameType       = d['gameType'] as String? ?? '';
+              final diff           = d['difficulty'] as String? ?? '';
+              final score          = d['score'] as int? ?? 0;
+              final maxScore       = d['maxScore'] as int? ?? 0;
+              final category       = d['category'] as String?;
+              final matchName      = d['matchName'] as String?;
+              final opponentPseudo = d['opponentPseudo'] as String?;
+              final ts             = d['createdAt'] as Timestamp?;
+              final ago            = ts != null ? _timeAgo(ts.toDate()) : '';
+              final is1v1          = gameType == 'multiplayerCompos';
+              final isCompos       = gameType == 'compos' || is1v1;
+              final icon           = is1v1 ? '🆚' : isCompos ? '⚽' : '🎯';
+              final scoreStr       = isCompos ? '$score/$maxScore' : '${score}pts';
+              final detail         = matchName ?? category ?? '';
+              final playerLabel    = is1v1 && opponentPseudo != null
+                  ? '$pseudo vs $opponentPseudo'
+                  : pseudo;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Text(icon, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          children: [
+                            TextSpan(
+                              text: playerLabel,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            TextSpan(text: '  $scoreStr · $diff'),
+                            if (detail.isNotEmpty)
+                              TextSpan(text: ' · $detail'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Text(
+                      ago,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'maintenant';
+    if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes}min';
+    if (diff.inHours < 24) return 'il y a ${diff.inHours}h';
+    return 'il y a ${diff.inDays}j';
   }
 
   Widget _buildGamesPage() {
