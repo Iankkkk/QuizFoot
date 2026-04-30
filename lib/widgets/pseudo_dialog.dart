@@ -54,7 +54,7 @@ class _PseudoDialogState extends State<_PseudoDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Bienvenue ! 👋',
               style: TextStyle(
                 color: AppColors.textPrimary,
@@ -63,7 +63,7 @@ class _PseudoDialogState extends State<_PseudoDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Choisis un pseudo pour enregistrer tes scores.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
@@ -72,26 +72,26 @@ class _PseudoDialogState extends State<_PseudoDialog> {
               controller:    _controller,
               autofocus:     true,
               maxLength:     20,
-              style:         const TextStyle(color: AppColors.textPrimary),
+              style:         TextStyle(color: AppColors.textPrimary),
               onSubmitted:   (_) => _submit(),
               decoration: InputDecoration(
                 hintText:      'Ton pseudo',
-                hintStyle:     const TextStyle(color: AppColors.textSecondary),
-                counterStyle:  const TextStyle(color: AppColors.textSecondary),
+                hintStyle:     TextStyle(color: AppColors.textSecondary),
+                counterStyle:  TextStyle(color: AppColors.textSecondary),
                 filled:        true,
                 fillColor:     AppColors.bg,
                 errorText:     _error ? 'Entre un pseudo pour continuer' : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:   const BorderSide(color: AppColors.border),
+                  borderSide:   BorderSide(color: AppColors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:   const BorderSide(color: AppColors.border),
+                  borderSide:   BorderSide(color: AppColors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:   const BorderSide(color: AppColors.accentBright, width: 1.5),
+                  borderSide:   BorderSide(color: AppColors.accentBright, width: 1.5),
                 ),
               ),
             ),
@@ -107,7 +107,7 @@ class _PseudoDialogState extends State<_PseudoDialog> {
                   elevation:       0,
                 ),
                 onPressed: _submit,
-                child: const Text(
+                child: Text(
                   'C\'est parti !',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                 ),

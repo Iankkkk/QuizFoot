@@ -126,7 +126,7 @@ class _QuizScorePageState extends State<QuizScorePage> {
               minutes:  minutes,
               seconds:  seconds,
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -164,11 +164,11 @@ class _QuizScorePageState extends State<QuizScorePage> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Icon(Icons.arrow_back, color: AppColors.textPrimary, size: 20),
+              child: Icon(Icons.arrow_back, color: AppColors.textPrimary, size: 20),
             ),
           ),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'Résultats',
             style: TextStyle(
               color: AppColors.textPrimary,
@@ -212,7 +212,7 @@ class _QuizScorePageState extends State<QuizScorePage> {
             ),
             Text(
               '/ $maxScore pts',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -222,7 +222,7 @@ class _QuizScorePageState extends State<QuizScorePage> {
             Text(
               _scoreMessage(),
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w600,
@@ -328,12 +328,12 @@ class _QuizScorePageState extends State<QuizScorePage> {
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () => Navigator.pop(context),
-              child: const Text(
+              child: Text(
                 'Accueil',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
@@ -359,7 +359,7 @@ class _QuizScorePageState extends State<QuizScorePage> {
                   ),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Rejouer ↺',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
@@ -404,7 +404,7 @@ class _StatChip extends StatelessWidget {
         ),
         Text(
           sublabel,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 11,
           ),

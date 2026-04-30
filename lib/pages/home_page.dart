@@ -161,7 +161,7 @@ class _HomePageState extends State<HomePage> {
                 opacity: 0.25,
                 child: IconButton(
                   onPressed: _clearCache,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.refresh,
                     color: AppColors.textSecondary,
                     size: 16,
@@ -200,7 +200,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  const Text(
+                  Text(
                     'TEMPO',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
@@ -210,7 +210,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 5),
-                  const Text(
+                  Text(
                     'Le jeu, dans la tête.',
                     style: TextStyle(
                       fontSize: 13,
@@ -237,7 +237,7 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    children: const [
+                    children: [
                       Icon(Icons.bolt, color: AppColors.accentBright, size: 16),
                       SizedBox(width: 6),
                       Text(
@@ -252,7 +252,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 8),
                   _randomAnecdote.isEmpty
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 14,
                           width: 14,
                           child: CircularProgressIndicator(
@@ -262,7 +262,7 @@ class _HomePageState extends State<HomePage> {
                         )
                       : Text(
                           _randomAnecdote,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 14,
                             height: 1.5,
@@ -286,7 +286,7 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Tes stats',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
@@ -318,7 +318,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 24),
 
             // ── À la une ─────────────────────────────────────────
-            const Text(
+            Text(
               'À la une',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
@@ -370,7 +370,7 @@ class _HomePageState extends State<HomePage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Activité récente',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
@@ -409,16 +409,16 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: Row(
                   children: [
-                    Text(icon, style: const TextStyle(fontSize: 18)),
+                    Text(icon, style: TextStyle(fontSize: 18)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: RichText(
                         text: TextSpan(
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                           children: [
                             TextSpan(
                               text: playerLabel,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -432,7 +432,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     Text(
                       ago,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textSecondary,
                       ),
@@ -462,7 +462,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Jeux',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
@@ -471,7 +471,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Choisis ton mode de jeu',
               style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
@@ -517,7 +517,7 @@ class _HomePageState extends State<HomePage> {
               title: 'Compos 1v1',
               subtitle: 'Affronte un ami en temps réel',
               icon: Icons.people_outline,
-              accent: const Color(0xFF58A6FF),
+              accent: Color(0xFF58A6FF),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const MultiplayerLobbyPage()),
@@ -540,7 +540,7 @@ class _HomePageState extends State<HomePage> {
           width: double.infinity,
           color: AppColors.card,
           alignment: Alignment.center,
-          child: const Text(
+          child: Text(
             'PUB',
             style: TextStyle(
               fontWeight: FontWeight.bold,
@@ -557,7 +557,7 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: AppColors.textSecondary,
         backgroundColor: AppColors.card,
         type: BottomNavigationBarType.fixed,
-        items: const [
+        items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             label: 'Accueil',
@@ -593,7 +593,7 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.accentBright,
             fontWeight: FontWeight.w800,
             fontSize: 18,
@@ -602,7 +602,7 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 3),
         Text(
           label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
           textAlign: TextAlign.center,
         ),
       ],
@@ -632,7 +632,7 @@ class _HighlightCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w700,
               fontSize: 14,
@@ -641,7 +641,7 @@ class _HighlightCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12.5,
               height: 1.4,
@@ -710,7 +710,7 @@ class _GameButton extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
                           color: AppColors.textPrimary,
@@ -719,7 +719,7 @@ class _GameButton extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         locked ? 'Bientôt disponible' : subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           color: AppColors.textSecondary,
                         ),
@@ -747,7 +747,7 @@ void _showDifficultyDialog(BuildContext context) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text("Choisis la difficulté"),
+      title: Text("Choisis la difficulté"),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

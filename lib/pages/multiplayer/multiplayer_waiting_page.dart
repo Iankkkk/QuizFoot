@@ -53,7 +53,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
       _navigating = true;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('La partie a été annulée.'), backgroundColor: AppColors.red),
+          SnackBar(content: Text('La partie a été annulée.'), backgroundColor: AppColors.red),
         );
         Navigator.pop(context);
       }
@@ -99,7 +99,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
   void _copyCode() {
     Clipboard.setData(ClipboardData(text: widget.roomCode));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text('Code copié !'),
         duration: Duration(seconds: 1),
         backgroundColor: AppColors.accentBright,
@@ -115,7 +115,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
         backgroundColor: AppColors.card,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text(
+        title: Text(
           'En attente...',
           style: TextStyle(
             color: AppColors.textPrimary,
@@ -139,7 +139,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
             Center(
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'Code de la partie',
                     style: TextStyle(
                       color: AppColors.textSecondary,
@@ -162,7 +162,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
                         children: [
                           Text(
                             widget.roomCode,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 36,
                               fontWeight: FontWeight.w800,
@@ -170,7 +170,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Icon(
+                          Icon(
                             Icons.copy_outlined,
                             color: AppColors.textSecondary,
                             size: 18,
@@ -180,7 +180,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
+                  Text(
                     'Partage ce code à ton adversaire',
                     style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                   ),
@@ -201,7 +201,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
               child: Column(
                 children: [
                   _PlayerSlot(pseudo: widget.pseudo, ready: true),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 10),
                     child: Text(
                       'VS',
@@ -227,7 +227,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
             // ── Annuler ───────────────────────────────────────────
             TextButton(
               onPressed: _cancelRoom,
-              child: const Text(
+              child: Text(
                 'Annuler',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
@@ -280,7 +280,7 @@ class _PlayerSlot extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    const Text(
+                    Text(
                       'En attente',
                       style: TextStyle(
                         color: AppColors.textSecondary,
@@ -306,7 +306,7 @@ class _PlayerSlot extends StatelessWidget {
               color: AppColors.accentBright.withOpacity(0.12),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Text(
+            child: Text(
               'Prêt',
               style: TextStyle(
                 color: AppColors.accentBright,

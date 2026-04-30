@@ -97,7 +97,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
       _navTimer?.cancel();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('La partie a été annulée.'),
             backgroundColor: AppColors.red,
           ),
@@ -132,7 +132,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
     if (_matchLoading || _match == null) {
       return Scaffold(
         backgroundColor: AppColors.bg,
-        body: const Center(child: CircularProgressIndicator(color: AppColors.accentBright)),
+        body: Center(child: CircularProgressIndicator(color: AppColors.accentBright)),
       );
     }
 
@@ -162,11 +162,11 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.people_outline, color: AppColors.textSecondary, size: 13),
+                        Icon(Icons.people_outline, color: AppColors.textSecondary, size: 13),
                         const SizedBox(width: 6),
                         Text(
                           '${widget.pseudo}  vs  ${widget.opponentPseudo}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -234,14 +234,14 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
                             child: LinearProgressIndicator(
                               value: 1 - _progressController.value,
                               backgroundColor: AppColors.border,
-                              valueColor: const AlwaysStoppedAnimation(AppColors.accentBright),
+                              valueColor: AlwaysStoppedAnimation(AppColors.accentBright),
                               minHeight: 3,
                             ),
                           ),
                           const SizedBox(height: 12),
                           Text(
                             'Début dans $remaining s...',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -273,7 +273,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
         children: [
           Text(
             widget.pseudo,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w700,
               fontSize: 15,
@@ -293,7 +293,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
           ),
           Text(
             widget.opponentPseudo,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w700,
               fontSize: 15,
@@ -311,7 +311,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
         const SizedBox(height: 10),
         Text(
           match.competition.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.accentBright,
             fontSize: 11,
             fontWeight: FontWeight.w800,
@@ -322,7 +322,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
         Text(
           match.matchName,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -341,7 +341,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
       width: 80,
       height: 80,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const Icon(
+      errorBuilder: (_, __, ___) => Icon(
         Icons.emoji_events_outlined,
         color: AppColors.accentBright,
         size: 34,
@@ -378,14 +378,14 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
                       hasScore
                           ? Text(
                               '${match.homeGoals}  –  ${match.awayGoals}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 38,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: -1.5,
                               ),
                             )
-                          : const Padding(
+                          : Padding(
                               padding: EdgeInsets.symmetric(vertical: 14),
                               child: Text(
                                 'vs',
@@ -400,7 +400,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
                         const SizedBox(height: 4),
                         Text(
                           'T.A.B. ${match.penalties}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -421,11 +421,11 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 13),
+                Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 13),
                 const SizedBox(width: 6),
                 Text(
                   match.date,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -445,7 +445,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 14,
             fontWeight: FontWeight.w700,
@@ -477,17 +477,17 @@ String? _leagueFolder(String competition) {
 
 Color _parseColor(String? name) {
   switch (name?.toLowerCase().trim()) {
-    case 'blanc':      return const Color(0xFFF0F0F0);
-    case 'noir':       return const Color(0xFF1A1A1A);
-    case 'rouge':      return const Color(0xFFDC2626);
-    case 'bleu':       return const Color(0xFF1D4ED8);
-    case 'bleu clair': return const Color(0xFF60A5FA);
-    case 'bleu foncé': return const Color(0xFF0C0A4D);
-    case 'vert':       return const Color(0xFF16A34A);
-    case 'jaune':      return const Color(0xFFFACC15);
-    case 'orange':     return const Color(0xFFE16806);
-    case 'violet':     return const Color(0xFF790CC8);
-    default:           return const Color(0xFF2D3148);
+    case 'blanc':      return Color(0xFFF0F0F0);
+    case 'noir':       return Color(0xFF1A1A1A);
+    case 'rouge':      return Color(0xFFDC2626);
+    case 'bleu':       return Color(0xFF1D4ED8);
+    case 'bleu clair': return Color(0xFF60A5FA);
+    case 'bleu foncé': return Color(0xFF0C0A4D);
+    case 'vert':       return Color(0xFF16A34A);
+    case 'jaune':      return Color(0xFFFACC15);
+    case 'orange':     return Color(0xFFE16806);
+    case 'violet':     return Color(0xFF790CC8);
+    default:           return Color(0xFF2D3148);
   }
 }
 
@@ -521,7 +521,7 @@ class _TeamLogo extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF2D3148), width: 1.5),
+        border: Border.all(color: Color(0xFF2D3148), width: 1.5),
       ),
       child: Center(
         child: Text(

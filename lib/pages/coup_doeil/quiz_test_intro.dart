@@ -14,6 +14,7 @@ import '../../data/players_data.dart';
 import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
 import '../../main.dart' show routeObserver;
+import '../../services/theme_service.dart';
 import 'quiz_test.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -163,7 +164,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
       appBar: _buildAppBar(),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.card,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
@@ -171,7 +172,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Catégorie',
               style: TextStyle(
                 fontSize: 12,
@@ -201,7 +202,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                   ),
                 ),
                 onPressed: _openDifficultyPicker,
-                child: const Text(
+                child: Text(
                   'Jouer !',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                 ),
@@ -217,9 +218,11 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
             // ── Hero ──────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF1A2E1A), AppColors.bg],
+                  colors: ThemeService.instance.isDark
+                      ? [const Color(0xFF1A2E1A), AppColors.bg]
+                      : [const Color(0xFFD6F0E4), AppColors.bg],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -233,14 +236,16 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                       '👁',
                       style: TextStyle(
                         fontSize: 110,
-                        color: Colors.white.withOpacity(0.05),
+                        color: ThemeService.instance.isDark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black.withOpacity(0.04),
                       ),
                     ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "Coup d'Œil",
                         style: TextStyle(
                           color: AppColors.accentBright,
@@ -250,7 +255,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'Reconnais les joueurs\nen un coup d\'œil',
                         style: TextStyle(
                           color: AppColors.textSecondary,
@@ -267,7 +272,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                             curve: Curves.easeOut,
                             builder: (_, val, __) => Text(
                               '$val joueurs',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
@@ -275,7 +280,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                             ),
                           ),
                           if (_bestResult != null) ...[
-                            const Text(
+                            Text(
                               '  ·  ',
                               style: TextStyle(
                                 color: AppColors.textSecondary,
@@ -284,7 +289,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                             ),
                             Text(
                               'Meilleur score : ${_bestResult!.normalizedScore.toStringAsFixed(0)} pts · ${_bestResult!.difficulty}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.accentBright,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
@@ -324,10 +329,10 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
       backgroundColor: AppColors.card,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+        icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      title: const Text(
+      title: Text(
         "Coup d'œil",
         style: TextStyle(
           color: AppColors.textPrimary,
@@ -354,7 +359,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Règles du jeu',
             style: TextStyle(
               fontSize: 16,
@@ -375,7 +380,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                   Expanded(
                     child: Text(
                       _rules[i],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         color: AppColors.textPrimary,
                         height: 1.4,
@@ -396,7 +401,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Choix de la Catégorie',
           style: TextStyle(
             fontSize: 15,
@@ -454,7 +459,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
   /// Green "Jouer !" button that opens the difficulty picker.
   Widget _buildRecentResults() {
     if (!_historyLoaded) {
-      return const Center(
+      return Center(
         child: SizedBox(
           width: 20,
           height: 20,
@@ -470,7 +475,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Mes dernières parties',
           style: TextStyle(
             fontSize: 15,
@@ -509,7 +514,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                 ),
                 Text(
                   '${mins}m${secs.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
@@ -517,7 +522,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
                 const SizedBox(width: 12),
                 Text(
                   '${r.normalizedScore.toStringAsFixed(0)} pts',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.accentBright,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -541,7 +546,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       onPressed: _openDifficultyPicker,
-      child: const Text(
+      child: Text(
         'Jouer !',
         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
       ),
@@ -570,7 +575,7 @@ class _DifficultySheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         border: Border(top: BorderSide(color: AppColors.border)),
@@ -590,7 +595,7 @@ class _DifficultySheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Choisis la difficulté',
               style: TextStyle(
                 fontSize: 18,

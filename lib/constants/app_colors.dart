@@ -1,94 +1,54 @@
-// app_colors.dart
-//
-// Single source of truth for the app's dark color palette.
-// All three Coup d'œil pages (intro, game, score) import from here,
-// so a palette change only needs to happen in one place.
-
 import 'package:flutter/material.dart';
+import '../services/theme_service.dart';
 
 class AppColors {
-  // Prevent instantiation — this class is a namespace for constants only.
   AppColors._();
 
-  // ── Backgrounds ─────────────────────────────────────────────────────
-  /// Main page background. Deep navy, used on every scaffold.
-  static const Color bg = Color(0xFF171923);
+  static bool get _d => ThemeService.instance.isDark;
 
-  /// Card / surface color. Slightly lighter than [bg].
-  static const Color card = Color(0xFF1E2130);
+  // ── Backgrounds ─────────────────────────────────────────────────────
+  static Color get bg   => _d ? const Color(0xFF111318) : const Color(0xFFECEFF5);
+  static Color get card => _d ? const Color(0xFF1C1F28) : const Color(0xFFF5F7FC);
 
   // ── Borders ─────────────────────────────────────────────────────────
-  /// Default border color for containers and dividers.
-  static const Color border = Color(0xFF2D3148);
-
-  /// Slightly lighter border used as a separator inside pills.
-  static const Color separator = Color(0xFF3D4460);
+  static Color get border    => _d ? const Color(0xFF2A2E3E) : const Color(0xFFD4D9E8);
+  static Color get separator => _d ? const Color(0xFF373C52) : const Color(0xFFBEC5D6);
 
   // ── Accent ──────────────────────────────────────────────────────────
-  /// Primary green accent (darker shade, used on the intro page).
-  static const Color accent = Color(0xFF2EA043);
-
-  /// Bright green accent — buttons, progress bars, highlights.
-  static const Color accentBright = Color.fromARGB(255, 54, 157, 68);
+  static Color get accent      => _d ? const Color(0xFF00C07F) : const Color(0xFF009E6B);
+  static Color get accentBright => _d ? const Color(0xFF00D98B) : const Color(0xFF00B87A);
 
   // ── Text ────────────────────────────────────────────────────────────
-  /// Primary text color. Near-white, used for titles and body text.
-  static const Color textPrimary = Color(0xFFE6EDF3);
-
-  /// Secondary text color. Muted grey, used for labels and hints.
-  static const Color textSecondary = Color(0xFF8B949E);
+  static Color get textPrimary   => _d ? const Color(0xFFE6EDF3) : const Color(0xFF0D1117);
+  static Color get textSecondary => _d ? const Color(0xFF8B949E) : const Color(0xFF586069);
 
   // ── Semantic ────────────────────────────────────────────────────────
-  /// Wrong answer / error state.
-  static const Color red = Color(0xFFDA3633);
-
-  /// Two-point zone / warning.
-  static const Color orange = Color(0xFFE87820);
-
-  /// Three-point zone / caution.
-  static const Color amber = Color(0xFFD29922);
-
-  /// Four-point zone / good.
-  static const Color greenLight = Color(0xFF7CB95A);
-
-  /// "Légende" difficulty badge.
-  static const Color purple = Color(0xFF8957E5);
+  static Color get red       => _d ? const Color(0xFFDA3633) : const Color(0xFFCF2222);
+  static Color get orange    => _d ? const Color(0xFFE87820) : const Color(0xFFC85D0F);
+  static Color get amber     => _d ? const Color(0xFFD29922) : const Color(0xFF9A7300);
+  static Color get greenLight => _d ? const Color(0xFF7CB95A) : const Color(0xFF4A8F2A);
+  static Color get purple    => _d ? const Color(0xFF8957E5) : const Color(0xFF6030C8);
 
   // ── Difficulty ──────────────────────────────────────────────────────
-  /// Returns the color associated with a given difficulty label.
-  /// Used in the intro page's difficulty picker and category chips.
   static Color forDifficulty(String difficulty) {
     switch (difficulty) {
-      case 'Amateur':
-        return const Color(0xFF238636);
-      case 'Semi-Pro':
-        return accent;
-      case 'Pro':
-        return amber;
-      case 'International':
-        return red;
-      case 'Légende':
-        return purple;
-      default:
-        return textSecondary;
+      case 'Amateur':      return _d ? const Color(0xFF238636) : const Color(0xFF1A6E2A);
+      case 'Semi-Pro':     return accent;
+      case 'Pro':          return amber;
+      case 'International': return red;
+      case 'Légende':      return purple;
+      default:             return textSecondary;
     }
   }
 
   // ── Points ──────────────────────────────────────────────────────────
-  /// Returns the color for a given point value (1–5).
-  /// Used in the game page's timer pill to show urgency.
   static Color forPoints(int points) {
     switch (points) {
-      case 5:
-        return accentBright;
-      case 4:
-        return greenLight;
-      case 3:
-        return amber;
-      case 2:
-        return orange;
-      default:
-        return red;
+      case 5:  return accentBright;
+      case 4:  return greenLight;
+      case 3:  return amber;
+      case 2:  return orange;
+      default: return red;
     }
   }
 }

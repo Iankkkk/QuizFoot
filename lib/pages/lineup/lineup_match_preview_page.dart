@@ -5,13 +5,8 @@ import '../../data/lineup_game_data.dart';
 import '../../data/api_exception.dart';
 import '../../models/match_model.dart';
 import 'lineup_match_page.dart';
+import '../../constants/app_colors.dart';
 
-const _bg            = Color(0xFF171923);
-const _card          = Color(0xFF1E2130);
-const _border        = Color(0xFF2D3148);
-const _accentBright  = Color(0xFF3FB950);
-const _textPrimary   = Color(0xFFE6EDF3);
-const _textSecondary = Color(0xFF8B949E);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -27,7 +22,7 @@ Color _parseColor(String? name) {
     case 'jaune':      return const Color(0xFFFACC15);
     case 'orange':     return const Color(0xFFE16806);
     case 'violet':     return const Color(0xFF790CC8);
-    default:           return _border;
+    default:           return AppColors.border;
   }
 }
 
@@ -188,10 +183,10 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: _accentBright))
+            ? Center(child: CircularProgressIndicator(color: AppColors.accentBright))
             : _error != null
                 ? _buildError()
                 : _buildPreview(),
@@ -208,14 +203,14 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.sports_soccer, color: _textSecondary, size: 48),
+            Icon(Icons.sports_soccer, color: AppColors.textSecondary, size: 48),
             const SizedBox(height: 16),
             Text(_error!, textAlign: TextAlign.center,
-                style: const TextStyle(color: _textSecondary, fontSize: 15)),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
             const SizedBox(height: 24),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Retour', style: TextStyle(color: _accentBright)),
+              child: Text('Retour', style: TextStyle(color: AppColors.accentBright)),
             ),
           ],
         ),
@@ -268,11 +263,11 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: _card,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
-              child: const Icon(Icons.arrow_back, color: _textPrimary, size: 20),
+              child: Icon(Icons.arrow_back, color: AppColors.textPrimary, size: 20),
             ),
           ),
         ],
@@ -288,8 +283,8 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
         const SizedBox(height: 10),
         Text(
           match.competition.toUpperCase(),
-          style: const TextStyle(
-            color: _accentBright,
+          style: TextStyle(
+            color: AppColors.accentBright,
             fontSize: 11,
             fontWeight: FontWeight.w800,
             letterSpacing: 2,
@@ -299,8 +294,8 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
         Text(
           match.matchName,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _textPrimary,
+          style: TextStyle(
+            color: AppColors.textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.w800,
             height: 1.2,
@@ -319,9 +314,9 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
       width: 80,
       height: 80,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const Icon(
+      errorBuilder: (_, __, ___) => Icon(
         Icons.emoji_events_outlined,
-        color: _accentBright,
+        color: AppColors.accentBright,
         size: 34,
       ),
     );
@@ -338,9 +333,9 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: _card,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [
@@ -366,19 +361,19 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
                       hasScore
                           ? Text(
                               '${match.homeGoals}  –  ${match.awayGoals}',
-                              style: const TextStyle(
-                                color: _textPrimary,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
                                 fontSize: 38,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: -1.5,
                               ),
                             )
-                          : const Padding(
+                          : Padding(
                               padding: EdgeInsets.symmetric(vertical: 14),
                               child: Text(
                                 'vs',
                                 style: TextStyle(
-                                  color: _textSecondary,
+                                  color: AppColors.textSecondary,
                                   fontSize: 24,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -388,8 +383,8 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
                         const SizedBox(height: 4),
                         Text(
                           'T.A.B. ${match.penalties}',
-                          style: const TextStyle(
-                            color: _textSecondary,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -411,18 +406,18 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
           ),
 
           const SizedBox(height: 24),
-          Container(height: 1, color: _border),
+          Container(height: 1, color: AppColors.border),
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.calendar_today_outlined, color: _textSecondary, size: 13),
+                Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 13),
                 const SizedBox(width: 6),
                 Text(
                   match.date,
-                  style: const TextStyle(color: _textSecondary, fontSize: 13),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -446,8 +441,8 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: _textPrimary,
+          style: TextStyle(
+            color: AppColors.textPrimary,
             fontSize: 14,
             fontWeight: FontWeight.w700,
             height: 1.3,
@@ -468,8 +463,8 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: 1 - _progressController.value,
-                backgroundColor: _border,
-                valueColor: const AlwaysStoppedAnimation(_accentBright),
+                backgroundColor: AppColors.border,
+                valueColor: AlwaysStoppedAnimation(AppColors.accentBright),
                 minHeight: 3,
               ),
             ),
@@ -479,14 +474,14 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _accentBright,
+                backgroundColor: AppColors.accentBright,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: _goToGame,
-              child: const Text(
+              child: Text(
                 'Commencer  →',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
@@ -537,7 +532,7 @@ class _TeamLogo extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         shape: BoxShape.circle,
-        border: Border.all(color: _border, width: 1.5),
+        border: Border.all(color: AppColors.border, width: 1.5),
       ),
       child: Center(
         child: Text(

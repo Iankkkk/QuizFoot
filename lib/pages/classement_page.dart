@@ -35,7 +35,7 @@ class _ClassementPageState extends State<ClassementPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(20, 24, 20, 16),
             child: Text(
               'Classement',
@@ -64,8 +64,8 @@ class _ClassementPageState extends State<ClassementPage>
               labelColor: Colors.black,
               unselectedLabelColor: AppColors.textSecondary,
               labelStyle:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-              tabs: const [
+                  TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              tabs: [
                 Tab(text: "Coup d'Œil"),
                 Tab(text: 'Compos'),
                 Tab(text: 'Compos 1v1'),
@@ -195,13 +195,13 @@ class _LeaderboardTabState extends State<_LeaderboardTab> {
                   isDense: true,
                   dropdownColor: AppColors.card,
                   iconEnabledColor: AppColors.textSecondary,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
                     fontFamily: 'Poppins',
                   ),
-                  hint: const Text(
+                  hint: Text(
                     'Toutes catégories',
                     style: TextStyle(
                       color: AppColors.textSecondary,
@@ -266,12 +266,12 @@ class _LeaderboardList extends StatelessWidget {
       future: query.get(),
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(
+          return Center(
             child: CircularProgressIndicator(color: AppColors.accentBright),
           );
         }
         if (snap.hasError) {
-          return const Center(
+          return Center(
             child: Text(
               'Erreur de chargement',
               style: TextStyle(color: AppColors.textSecondary),
@@ -295,7 +295,7 @@ class _LeaderboardList extends StatelessWidget {
         };
 
         if (bests.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
               'Aucun score encore dans ce niveau.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
@@ -346,9 +346,9 @@ class _LeaderboardRow extends StatelessWidget {
   });
 
   Color get _rankColor {
-    if (rank == 1) return const Color(0xFFFFD700);
-    if (rank == 2) return const Color(0xFFC0C0C0);
-    if (rank == 3) return const Color(0xFFCD7F32);
+    if (rank == 1) return Color(0xFFFFD700);
+    if (rank == 2) return Color(0xFFC0C0C0);
+    if (rank == 3) return Color(0xFFCD7F32);
     return AppColors.textSecondary;
   }
 
@@ -395,7 +395,7 @@ class _LeaderboardRow extends StatelessWidget {
                 ),
                 Text(
                   '$games partie${games > 1 ? 's' : ''}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11,
                   ),
@@ -405,7 +405,7 @@ class _LeaderboardRow extends StatelessWidget {
           ),
           Text(
             score.toStringAsFixed(0),
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
               fontSize: 16,
@@ -414,7 +414,7 @@ class _LeaderboardRow extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             gameType == 'compos' ? '%' : 'pts',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
           ),
         ],
       ),
@@ -444,12 +444,12 @@ class _MultiplayerDuelsTab extends StatelessWidget {
           .get(),
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(
+          return Center(
             child: CircularProgressIndicator(color: AppColors.accentBright),
           );
         }
         if (snap.hasError) {
-          return const Center(
+          return Center(
             child: Text(
               'Erreur de chargement',
               style: TextStyle(color: AppColors.textSecondary),
@@ -459,7 +459,7 @@ class _MultiplayerDuelsTab extends StatelessWidget {
 
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
               'Aucun duel encore joué.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
@@ -511,11 +511,11 @@ class _MultiplayerDuelsTab extends StatelessWidget {
                     child: medalColor != null
                         ? Text(
                             rank == 1 ? '🥇' : rank == 2 ? '🥈' : '🥉',
-                            style: const TextStyle(fontSize: 18),
+                            style: TextStyle(fontSize: 18),
                           )
                         : Text(
                             '$rank',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textSecondary,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
@@ -535,7 +535,7 @@ class _MultiplayerDuelsTab extends StatelessWidget {
                   ),
                   Text(
                     '$wins victoire${wins > 1 ? 's' : ''}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.accentBright,
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
@@ -564,7 +564,7 @@ class _PseudoChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (isWinner)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(right: 4),
             child: Text('🏆', style: TextStyle(fontSize: 12)),
           ),

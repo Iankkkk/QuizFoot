@@ -236,16 +236,16 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppColors.amber),
+          side: BorderSide(color: AppColors.amber),
         ),
-        title: const Text(
+        title: Text(
           '⚠️ Partie interrompue',
           style: TextStyle(color: AppColors.amber, fontWeight: FontWeight.w800, fontSize: 18),
           textAlign: TextAlign.center,
         ),
         content: Text(
           message,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
           textAlign: TextAlign.center,
         ),
         actions: [
@@ -271,7 +271,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                   ),
                 ));
               },
-              child: const Text('Résultats', style: TextStyle(fontWeight: FontWeight.w700)),
+              child: Text('Résultats', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -529,9 +529,9 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
-        title: const Text(
+        title: Text(
           'Indice',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
         ),
@@ -540,33 +540,33 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Poste : ${player.position}',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
             Text('Équipe : ${player.teamName}',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
             const SizedBox(height: 14),
             Text(
               canHint
                   ? '$remaining indice${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''}'
                   : 'Tu as utilisé tes $_maxFreeHints indices.',
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Annuler', style: TextStyle(color: AppColors.textSecondary)),
+            child: Text('Annuler', style: TextStyle(color: AppColors.textSecondary)),
           ),
           if (canHint) ...[
             TextButton(
               onPressed: () => Navigator.of(ctx).pop('letter'),
-              child: const Text('1ère lettre',
+              child: Text('1ère lettre',
                   style: TextStyle(color: AppColors.accentBright, fontWeight: FontWeight.w700)),
             ),
             if (hasNumber)
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop('number'),
-                child: const Text('Numéro',
+                child: Text('Numéro',
                     style: TextStyle(color: AppColors.amber, fontWeight: FontWeight.w700)),
               ),
           ],
@@ -649,7 +649,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
               iWon
                   ? '$opponentPseudo a été éliminé.'
                   : 'Tu as fait trop d\'erreurs.',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -683,7 +683,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                   Navigator.of(context).pop();
                 }
               },
-              child: const Text('Résultats', style: TextStyle(fontWeight: FontWeight.w700)),
+              child: Text('Résultats', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -715,12 +715,12 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: AppColors.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.border)),
-            title: const Text('Quitter la partie ?', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
-            content: const Text('Ton adversaire sera déclaré vainqueur.', style: TextStyle(color: AppColors.textSecondary)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColors.border)),
+            title: Text('Quitter la partie ?', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+            content: Text('Ton adversaire sera déclaré vainqueur.', style: TextStyle(color: AppColors.textSecondary)),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Continuer', style: TextStyle(color: AppColors.accentBright))),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Quitter', style: TextStyle(color: AppColors.red))),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Continuer', style: TextStyle(color: AppColors.accentBright))),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Quitter', style: TextStyle(color: AppColors.red))),
             ],
           ),
         ) ?? false;
@@ -737,7 +737,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         onTap: () => _inputFocus.unfocus(),
         behavior: HitTestBehavior.translucent,
         child: _isLoading || game == null
-            ? const Center(child: CircularProgressIndicator(color: AppColors.accentBright))
+            ? Center(child: CircularProgressIndicator(color: AppColors.accentBright))
             : Stack(
                 children: [
                   Column(
@@ -782,7 +782,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
     final folder = match != null ? _leagueFolder(match.competition) : null;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.card,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
@@ -799,7 +799,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                     const SizedBox(width: 6),
                     Text(
                       '${match.competition}  ·  ${match.date}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -818,7 +818,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                   ),
                   child: Text(
                     widget.roomCode,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
@@ -835,13 +835,14 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
               if (match != null)
                 _teamLogoSmall(match.homeTeam, match.colorHome, folder, size: 32)
               else
-                const SizedBox(width: 32),
+                SizedBox(
+      width: 32),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   match?.matchName ?? '',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
@@ -855,7 +856,8 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
               if (match != null)
                 _teamLogoSmall(match.awayTeam, match.colorAway, folder, size: 32)
               else
-                const SizedBox(width: 32),
+                SizedBox(
+      width: 32),
             ],
           ),
         ],
@@ -886,7 +888,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
             children: [
               Text(
                 '$found/$total',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.accentBright,
                   fontWeight: FontWeight.w800,
                   fontSize: 13,
@@ -899,7 +901,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                   child: LinearProgressIndicator(
                     value: pct,
                     backgroundColor: AppColors.border,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.accentBright),
+                    valueColor: AlwaysStoppedAnimation(AppColors.accentBright),
                     minHeight: 6,
                   ),
                 ),
@@ -953,7 +955,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         indicatorWeight: 2,
         labelColor: AppColors.accentBright,
         unselectedLabelColor: AppColors.textSecondary,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         tabs: [
           Tab(text: _match?.homeTeam ?? 'Équipe 1'),
           Tab(text: _match?.awayTeam ?? 'Équipe 2'),
@@ -987,7 +989,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('TITULAIRES',
+        Text('TITULAIRES',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 10,
                 fontWeight: FontWeight.w600, letterSpacing: 0.8)),
         const SizedBox(height: 10),
@@ -1010,7 +1012,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         ),
         if (subs.isNotEmpty) ...[
           const SizedBox(height: 20),
-          const Text('REMPLAÇANTS',
+          Text('REMPLAÇANTS',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 10,
                   fontWeight: FontWeight.w600, letterSpacing: 0.8)),
           const SizedBox(height: 10),
@@ -1067,13 +1069,13 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                   Positioned(
                     left: 16, top: size.height * 0.06,
                     child: Text(match.awayTeam.toUpperCase(),
-                        style: const TextStyle(color: Colors.white, fontSize: 12,
+                        style: TextStyle(color: Colors.white, fontSize: 12,
                             fontWeight: FontWeight.w800, letterSpacing: 0.8)),
                   ),
                   Positioned(
                     right: 16, bottom: size.height * 0.06,
                     child: Text(match.homeTeam.toUpperCase(),
-                        style: const TextStyle(color: Colors.white, fontSize: 12,
+                        style: TextStyle(color: Colors.white, fontSize: 12,
                             fontWeight: FontWeight.w800, letterSpacing: 0.8)),
                   ),
                   ..._buildTeamChips(
@@ -1146,7 +1148,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
   }) {
     if (homeSubs.isEmpty && awaySubs.isEmpty) return const SizedBox.shrink();
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.card,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
@@ -1171,7 +1173,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         Padding(
           padding: const EdgeInsets.only(left: 10, bottom: 4),
           child: Text(teamName.toUpperCase(),
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 8,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 8,
                   fontWeight: FontWeight.w700, letterSpacing: 0.8)),
         ),
         SizedBox(
@@ -1205,7 +1207,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.card,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
@@ -1217,28 +1219,28 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                 controller: _inputController,
                 focusNode: _inputFocus,
                 enabled: _isMyTurn && game.status == GameStatus.playing,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   hintText: _isMyTurn ? 'Nom de joueur...' : 'En attente de l\'adversaire...',
-                  hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
-                  prefixIcon: const Icon(Icons.person_search_rounded,
+                  hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+                  prefixIcon: Icon(Icons.person_search_rounded,
                       color: AppColors.accentBright, size: 22),
                   filled: true,
                   fillColor: AppColors.bg,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.border)),
+                      borderSide: BorderSide(color: AppColors.border)),
                   enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.accentBright, width: 1.2)),
+                      borderSide: BorderSide(color: AppColors.accentBright, width: 1.2)),
                   focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.accentBright, width: 2)),
+                      borderSide: BorderSide(color: AppColors.accentBright, width: 2)),
                   disabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.border)),
+                      borderSide: BorderSide(color: AppColors.border)),
                 ),
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _checkPlayer(),
@@ -1263,7 +1265,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                   )),
                 ),
                 onPressed: _submitting ? null : _passPlayer,
-                child: const Text('Passer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                child: Text('Passer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
               ),
               const SizedBox(width: 8),
             ],
@@ -1276,7 +1278,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: _isMyTurn && game.status == GameStatus.playing ? _checkPlayer : null,
-              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              child: Text('OK', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             ),
           ],
         ),
@@ -1296,7 +1298,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0D1826),
+          color: Color(0xFF0D1826),
           border: Border(
             top: BorderSide(color: AppColors.accentBright.withValues(alpha: 0.25)),
             bottom: BorderSide(color: AppColors.accentBright.withValues(alpha: 0.25)),
@@ -1304,9 +1306,9 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         ),
         child: Row(
           children: [
-            const Icon(Icons.touch_app_outlined, size: 14, color: AppColors.accentBright),
+            Icon(Icons.touch_app_outlined, size: 14, color: AppColors.accentBright),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Clique sur un joueur pour obtenir un indice',
                 style: TextStyle(
@@ -1346,7 +1348,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                   ),
                   child: Text(
                     _feedbackText ?? '',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700,
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700,
                         fontSize: 14, shadows: [Shadow(color: Colors.black38, blurRadius: 4)]),
                   ),
                 ),
@@ -1384,7 +1386,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                       color: AppColors.red,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
+                    child: Text(
                       '😤 SUFFOCATION',
                       style: TextStyle(
                         color: Colors.white,
@@ -1423,15 +1425,15 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(
-              width: 32, height: 32,
+            SizedBox(
+      width: 32, height: 32,
               child: CircularProgressIndicator(
                   strokeWidth: 2.5, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             Text(
               '$opponentPseudo joue...',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -1451,7 +1453,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
             else
               Text(
                 _opponentOverflowScheduled ? 'Reprise dans quelques secondes...' : '0 s',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -1468,7 +1470,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.red.withValues(alpha: 0.4)),
                 ),
-                child: const Text(
+                child: Text(
                   '😤 Suffocation activée !',
                   style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w700, fontSize: 13),
                 ),
@@ -1497,12 +1499,12 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                     icon: Text('😤', style: TextStyle(fontSize: 16, color: suffocateEnabled ? null : AppColors.textSecondary)),
                     label: Text(
                       'Suffocation ($suffocationsLeft restant${suffocationsLeft > 1 ? 's' : ''})',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                   ),
                   if (!suffocateEnabled) ...[
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Adversaire déjà dans le rouge',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                     ),
@@ -1510,7 +1512,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                 ],
               )
             else if (suffocationsLeft == 0)
-              const Text(
+              Text(
                 'Plus de suffocations',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
@@ -1581,7 +1583,7 @@ class _PlayerStatus extends StatelessWidget {
         if (isTurn)
           Container(
             width: 6, height: 6, margin: const EdgeInsets.only(right: 6),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 color: AppColors.accentBright, shape: BoxShape.circle),
           ),
         Column(
@@ -1644,7 +1646,7 @@ class _ScoreSummary extends StatelessWidget {
               const Spacer(),
               Text(
                 '$foundByMe trouvé${foundByMe > 1 ? 's' : ''}',
-                style: const TextStyle(color: AppColors.accentBright, fontSize: 12, fontWeight: FontWeight.w600),
+                style: TextStyle(color: AppColors.accentBright, fontSize: 12, fontWeight: FontWeight.w600),
               ),
               const SizedBox(width: 12),
               Row(
@@ -1671,17 +1673,17 @@ class _ScoreSummary extends StatelessWidget {
 
 Color _parseTeamColor(String? name) {
   switch (name?.toLowerCase().trim()) {
-    case 'blanc':      return const Color(0xFFF0F0F0);
-    case 'noir':       return const Color(0xFF000000);
-    case 'rouge':      return const Color(0xFFDC2626);
-    case 'bleu':       return const Color(0xFF1D4ED8);
-    case 'bleu clair': return const Color(0xFF60A5FA);
-    case 'bleu foncé': return const Color(0xFF0C034D);
-    case 'vert':       return const Color(0xFF16A34A);
-    case 'jaune':      return const Color(0xFFFACC15);
-    case 'orange':     return const Color(0xFFE16806);
-    case 'violet':     return const Color(0xFF790CC8);
-    default:           return const Color(0xFF4A5568);
+    case 'blanc':      return Color(0xFFF0F0F0);
+    case 'noir':       return Color(0xFF000000);
+    case 'rouge':      return Color(0xFFDC2626);
+    case 'bleu':       return Color(0xFF1D4ED8);
+    case 'bleu clair': return Color(0xFF60A5FA);
+    case 'bleu foncé': return Color(0xFF0C034D);
+    case 'vert':       return Color(0xFF16A34A);
+    case 'jaune':      return Color(0xFFFACC15);
+    case 'orange':     return Color(0xFFE16806);
+    case 'violet':     return Color(0xFF790CC8);
+    default:           return Color(0xFF4A5568);
   }
 }
 
@@ -1724,7 +1726,7 @@ Widget _teamLogoSmall(String name, String colorName, String? folder, {double siz
     width: size, height: size,
     decoration: BoxDecoration(
       color: bg, shape: BoxShape.circle,
-      border: Border.all(color: const Color(0xFF2D3148), width: 1.5),
+      border: Border.all(color: Color(0xFF2D3148), width: 1.5),
     ),
     child: Center(
       child: Text(initial, style: TextStyle(
@@ -1757,12 +1759,12 @@ class _PitchPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width; final h = size.height;
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), Paint()..color = const Color(0xFF1A5C2A));
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), Paint()..color = Color(0xFF1A5C2A));
     const stripes = 8;
     final stripeH = h / stripes;
     for (int i = 0; i < stripes; i += 2) {
       canvas.drawRect(Rect.fromLTWH(0, i * stripeH, w, stripeH),
-          Paint()..color = const Color(0xFF1E6830));
+          Paint()..color = Color(0xFF1E6830));
     }
     final line = Paint()
       ..color = Colors.white.withValues(alpha: 0.55)
@@ -1913,7 +1915,7 @@ class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: revealed ? LinearGradient(
-                            colors: [c1, c1, c2, c2], stops: const [0.0, 0.5, 0.5, 1.0],
+                            colors: [c1, c1, c2, c2], stops: [0.0, 0.5, 0.5, 1.0],
                             begin: Alignment.centerLeft, end: Alignment.centerRight,
                           ) : null,
                           color: revealed ? null : Colors.white.withValues(alpha: 0.10),
@@ -1927,7 +1929,7 @@ class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
                         child: Center(child: Text(label, style: TextStyle(
                           color: revealed && c1 == c2 ? _labelColor(c1) : Colors.white,
                           fontSize: numFontSize, fontWeight: FontWeight.w800, height: 1,
-                          shadows: const [Shadow(color: Colors.black54, blurRadius: 3)],
+                          shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
                         ))),
                       ),
                     ),
@@ -1944,7 +1946,7 @@ class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
                   textAlign: TextAlign.center,
                   maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: widget.isFound ? const Color(0xFFB5EDBB) : AppColors.amber,
+                    color: widget.isFound ? Color(0xFFB5EDBB) : AppColors.amber,
                     fontSize: 9, fontWeight: FontWeight.w700, height: 1.2,
                   ),
                 ),
@@ -2061,7 +2063,7 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: revealed ? LinearGradient(
-                            colors: [c1, c1, c2, c2], stops: const [0.0, 0.5, 0.5, 1.0],
+                            colors: [c1, c1, c2, c2], stops: [0.0, 0.5, 0.5, 1.0],
                             begin: Alignment.centerLeft, end: Alignment.centerRight,
                           ) : null,
                           color: revealed ? null : Colors.white.withValues(alpha: 0.10),
@@ -2075,7 +2077,7 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
                         child: Center(child: Text(label, style: TextStyle(
                           color: revealed && c1 == c2 ? _labelColor(c1) : Colors.white,
                           fontSize: 10, fontWeight: FontWeight.w800, height: 1,
-                          shadows: const [Shadow(color: Colors.black54, blurRadius: 3)],
+                          shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
                         ))),
                       ),
                     ),

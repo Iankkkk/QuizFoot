@@ -275,7 +275,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
     final snapshot = _buildSnapshot();
     if (_isDuplicateSnapshot(snapshot)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('⚠️ Tu as déjà validé cette disposition !'),
           backgroundColor: AppColors.amber,
           duration: Duration(seconds: 2),
@@ -489,7 +489,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
               ),
               child: SafeArea(
                 child: _isLoading
-                    ? const Center(
+                    ? Center(
                         child: CircularProgressIndicator(
                           color: AppColors.accentBright,
                         ),
@@ -501,12 +501,12 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.wifi_off_rounded, color: AppColors.textSecondary, size: 48),
+                              Icon(Icons.wifi_off_rounded, color: AppColors.textSecondary, size: 48),
                               const SizedBox(height: 16),
                               Text(
                                 _errorMessage!,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+                                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
                               ),
                               const SizedBox(height: 24),
                               ElevatedButton(
@@ -520,7 +520,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
                                   setState(() { _isLoading = true; _errorMessage = null; });
                                   _loadClaim();
                                 },
-                                child: const Text('Réessayer'),
+                                child: Text('Réessayer'),
                               ),
                             ],
                           ),
@@ -572,7 +572,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.card,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
@@ -592,7 +592,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back,
                 color: AppColors.textPrimary,
                 size: 20,
@@ -600,7 +600,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
               'Qui a menti ?',
               style: TextStyle(
@@ -708,11 +708,11 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
           ),
           if (validated > 0) ...[
             const SizedBox(width: 16),
-            const Icon(Icons.lock_outline, color: AppColors.textSecondary, size: 14),
+            Icon(Icons.lock_outline, color: AppColors.textSecondary, size: 14),
             const SizedBox(width: 6),
             Text(
               '$validated joueur${validated > 1 ? 's' : ''} validé${validated > 1 ? 's' : ''}',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
@@ -750,7 +750,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(Icons.campaign_outlined, color: AppColors.accentBright, size: 16),
                     SizedBox(width: 6),
                     Text(
@@ -769,7 +769,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
                 child: Text(
                   _claim.claim,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -914,7 +914,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
             children: [
               Text(
                 'À classer  ${_toClassify.length} restant${_toClassify.length > 1 ? 's' : ''}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textSecondary,
@@ -922,7 +922,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
               ),
               const SizedBox(height: 6),
               _toClassify.isEmpty
-                  ? const Text(
+                  ? Text(
                       'Tous classés ✓',
                       style: TextStyle(
                         fontSize: 13,
@@ -978,7 +978,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
         onPressed: canValidate ? _validate : null,
         child: Text(
           'Valider  ($remaining tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''})',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -992,30 +992,30 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
             backgroundColor: AppColors.card,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppColors.border),
+              side: BorderSide(color: AppColors.border),
             ),
-            title: const Text(
+            title: Text(
               'Quitter la partie ?',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            content: const Text(
+            content: Text(
               'Ta progression sera perdue.',
               style: TextStyle(color: AppColors.textSecondary),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text(
+                child: Text(
                   'Continuer',
                   style: TextStyle(color: AppColors.accentBright),
                 ),
               ),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text(
+                child: Text(
                   'Quitter',
                   style: TextStyle(color: AppColors.red),
                 ),
@@ -1028,7 +1028,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
 
   /// Overlay with rising geometric particles for 2nd or 3rd attempt victory.
   Widget _buildWinParticlesOverlay() {
-    const colors = [
+    final colors = [
       AppColors.accentBright,
       AppColors.amber,
       Color(0xFF40C4FF), // light blue
@@ -1228,7 +1228,7 @@ class _CandidateCardState extends State<_CandidateCard>
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (widget.isLocked)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(right: 4),
                     child: Icon(
                       Icons.lock_outline,

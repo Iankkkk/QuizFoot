@@ -485,25 +485,25 @@ class _QuizTestState extends State<QuizTest> {
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
+        title: Text(
           'Quitter la partie ?',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
         ),
-        content: const Text(
+        content: Text(
           'Ta progression sera perdue.',
           style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Continuer',
               style: TextStyle(color: AppColors.accentBright, fontWeight: FontWeight.w600),
             ),
           ),
           TextButton(
             onPressed: () { Navigator.pop(context); Navigator.pop(context); },
-            child: const Text(
+            child: Text(
               'Quitter',
               style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w600),
             ),
@@ -569,7 +569,7 @@ class _QuizTestState extends State<QuizTest> {
     final seconds = _elapsed.inSeconds % 60;
     return Text(
       '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
@@ -584,8 +584,8 @@ class _QuizTestState extends State<QuizTest> {
     // Show a minimal loading screen while players are being fetched.
     if (_isLoading || _selectedPlayers.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Chargement...')),
-        body: const Center(child: CircularProgressIndicator()),
+        appBar: AppBar(title: Text('Chargement...')),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -650,7 +650,7 @@ class _QuizTestState extends State<QuizTest> {
                     color: Colors.black.withOpacity(0.45),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                  child: Icon(Icons.arrow_back, color: Colors.white, size: 20),
                 ),
               ),
             ],
@@ -701,7 +701,7 @@ class _QuizTestState extends State<QuizTest> {
                   // Still downloading — show a spinner.
                   return Container(
                     color: AppColors.card,
-                    child: const Center(
+                    child: Center(
                       child: CircularProgressIndicator(color: AppColors.accentBright),
                     ),
                   );
@@ -713,7 +713,7 @@ class _QuizTestState extends State<QuizTest> {
                   );
                   return Container(
                     color: AppColors.card,
-                    child: const Center(
+                    child: Center(
                       child: CircularProgressIndicator(color: AppColors.accentBright),
                     ),
                   );
@@ -767,7 +767,7 @@ class _QuizTestState extends State<QuizTest> {
                     child: Text(
                       _selectedPlayers[_currentQuestion].name,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 36,
                         fontWeight: FontWeight.w800,
@@ -847,7 +847,7 @@ class _QuizTestState extends State<QuizTest> {
             child: LinearProgressIndicator(
               value: (current + 1) / total,
               backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accentBright),
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentBright),
               minHeight: 3,
             ),
           ),
@@ -856,7 +856,7 @@ class _QuizTestState extends State<QuizTest> {
         // "3/10 · Ligue 1"
         Text(
           '${current + 1}/$total${widget.category != null ? ' · ${widget.category}' : ''}',
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -866,7 +866,7 @@ class _QuizTestState extends State<QuizTest> {
         // Total points accumulated so far
         Text(
           '$_score pt${_score > 1 ? 's' : ''}',
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -889,7 +889,7 @@ class _QuizTestState extends State<QuizTest> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.timer_outlined, size: 14, color: AppColors.textPrimary),
+              Icon(Icons.timer_outlined, size: 14, color: AppColors.textPrimary),
               const SizedBox(width: 5),
               _buildTimerText(),
               // Vertical separator
@@ -968,25 +968,25 @@ class _QuizTestState extends State<QuizTest> {
     return TextField(
       autofocus: false,
       controller: _controller,
-      style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+      style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
       decoration: InputDecoration(
         hintText: 'Nom du joueur...',
-        hintStyle: const TextStyle(color: AppColors.textSecondary),
-        prefixIcon: const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 20),
+        hintStyle: TextStyle(color: AppColors.textSecondary),
+        prefixIcon: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 20),
         filled: true,
         fillColor: AppColors.card,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.accentBright, width: 2),
+          borderSide: BorderSide(color: AppColors.accentBright, width: 2),
         ),
       ),
       onChanged: (value) => setState(() => _answer = value),
@@ -1006,12 +1006,12 @@ class _QuizTestState extends State<QuizTest> {
           child: OutlinedButton(
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textPrimary,
-              side: const BorderSide(color: AppColors.textSecondary),
+              side: BorderSide(color: AppColors.textSecondary),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _skipQuestion,
-            child: const Text('Passer', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: Text('Passer', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ),
         const SizedBox(width: 12),
@@ -1029,7 +1029,7 @@ class _QuizTestState extends State<QuizTest> {
               elevation: 0,
             ),
             onPressed: _answer.trim().isEmpty ? null : _submitAnswer,
-            child: const Text(
+            child: Text(
               'Valider ✓',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),

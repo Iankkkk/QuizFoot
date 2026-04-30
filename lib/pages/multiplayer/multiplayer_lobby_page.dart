@@ -171,10 +171,10 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
         backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Compos 1v1',
           style: TextStyle(
             color: AppColors.textPrimary,
@@ -194,7 +194,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
             // ── Hero ──────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF1A2333), AppColors.bg],
                   begin: Alignment.topCenter,
@@ -214,7 +214,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                       ),
                     ),
                   ),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -270,7 +270,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
                             Icon(
                               Icons.login_outlined,
@@ -298,7 +298,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                             ),
                             LengthLimitingTextInputFormatter(6),
                           ],
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
@@ -317,19 +317,19 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                             fillColor: AppColors.bg,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
+                              borderSide: BorderSide(
                                 color: AppColors.border,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
+                              borderSide: BorderSide(
                                 color: AppColors.border,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
+                              borderSide: BorderSide(
                                 color: Color(0xFF58A6FF),
                                 width: 1.5,
                               ),
@@ -342,7 +342,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                           width: double.infinity,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF58A6FF),
+                              backgroundColor: Color(0xFF58A6FF),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               elevation: 0,
@@ -351,7 +351,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                               ),
                             ),
                             onPressed: _loading ? null : _joinRoom,
-                            child: const Text(
+                            child: Text(
                               'Rejoindre',
                               style: TextStyle(
                                 fontSize: 15,
@@ -381,7 +381,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                       ),
                       child: Text(
                         _error!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.red,
                           fontSize: 13,
                         ),
@@ -392,7 +392,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
 
                   if (_loading) ...[
                     const SizedBox(height: 20),
-                    const Center(
+                    Center(
                       child: SizedBox(
                         width: 24,
                         height: 24,
@@ -460,7 +460,7 @@ class _SectionCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -469,7 +469,7 @@ class _SectionCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
                       height: 1.4,
@@ -478,7 +478,7 @@ class _SectionCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right,
               color: AppColors.textSecondary,
               size: 20,
@@ -519,7 +519,7 @@ class _DifficultyPicker extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Choisir la difficulté',
               style: TextStyle(
                 fontSize: 18,

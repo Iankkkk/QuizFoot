@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../models/game_result.dart';
 import '../services/game_history_service.dart';
+import '../services/theme_service.dart';
 
 class ProfilPage extends StatefulWidget {
   final String pseudo;
@@ -19,7 +20,16 @@ class _ProfilPageState extends State<ProfilPage> {
   void initState() {
     super.initState();
     _load();
+    ThemeService.instance.addListener(_onThemeChanged);
   }
+
+  @override
+  void dispose() {
+    ThemeService.instance.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() => setState(() {});
 
   Future<void> _load() async {
     final results = await GameHistoryService.instance.getAll();
@@ -72,7 +82,7 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.accentBright))
+          ? Center(child: CircularProgressIndicator(color: AppColors.accentBright))
           : RefreshIndicator(
               color: AppColors.accentBright,
               backgroundColor: AppColors.card,
@@ -150,8 +160,10 @@ class _ProfilPageState extends State<ProfilPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A2E1A), Color(0xFF1E2130)],
+        gradient: LinearGradient(
+          colors: ThemeService.instance.isDark
+              ? [const Color(0xFF1A2E1A), const Color(0xFF1E2130)]
+              : [const Color(0xFFE6F9F1), const Color(0xFFFFFFFF)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -163,9 +175,9 @@ class _ProfilPageState extends State<ProfilPage> {
         children: [
           Row(
             children: [
-              const Text('🏆', style: TextStyle(fontSize: 16)),
+              Text('🏆', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Ta masterclass',
                 style: TextStyle(
                   color: AppColors.accentBright,
@@ -182,7 +194,7 @@ class _ProfilPageState extends State<ProfilPage> {
             children: [
               Text(
                 best.normalizedScore.toStringAsFixed(0),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 48,
                   fontWeight: FontWeight.w900,
@@ -190,7 +202,7 @@ class _ProfilPageState extends State<ProfilPage> {
                 ),
               ),
               const SizedBox(width: 6),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(bottom: 6),
                 child: Text(
                   'pts',
@@ -206,7 +218,7 @@ class _ProfilPageState extends State<ProfilPage> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -217,7 +229,7 @@ class _ProfilPageState extends State<ProfilPage> {
           const SizedBox(height: 4),
           Text(
             '$date  ·  ${mins}m${secs.toString().padLeft(2, '0')}',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
             ),
@@ -228,6 +240,7 @@ class _ProfilPageState extends State<ProfilPage> {
   }
 
   Widget _buildHeader() {
+    final isDark = ThemeService.instance.isDark;
     return Row(
       children: [
         Container(
@@ -241,7 +254,7 @@ class _ProfilPageState extends State<ProfilPage> {
           child: Center(
             child: Text(
               widget.pseudo.isNotEmpty ? widget.pseudo[0].toUpperCase() : '?',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.accentBright,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -250,25 +263,54 @@ class _ProfilPageState extends State<ProfilPage> {
           ),
         ),
         const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.pseudo,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.pseudo,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-            Text(
-              '${_results.length} partie${_results.length > 1 ? 's' : ''} jouée${_results.length > 1 ? 's' : ''}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
+              Text(
+                '${_results.length} partie${_results.length > 1 ? 's' : ''} jouée${_results.length > 1 ? 's' : ''}',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
+            ],
+          ),
+        ),
+        GestureDetector(
+          onTap: () => ThemeService.instance.toggle(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(isDark ? '🌙' : '☀️', style: const TextStyle(fontSize: 14)),
+                const SizedBox(width: 6),
+                Text(
+                  isDark ? 'Sombre' : 'Clair',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -326,7 +368,7 @@ class _ProfilPageState extends State<ProfilPage> {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -335,7 +377,7 @@ class _ProfilPageState extends State<ProfilPage> {
               const Spacer(),
               Text(
                 '${results.length} partie${results.length > 1 ? 's' : ''}',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                 ),
@@ -352,7 +394,7 @@ class _ProfilPageState extends State<ProfilPage> {
             ),
           ] else ...[
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'Pas encore de partie jouée.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
@@ -381,9 +423,9 @@ class _ProfilPageState extends State<ProfilPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.people_outline, color: Color(0xFF58A6FF), size: 16),
+              Icon(Icons.people_outline, color: Color(0xFF58A6FF), size: 16),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Compos 1v1',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -394,7 +436,7 @@ class _ProfilPageState extends State<ProfilPage> {
               const Spacer(),
               Text(
                 '$total partie${total > 1 ? 's' : ''}',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
             ],
           ),
@@ -412,7 +454,7 @@ class _ProfilPageState extends State<ProfilPage> {
             ...mp.take(3).map(_buildMultiplayerRow),
           ] else ...[
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'Pas encore de partie jouée.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
@@ -476,7 +518,7 @@ class _ProfilPageState extends State<ProfilPage> {
               children: [
                 Text(
                   'vs $opponent',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -485,7 +527,7 @@ class _ProfilPageState extends State<ProfilPage> {
                 if (matchName.isNotEmpty)
                   Text(
                     matchName,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -498,7 +540,7 @@ class _ProfilPageState extends State<ProfilPage> {
             children: [
               Text(
                 '$foundByMe – $foundByOpp',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -506,7 +548,7 @@ class _ProfilPageState extends State<ProfilPage> {
               ),
               Text(
                 date,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
               ),
             ],
           ),
@@ -546,7 +588,7 @@ class _ProfilPageState extends State<ProfilPage> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -559,11 +601,11 @@ class _ProfilPageState extends State<ProfilPage> {
             children: [
               Text(
                 date,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
               ),
               Text(
                 r.normalizedScore.toStringAsFixed(0),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.accentBright,
                   fontWeight: FontWeight.w800,
                   fontSize: 14,
@@ -578,7 +620,7 @@ class _ProfilPageState extends State<ProfilPage> {
 
   Widget _sectionLabel(String text) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textSecondary,
           fontSize: 11,
           fontWeight: FontWeight.w600,
@@ -623,7 +665,7 @@ class _StatTile extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 10,
           ),
