@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
+import '../../services/theme_service.dart';
 import '../../data/lineup_game_data.dart';
 import '../../models/match_model.dart';
 import '../../models/multiplayer_game.dart';
@@ -349,7 +350,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
     );
     if (_coloredLogos.contains(competition)) return img;
     return ColorFiltered(
-      colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(ThemeService.instance.isDark ? Colors.white : Colors.black87, BlendMode.srcIn),
       child: img,
     );
   }

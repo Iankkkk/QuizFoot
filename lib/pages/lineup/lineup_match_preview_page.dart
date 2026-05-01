@@ -6,23 +6,34 @@ import '../../data/api_exception.dart';
 import '../../models/match_model.dart';
 import 'lineup_match_page.dart';
 import '../../constants/app_colors.dart';
-
+import '../../services/theme_service.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 Color _parseColor(String? name) {
   switch (name?.toLowerCase().trim()) {
-    case 'blanc':      return const Color(0xFFF0F0F0);
-    case 'noir':       return const Color(0xFF1A1A1A);
-    case 'rouge':      return const Color(0xFFDC2626);
-    case 'bleu':       return const Color(0xFF1D4ED8);
-    case 'bleu clair': return const Color(0xFF60A5FA);
-    case 'bleu foncé': return const Color(0xFF0C0A4D);
-    case 'vert':       return const Color(0xFF16A34A);
-    case 'jaune':      return const Color(0xFFFACC15);
-    case 'orange':     return const Color(0xFFE16806);
-    case 'violet':     return const Color(0xFF790CC8);
-    default:           return AppColors.border;
+    case 'blanc':
+      return const Color(0xFFF0F0F0);
+    case 'noir':
+      return const Color(0xFF1A1A1A);
+    case 'rouge':
+      return const Color(0xFFDC2626);
+    case 'bleu':
+      return const Color(0xFF1D4ED8);
+    case 'bleu clair':
+      return const Color(0xFF60A5FA);
+    case 'bleu foncé':
+      return const Color(0xFF0C0A4D);
+    case 'vert':
+      return const Color(0xFF16A34A);
+    case 'jaune':
+      return const Color(0xFFFACC15);
+    case 'orange':
+      return const Color(0xFFE16806);
+    case 'violet':
+      return const Color(0xFF790CC8);
+    default:
+      return AppColors.border;
   }
 }
 
@@ -30,17 +41,32 @@ Color _parseColor(String? name) {
 /// Returns null for multi-league competitions (UCL, etc.).
 String? _leagueFolder(String competition) {
   final c = competition.toLowerCase();
-  if (c.contains('euro') || c.contains('coupe du monde') || c.contains('world cup') || c.contains('ligue des nations') || c.contains('copa')) return 'pays';
-  if (c.contains('champions league') || c.contains('ligue des champions')) return 'Champions League';
-  if (c.contains('ligue 1') || c.contains('coupe de france') || c.contains('coupe de la ligue')) return 'France - Ligue 1';
-  if (c.contains('premier league') || c.contains('community shield') || c.contains('fa cup')) return 'England - Premier League';
+  if (c.contains('champions league') ||
+      c.contains('ligue des champions') ||
+      c.contains('ligue europa'))
+    return 'Champions League';
+  if (c.contains('ligue 1') ||
+      c.contains('coupe de france') ||
+      c.contains('coupe de la ligue'))
+    return 'France - Ligue 1';
+  if (c.contains('premier league') ||
+      c.contains('community shield') ||
+      c.contains('fa cup'))
+    return 'England - Premier League';
   if (c.contains('premier league')) return 'England - Premier League';
   if (c.contains('laliga') || c.contains('la liga')) return 'Spain - La Liga';
-  if (c.contains('bundesliga') && !c.contains('austria')) return 'Germany - Bundesliga';
-  if (c.contains('serie a'))        return 'Italy - Serie A';
-  if (c.contains('eredivisie'))     return 'Netherlands - Eredivisie';
-  if (c.contains('liga portugal'))  return 'Portugal - Liga Portugal';
-  if (c.contains('jupiler'))        return 'Belgium - Jupiler Pro League';
+  if (c.contains('bundesliga') && !c.contains('austria'))
+    return 'Germany - Bundesliga';
+  if (c.contains('euro') ||
+      c.contains('coupe du monde') ||
+      c.contains('world cup') ||
+      c.contains('ligue des nations') ||
+      c.contains('copa'))
+    return 'pays';
+  if (c.contains('serie a')) return 'Italy - Serie A';
+  if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
+  if (c.contains('liga portugal')) return 'Portugal - Liga Portugal';
+  if (c.contains('jupiler')) return 'Belgium - Jupiler Pro League';
   return null;
 }
 
@@ -66,7 +92,6 @@ class LineupMatchPreviewPage extends StatefulWidget {
 
 class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
     with TickerProviderStateMixin {
-
   bool _isLoading = true;
   Match? _match;
   String? _error;
@@ -91,9 +116,17 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _fadeAnim  = CurvedAnimation(parent: _entranceController, curve: Curves.easeOut);
+    _fadeAnim = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic));
+        .animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
     _loadMatch();
   }
@@ -110,56 +143,82 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
 
   int _difficultyToLevel(String d) {
     switch (d) {
-      case 'Amateur': return 1;
-      case 'Semi-Pro':      return 2;
-      case 'Pro':     return 3;
-      case 'International':   return 4;
-      case 'Légende':  return 5;
-      default:            return 3;
+      case 'Amateur':
+        return 1;
+      case 'Semi-Pro':
+        return 2;
+      case 'Pro':
+        return 3;
+      case 'International':
+        return 4;
+      case 'Légende':
+        return 5;
+      default:
+        return 3;
     }
   }
 
   Future<void> _loadMatch() async {
     try {
       if (widget.preselectedMatch != null) {
-        setState(() { _match = widget.preselectedMatch; _isLoading = false; });
+        setState(() {
+          _match = widget.preselectedMatch;
+          _isLoading = false;
+        });
         _entranceController.forward();
         _progressController.forward();
-        _navTimer = Timer(const Duration(seconds: _countdownSeconds), _goToGame);
+        _navTimer = Timer(
+          const Duration(seconds: _countdownSeconds),
+          _goToGame,
+        );
         return;
       }
 
       final matches = await loadMatches();
-      final level   = _difficultyToLevel(widget.difficulty);
+      final level = _difficultyToLevel(widget.difficulty);
 
       final filtered = matches.where((m) {
         if (m.level != level) return false;
         final eras = widget.eras;
         if (eras == null || eras.isEmpty) return true;
-        final yr = int.tryParse(RegExp(r'\d{4}').firstMatch(m.date)?.group(0) ?? '');
+        final yr = int.tryParse(
+          RegExp(r'\d{4}').firstMatch(m.date)?.group(0) ?? '',
+        );
         if (yr == null) return true;
         return eras.any((era) {
           if (era == 'Avant 2010') return yr < 2010;
-          if (era == '2010-2019')  return yr >= 2010 && yr <= 2019;
-          if (era == '2020-2026')  return yr >= 2020;
+          if (era == '2010-2019') return yr >= 2010 && yr <= 2019;
+          if (era == '2020-2026') return yr >= 2020;
           return false;
         });
       }).toList();
 
       if (filtered.isEmpty) {
-        setState(() { _isLoading = false; _error = 'Aucun match pour cette difficulté'; });
+        setState(() {
+          _isLoading = false;
+          _error = 'Aucun match pour cette difficulté';
+        });
         return;
       }
 
       final picked = (List<Match>.from(filtered)..shuffle()).first;
-      setState(() { _match = picked; _isLoading = false; });
+      setState(() {
+        _match = picked;
+        _isLoading = false;
+      });
       _entranceController.forward();
       _progressController.forward();
       _navTimer = Timer(const Duration(seconds: _countdownSeconds), _goToGame);
     } on ApiException catch (e) {
-      setState(() { _isLoading = false; _error = e.userMessage; });
+      setState(() {
+        _isLoading = false;
+        _error = e.userMessage;
+      });
     } catch (_) {
-      setState(() { _isLoading = false; _error = 'Erreur inattendue. Réessaie.'; });
+      setState(() {
+        _isLoading = false;
+        _error = 'Erreur inattendue. Réessaie.';
+      });
     }
   }
 
@@ -186,10 +245,12 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
       backgroundColor: AppColors.bg,
       body: SafeArea(
         child: _isLoading
-            ? Center(child: CircularProgressIndicator(color: AppColors.accentBright))
+            ? Center(
+                child: CircularProgressIndicator(color: AppColors.accentBright),
+              )
             : _error != null
-                ? _buildError()
-                : _buildPreview(),
+            ? _buildError()
+            : _buildPreview(),
       ),
     );
   }
@@ -205,12 +266,18 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
           children: [
             Icon(Icons.sports_soccer, color: AppColors.textSecondary, size: 48),
             const SizedBox(height: 16),
-            Text(_error!, textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            ),
             const SizedBox(height: 24),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Retour', style: TextStyle(color: AppColors.accentBright)),
+              child: Text(
+                'Retour',
+                style: TextStyle(color: AppColors.accentBright),
+              ),
             ),
           ],
         ),
@@ -221,10 +288,10 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
   // ── Preview ───────────────────────────────────────────────────────────────
 
   Widget _buildPreview() {
-    final match   = _match!;
+    final match = _match!;
     final hasScore = match.homeGoals != null && match.awayGoals != null;
-    final hasPens  = match.penalties != null && match.penalties!.isNotEmpty;
-    final folder   = _leagueFolder(match.competition);
+    final hasPens = match.penalties != null && match.penalties!.isNotEmpty;
+    final folder = _leagueFolder(match.competition);
 
     return Column(
       children: [
@@ -267,7 +334,11 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.border),
               ),
-              child: Icon(Icons.arrow_back, color: AppColors.textPrimary, size: 20),
+              child: Icon(
+                Icons.arrow_back,
+                color: AppColors.textPrimary,
+                size: 20,
+              ),
             ),
           ),
         ],
@@ -324,12 +395,20 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
     if (_coloredLogos.contains(competition)) return img;
 
     return ColorFiltered(
-      colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(
+        ThemeService.instance.isDark ? Colors.white : Colors.black87,
+        BlendMode.srcIn,
+      ),
       child: img,
     );
   }
 
-  Widget _buildMatchCard(Match match, bool hasScore, bool hasPens, String? folder) {
+  Widget _buildMatchCard(
+    Match match,
+    bool hasScore,
+    bool hasPens,
+    String? folder,
+  ) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -413,11 +492,18 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 13),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  color: AppColors.textSecondary,
+                  size: 13,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   match.date,
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -478,7 +564,9 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _goToGame,
               child: Text(
@@ -510,7 +598,9 @@ class _TeamLogo extends StatelessWidget {
 
     if (folder == null) return fallback;
 
-    final fileName = folder == 'pays' ? removeDiacritics(name.toLowerCase()) : name;
+    final fileName = folder == 'pays'
+        ? removeDiacritics(name.toLowerCase())
+        : name;
 
     return Image.asset(
       'assets/logos/$folder/$fileName.png',
@@ -522,8 +612,8 @@ class _TeamLogo extends StatelessWidget {
   }
 
   Widget _buildFallback() {
-    final bg      = _parseColor(colorName);
-    final isDark  = bg.computeLuminance() < 0.4;
+    final bg = _parseColor(colorName);
+    final isDark = bg.computeLuminance() < 0.4;
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     return Container(

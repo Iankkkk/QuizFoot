@@ -238,7 +238,11 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.bolt, color: AppColors.accentBright, size: 16),
+                      Icon(
+                        Icons.campaign_rounded,
+                        color: AppColors.accentBright,
+                        size: 16,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Anecdote du jour',
@@ -366,7 +370,14 @@ class _HomePageState extends State<HomePage> {
           .snapshots(),
       builder: (context, snap) {
         if (!snap.hasData || snap.data!.docs.isEmpty) return const SizedBox();
-        final docs = snap.data!.docs;
+        // Dédupliquer les parties 1v1 (2 docs par partie, un par joueur)
+        final seen1v1 = <String>{};
+        final docs = snap.data!.docs.where((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          if ((d['gameType'] as String?) != 'multiplayerCompos') return true;
+          final key = d['matchName'] as String? ?? doc.id;
+          return seen1v1.add(key);
+        }).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -381,27 +392,34 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 10),
             ...docs.map((doc) {
               final d = doc.data() as Map<String, dynamic>;
-              final pseudo         = d['pseudo'] as String? ?? '?';
-              final gameType       = d['gameType'] as String? ?? '';
-              final diff           = d['difficulty'] as String? ?? '';
-              final score          = d['score'] as int? ?? 0;
-              final maxScore       = d['maxScore'] as int? ?? 0;
-              final category       = d['category'] as String?;
-              final matchName      = d['matchName'] as String?;
+              final pseudo = d['pseudo'] as String? ?? '?';
+              final gameType = d['gameType'] as String? ?? '';
+              final diff = d['difficulty'] as String? ?? '';
+              final score = d['score'] as int? ?? 0;
+              final maxScore = d['maxScore'] as int? ?? 0;
+              final category = d['category'] as String?;
+              final matchName = d['matchName'] as String?;
               final opponentPseudo = d['opponentPseudo'] as String?;
-              final ts             = d['createdAt'] as Timestamp?;
-              final ago            = ts != null ? _timeAgo(ts.toDate()) : '';
-              final is1v1          = gameType == 'multiplayerCompos';
-              final isCompos       = gameType == 'compos' || is1v1;
-              final icon           = is1v1 ? '🆚' : isCompos ? '⚽' : '🎯';
-              final scoreStr       = isCompos ? '$score/$maxScore' : '${score}pts';
-              final detail         = matchName ?? category ?? '';
-              final playerLabel    = is1v1 && opponentPseudo != null
+              final ts = d['createdAt'] as Timestamp?;
+              final ago = ts != null ? _timeAgo(ts.toDate()) : '';
+              final is1v1 = gameType == 'multiplayerCompos';
+              final isCompos = gameType == 'compos' || is1v1;
+              final icon = is1v1
+                  ? '🆚'
+                  : isCompos
+                  ? '⚽'
+                  : '🎯';
+              final scoreStr = isCompos ? '$score/$maxScore' : '${score}pts';
+              final detail = matchName ?? category ?? '';
+              final playerLabel = is1v1 && opponentPseudo != null
                   ? '$pseudo vs $opponentPseudo'
                   : pseudo;
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.card,
                   borderRadius: BorderRadius.circular(12),
@@ -414,7 +432,10 @@ class _HomePageState extends State<HomePage> {
                     Expanded(
                       child: RichText(
                         text: TextSpan(
-                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
                           children: [
                             TextSpan(
                               text: playerLabel,
@@ -424,8 +445,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                             TextSpan(text: '  $scoreStr · $diff'),
-                            if (detail.isNotEmpty)
-                              TextSpan(text: ' · $detail'),
+                            if (detail.isNotEmpty) TextSpan(text: ' · $detail'),
                           ],
                         ),
                       ),

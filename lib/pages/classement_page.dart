@@ -78,7 +78,7 @@ class _ClassementPageState extends State<ClassementPage>
               controller: _tab,
               children: [
                 _LeaderboardTab(gameType: 'coupDoeil', myPseudo: widget.pseudo),
-                _LeaderboardTab(gameType: 'compos', myPseudo: widget.pseudo),
+                _ComposOverallTab(myPseudo: widget.pseudo),
                 _MultiplayerDuelsTab(myPseudo: widget.pseudo),
               ],
             ),
@@ -425,6 +425,71 @@ class _LeaderboardRow extends StatelessWidget {
     if (rank == 1) return '🥇';
     if (rank == 2) return '🥈';
     return '🥉';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ComposOverallTab extends StatelessWidget {
+  final String myPseudo;
+  const _ComposOverallTab({required this.myPseudo});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('scores')
+          .where('gameType', isEqualTo: 'compos')
+          .get(),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return Center(child: CircularProgressIndicator(color: AppColors.accentBright));
+        }
+        if (snap.hasError) {
+          return Center(
+            child: Text('Erreur de chargement', style: TextStyle(color: AppColors.textSecondary)),
+          );
+        }
+
+        // Moyenne des normalizedScore par pseudo, toutes difficultés confondues
+        final Map<String, double> totals = {};
+        final Map<String, int> counts = {};
+        for (final doc in snap.data!.docs) {
+          final d = doc.data() as Map<String, dynamic>;
+          final pseudo = d['pseudo'] as String? ?? '?';
+          final score = (d['normalizedScore'] as num?)?.toDouble() ?? 0;
+          totals[pseudo] = (totals[pseudo] ?? 0) + score;
+          counts[pseudo] = (counts[pseudo] ?? 0) + 1;
+        }
+
+        if (totals.isEmpty) {
+          return Center(
+            child: Text('Aucun score encore.', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+          );
+        }
+
+        final ranked = totals.entries
+            .map((e) => MapEntry(e.key, e.value / counts[e.key]!))
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          itemCount: ranked.length,
+          itemBuilder: (_, i) {
+            final entry = ranked[i];
+            return _LeaderboardRow(
+              rank: i + 1,
+              pseudo: entry.key,
+              score: entry.value,
+              games: counts[entry.key] ?? 0,
+              isMe: entry.key == myPseudo,
+              gameType: 'compos',
+            );
+          },
+        );
+      },
+    );
   }
 }
 

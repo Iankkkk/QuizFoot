@@ -33,7 +33,11 @@ class _ProfilPageState extends State<ProfilPage> {
 
   Future<void> _load() async {
     final results = await GameHistoryService.instance.getAll();
-    if (mounted) setState(() { _results = results; _loading = false; });
+    if (mounted)
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
   }
 
   // ── Stats calculées ────────────────────────────────────────────────────────
@@ -54,23 +58,24 @@ class _ProfilPageState extends State<ProfilPage> {
     return '${m}min';
   }
 
-  Duration get _totalTime => _results.fold(
-        Duration.zero,
-        (acc, r) => acc + r.timeTaken,
-      );
+  Duration get _totalTime =>
+      _results.fold(Duration.zero, (acc, r) => acc + r.timeTaken);
 
   int get _composCompleted =>
       _compos.where((r) => r.details['found'] == r.details['total']).length;
 
-  int get _multiplayerWins =>
-      _multiplayerCompos.where((r) => r.details['won'] == true && r.details['abandoned'] != true).length;
+  int get _multiplayerWins => _multiplayerCompos
+      .where((r) => r.details['won'] == true && r.details['abandoned'] != true)
+      .length;
 
-  int get _multiplayerLosses =>
-      _multiplayerCompos.where((r) => r.details['won'] == false && r.details['abandoned'] != true).length;
+  int get _multiplayerLosses => _multiplayerCompos
+      .where((r) => r.details['won'] == false && r.details['abandoned'] != true)
+      .length;
 
   double get _coupDoeilAvg => _coupDoeil.isEmpty
       ? 0
-      : _coupDoeil.fold(0.0, (s, r) => s + r.normalizedScore) / _coupDoeil.length;
+      : _coupDoeil.fold(0.0, (s, r) => s + r.normalizedScore) /
+            _coupDoeil.length;
 
   double get _composAvg => _compos.isEmpty
       ? 0
@@ -82,14 +87,19 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: _loading
-          ? Center(child: CircularProgressIndicator(color: AppColors.accentBright))
+          ? Center(
+              child: CircularProgressIndicator(color: AppColors.accentBright),
+            )
           : RefreshIndicator(
               color: AppColors.accentBright,
               backgroundColor: AppColors.card,
               onRefresh: _load,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 24,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -102,7 +112,10 @@ class _ProfilPageState extends State<ProfilPage> {
                       icon: Icons.remove_red_eye_outlined,
                       results: _coupDoeil,
                       extraStats: [
-                        _StatData('Score moyen', _coupDoeilAvg.toStringAsFixed(1)),
+                        _StatData(
+                          'Score moyen',
+                          _coupDoeilAvg.toStringAsFixed(1),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -229,10 +242,7 @@ class _ProfilPageState extends State<ProfilPage> {
           const SizedBox(height: 4),
           Text(
             '$date  ·  ${mins}m${secs.toString().padLeft(2, '0')}',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
         ],
       ),
@@ -277,10 +287,7 @@ class _ProfilPageState extends State<ProfilPage> {
               ),
               Text(
                 '${_results.length} partie${_results.length > 1 ? 's' : ''} jouée${_results.length > 1 ? 's' : ''}',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
             ],
           ),
@@ -298,7 +305,10 @@ class _ProfilPageState extends State<ProfilPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(isDark ? '🌙' : '☀️', style: const TextStyle(fontSize: 14)),
+                Text(
+                  isDark ? '🌙' : '☀️',
+                  style: const TextStyle(fontSize: 14),
+                ),
                 const SizedBox(width: 6),
                 Text(
                   isDark ? 'Sombre' : 'Clair',
@@ -334,13 +344,37 @@ class _ProfilPageState extends State<ProfilPage> {
       ),
       child: Row(
         children: [
-          Expanded(child: _StatTile(label: 'Parties', value: '${_results.length}', small: true)),
+          Expanded(
+            child: _StatTile(
+              label: 'Parties',
+              value: '${_results.length}',
+              small: true,
+            ),
+          ),
           _divider(),
-          Expanded(child: _StatTile(label: 'Temps total', value: _formatDuration(_totalTime), small: true)),
+          Expanded(
+            child: _StatTile(
+              label: 'Temps total',
+              value: _formatDuration(_totalTime),
+              small: true,
+            ),
+          ),
           _divider(),
-          Expanded(child: _StatTile(label: "Meilleur Coup d'Œil", value: _bestCoupDoeil, small: true)),
+          Expanded(
+            child: _StatTile(
+              label: "Meilleur Coup d'Œil",
+              value: _bestCoupDoeil,
+              small: true,
+            ),
+          ),
           _divider(),
-          Expanded(child: _StatTile(label: 'Meilleur Compos', value: _bestCompos, small: true)),
+          Expanded(
+            child: _StatTile(
+              label: 'Meilleur Compos',
+              value: _bestCompos,
+              small: true,
+            ),
+          ),
         ],
       ),
     );
@@ -377,10 +411,7 @@ class _ProfilPageState extends State<ProfilPage> {
               const Spacer(),
               Text(
                 '${results.length} partie${results.length > 1 ? 's' : ''}',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
             ],
           ),
@@ -471,7 +502,8 @@ class _ProfilPageState extends State<ProfilPage> {
     final matchName = r.details['matchName'] as String? ?? '';
     final foundByMe = r.details['foundByMe'] as int? ?? 0;
     final foundByOpp = r.details['foundByOpponent'] as int? ?? 0;
-    final date = '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year % 100}';
+    final date =
+        '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year % 100}';
 
     final Color tagColor;
     final String tagText;
@@ -527,7 +559,10 @@ class _ProfilPageState extends State<ProfilPage> {
                 if (matchName.isNotEmpty)
                   Text(
                     matchName,
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -566,9 +601,10 @@ class _ProfilPageState extends State<ProfilPage> {
     final label = isCompos
         ? (r.details['matchName'] as String? ?? 'Compos')
         : (cat != null && cat.isNotEmpty)
-            ? "Coup d'Œil · ${r.difficulty} · $cat"
-            : "Coup d'Œil · ${r.difficulty}";
-    final date = '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year % 100}';
+        ? "Coup d'Œil · ${r.difficulty} · $cat"
+        : "Coup d'Œil · ${r.difficulty}";
+    final date =
+        '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year % 100}';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -580,7 +616,9 @@ class _ProfilPageState extends State<ProfilPage> {
       child: Row(
         children: [
           Icon(
-            isCompos ? Icons.format_list_bulleted : Icons.remove_red_eye_outlined,
+            isCompos
+                ? Icons.format_list_bulleted
+                : Icons.remove_red_eye_outlined,
             color: AppColors.textSecondary,
             size: 16,
           ),
@@ -604,7 +642,7 @@ class _ProfilPageState extends State<ProfilPage> {
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
               ),
               Text(
-                r.normalizedScore.toStringAsFixed(0),
+                isCompos ? r.normalizedScore.toStringAsFixed(0) : "Toto",
                 style: TextStyle(
                   color: AppColors.accentBright,
                   fontWeight: FontWeight.w800,
@@ -619,20 +657,16 @@ class _ProfilPageState extends State<ProfilPage> {
   }
 
   Widget _sectionLabel(String text) => Text(
-        text,
-        style: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-        ),
-      );
+    text,
+    style: TextStyle(
+      color: AppColors.textSecondary,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.8,
+    ),
+  );
 
-  Widget _divider() => Container(
-        width: 1,
-        height: 36,
-        color: AppColors.border,
-      );
+  Widget _divider() => Container(width: 1, height: 36, color: AppColors.border);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -647,7 +681,11 @@ class _StatTile extends StatelessWidget {
   final String label;
   final String value;
   final bool small;
-  const _StatTile({required this.label, required this.value, this.small = false});
+  const _StatTile({
+    required this.label,
+    required this.value,
+    this.small = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -665,10 +703,7 @@ class _StatTile extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 10,
-          ),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 10),
         ),
       ],
     );

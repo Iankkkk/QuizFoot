@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:string_similarity/string_similarity.dart';
 import '../../constants/app_colors.dart';
+import '../../services/theme_service.dart';
 import '../../data/lineup_game_data.dart';
 import '../../models/lineup_model.dart';
 import '../../models/match_model.dart';
@@ -1748,7 +1749,7 @@ Widget _competitionLogoSmall(String competition) {
       errorBuilder: (_, __, ___) => const SizedBox.shrink());
   if (_coloredCompLogos.contains(competition)) return img;
   return ColorFiltered(
-      colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn), child: img);
+      colorFilter: ColorFilter.mode(ThemeService.instance.isDark ? Colors.white : Colors.black87, BlendMode.srcIn), child: img);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
