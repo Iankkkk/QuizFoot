@@ -53,7 +53,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
     setState(() => _loading = true);
     final pseudo = _ctrl.text.trim();
-    final available = await FirestoreService.instance.isPseudoAvailable(pseudo);
+    bool available = true;
+    try {
+      available = await FirestoreService.instance
+          .isPseudoAvailable(pseudo)
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
     if (!mounted) return;
     if (!available) {
       setState(() {
@@ -62,7 +67,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
       });
       return;
     }
-    await FirestoreService.instance.reservePseudo(pseudo);
+    try {
+      await FirestoreService.instance
+          .reservePseudo(pseudo)
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('pseudo', pseudo);
     if (!mounted) return;

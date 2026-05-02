@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.tempofoot.app</string>
+	<string>com.example.quizFoot</string>
 	<key>PROJECT_ID</key>
 	<string>tempo-ab8cd</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:577482120939:ios:598df2c596288e79a928ae</string>
+	<string>1:577482120939:ios:e67b6a79f2b5013ea928ae</string>
 </dict>
 </plist>

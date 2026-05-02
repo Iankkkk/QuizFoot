@@ -642,7 +642,9 @@ class _ProfilPageState extends State<ProfilPage> {
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
               ),
               Text(
-                isCompos ? r.normalizedScore.toStringAsFixed(0) : "Toto",
+                isCompos
+                    ? "${r.normalizedScore.toStringAsFixed(0)}%"
+                    : r.normalizedScore.toStringAsFixed(0),
                 style: TextStyle(
                   color: AppColors.accentBright,
                   fontWeight: FontWeight.w800,
