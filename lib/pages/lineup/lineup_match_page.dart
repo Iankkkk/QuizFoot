@@ -307,8 +307,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       }).toList();
 
       if (filtered.isEmpty) {
-        _showFeedback('Aucun match pour cette difficulté', AppColors.red);
-        setState(() => _isLoading = false);
+        await _showErrorAndPop('Aucun match disponible pour cette combinaison difficulté / période.\nEssaie d\'autres filtres.');
         return;
       }
 
@@ -322,12 +321,35 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       setState(() => _selectedMatch = picked);
       await _loadLineups(picked.matchId);
     } on ApiException catch (e) {
-      _showFeedback(e.userMessage, AppColors.red);
-      setState(() => _isLoading = false);
+      await _showErrorAndPop(e.userMessage);
     } catch (_) {
-      _showFeedback('Erreur inattendue. Réessaie.', AppColors.red);
-      setState(() => _isLoading = false);
+      await _showErrorAndPop('Erreur inattendue. Réessaie.');
     }
+  }
+
+  Future<void> _showErrorAndPop(String message) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('Impossible de lancer la partie',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+        content: Text(message,
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (mounted) Navigator.of(context).pop();
+            },
+            child: Text('Retour',
+                style: TextStyle(color: AppColors.accentBright)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadLineups(String matchId) async {

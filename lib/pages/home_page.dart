@@ -332,15 +332,19 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 140,
+              height: 158,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 clipBehavior: Clip.none,
                 children: [
-                  const _HighlightCard(
-                    title: '🔥 Nouveau mode Compos',
+                  _HighlightCard(
+                    title: '⚔️ Nouveau mode Compos 1v1 !',
                     subtitle:
-                        'Revis les matchs mythiques et devine les compos !',
+                        'Défie ton pote : qui de vous deux connaît le mieux les compos légendaires ?',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MultiplayerLobbyPage()),
+                    ),
                   ),
                   _HighlightCard(
                     title: '⭐ $_communityGames parties jouées',
@@ -400,20 +404,53 @@ class _HomePageState extends State<HomePage> {
               final category = d['category'] as String?;
               final matchName = d['matchName'] as String?;
               final opponentPseudo = d['opponentPseudo'] as String?;
+              final won = d['won'] as bool?;
               final ts = d['createdAt'] as Timestamp?;
               final ago = ts != null ? _timeAgo(ts.toDate()) : '';
               final is1v1 = gameType == 'multiplayerCompos';
-              final isCompos = gameType == 'compos' || is1v1;
+              final isCompos = gameType == 'compos';
               final icon = is1v1
-                  ? '🆚'
+                  ? '⚔️'
                   : isCompos
                   ? '⚽'
-                  : '🎯';
-              final scoreStr = isCompos ? '$score/$maxScore' : '${score}pts';
+                  : '👁️';
               final detail = matchName ?? category ?? '';
-              final playerLabel = is1v1 && opponentPseudo != null
-                  ? '$pseudo vs $opponentPseudo'
-                  : pseudo;
+
+              final List<InlineSpan> spans;
+              if (is1v1) {
+                final opp = opponentPseudo ?? '?';
+                final winnerLine = won == null
+                    ? '$pseudo vs $opp'
+                    : won
+                    ? '🏆 $pseudo a battu $opp'
+                    : '💀 $opp a battu $pseudo';
+                spans = [
+                  TextSpan(
+                    text: winnerLine,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ];
+              } else {
+                final scoreStr = isCompos ? '$score/$maxScore' : '${score}pts';
+                spans = [
+                  TextSpan(
+                    text: pseudo,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(
+                    text: isCompos ? '  $scoreStr' : '  $scoreStr · $diff',
+                  ),
+                  if (!isCompos && detail.isNotEmpty)
+                    TextSpan(text: ' · $detail'),
+                ];
+              }
+
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(
@@ -426,30 +463,44 @@ class _HomePageState extends State<HomePage> {
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Row(
+                  crossAxisAlignment: (is1v1 || isCompos)
+                      ? CrossAxisAlignment.start
+                      : CrossAxisAlignment.center,
                   children: [
-                    Text(icon, style: TextStyle(fontSize: 18)),
+                    Padding(
+                      padding: EdgeInsets.only(
+                        top: (is1v1 || isCompos) ? 1 : 0,
+                      ),
+                      child: Text(icon, style: TextStyle(fontSize: 18)),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: playerLabel,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          RichText(
+                            text: TextSpan(
                               style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                              children: spans,
+                            ),
+                          ),
+                          if (detail.isNotEmpty && (is1v1 || isCompos)) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              detail,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
                               ),
                             ),
-                            TextSpan(text: '  $scoreStr · $diff'),
-                            if (detail.isNotEmpty) TextSpan(text: ' · $detail'),
                           ],
-                        ),
+                        ],
                       ),
                     ),
+                    const SizedBox(width: 10),
                     Text(
                       ago,
                       style: TextStyle(
@@ -633,18 +684,21 @@ class _StatItem extends StatelessWidget {
 class _HighlightCard extends StatelessWidget {
   final String title;
   final String subtitle;
-  const _HighlightCard({required this.title, required this.subtitle});
+  final VoidCallback? onTap;
+  const _HighlightCard({required this.title, required this.subtitle, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       width: 200,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: onTap != null ? AppColors.accentBright.withOpacity(0.4) : AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -669,7 +723,7 @@ class _HighlightCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 

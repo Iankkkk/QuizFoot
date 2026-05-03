@@ -38,6 +38,8 @@ class FirestoreService {
           'matchName': result.details['matchName'],
         if (result.details['opponentPseudo'] != null)
           'opponentPseudo': result.details['opponentPseudo'],
+        if (result.details['won'] != null)
+          'won': result.details['won'],
         'createdAt':   FieldValue.serverTimestamp(),
       });
     } catch (_) {}
