@@ -152,7 +152,8 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
     // Adversaire a abandonné
     if (game.abandoned && game.abandonedBy != widget.pseudo) {
       _tickTimer?.cancel();
-      _saveResult(game, won: true, abandoned: true);
+      final wonByAbandon = game.foundPlayers.length >= 4;
+      _saveResult(game, won: wonByAbandon, abandoned: true);
       if (mounted) _showAbandonedDialog('${game.abandonedBy ?? 'Adversaire'} a quitté la partie.');
       return;
     }
@@ -215,7 +216,8 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
     // Game finished normally
     if (game.status == GameStatus.finished && !game.abandoned && mounted) {
       _tickTimer?.cancel();
-      _saveResult(game, won: game.winner == widget.pseudo, abandoned: false);
+      final isDraw = game.winner == '__draw__';
+      _saveResult(game, won: !isDraw && game.winner == widget.pseudo, abandoned: false);
       _showEndScreen(game);
       return;
     }
@@ -620,11 +622,13 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
   void _showEndScreen(MultiplayerGame game) {
     if (_dialogShown) return;
     _dialogShown = true;
-    final iWon = game.winner == widget.pseudo;
+    final isDraw = game.winner == '__draw__';
+    final iWon = !isDraw && game.winner == widget.pseudo;
     final opponentPseudo = game.playerOrder.firstWhere(
       (p) => p != widget.pseudo,
       orElse: () => 'Adversaire',
     );
+    final borderColor = isDraw ? AppColors.amber : iWon ? AppColors.accentBright : AppColors.red;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -632,12 +636,12 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: iWon ? AppColors.accentBright : AppColors.red),
+          side: BorderSide(color: borderColor),
         ),
         title: Text(
-          iWon ? '🏆 Victoire !' : '💀 Éliminé',
+          isDraw ? '🤝 Match nul !' : iWon ? '🏆 Victoire !' : '💀 Éliminé',
           style: TextStyle(
-            color: iWon ? AppColors.accentBright : AppColors.red,
+            color: borderColor,
             fontWeight: FontWeight.w800,
             fontSize: 22,
           ),
@@ -647,7 +651,9 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              iWon
+              isDraw
+                  ? 'Personne n\'a pris l\'avantage. Match nul !'
+                  : iWon
                   ? '$opponentPseudo a été éliminé.'
                   : 'Tu as fait trop d\'erreurs.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),

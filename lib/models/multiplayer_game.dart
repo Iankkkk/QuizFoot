@@ -66,6 +66,7 @@ class MultiplayerGame {
   final bool abandoned;
   final String? abandonedBy;
   final DateTime createdAt;
+  final bool pendingFinalTurn;
 
   const MultiplayerGame({
     required this.roomCode,
@@ -83,6 +84,7 @@ class MultiplayerGame {
     this.abandoned = false,
     this.abandonedBy,
     required this.createdAt,
+    this.pendingFinalTurn = false,
   });
 
   factory MultiplayerGame.fromDoc(DocumentSnapshot doc) {
@@ -110,6 +112,7 @@ class MultiplayerGame {
       abandoned: d['abandoned'] as bool? ?? false,
       abandonedBy: d['abandonedBy'] as String?,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      pendingFinalTurn: d['pendingFinalTurn'] as bool? ?? false,
     );
   }
 

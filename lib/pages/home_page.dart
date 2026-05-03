@@ -343,7 +343,9 @@ class _HomePageState extends State<HomePage> {
                         'Défie ton pote : qui de vous deux connaît le mieux les compos légendaires ?',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const MultiplayerLobbyPage()),
+                      MaterialPageRoute(
+                        builder: (_) => const MultiplayerLobbyPage(),
+                      ),
                     ),
                   ),
                   _HighlightCard(
@@ -434,7 +436,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ];
               } else {
-                final scoreStr = isCompos ? '$score/$maxScore' : '${score}pts';
+                final scoreStr = isCompos ? '$score%' : '${score}pts';
                 spans = [
                   TextSpan(
                     text: pseudo,
@@ -685,45 +687,54 @@ class _HighlightCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
-  const _HighlightCard({required this.title, required this.subtitle, this.onTap});
+  const _HighlightCard({
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-      width: 200,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: onTap != null ? AppColors.accentBright.withOpacity(0.4) : AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
+        width: 200,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: onTap != null
+                ? AppColors.accentBright.withOpacity(0.4)
+                : AppColors.border,
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12.5,
-              height: 1.4,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 }
 

@@ -126,9 +126,13 @@ class MultiplayerService {
         'currentTurn': opponent,
         'turnStartedAt': FieldValue.serverTimestamp(),
         'suffocatedBy': null,
+        'pendingFinalTurn': false,
       });
 
-      if (opponentData.eliminated) {
+      if (game.pendingFinalTurn) {
+        // Ce joueur vient de trouver pendant son tour final → il gagne
+        tx.update(ref, {'status': GameStatus.finished.name, 'winner': pseudo});
+      } else if (opponentData.eliminated) {
         tx.update(ref, {'status': GameStatus.finished.name, 'winner': pseudo});
       }
     });
@@ -154,10 +158,12 @@ class MultiplayerService {
         'currentTurn': opponent,
         'turnStartedAt': FieldValue.serverTimestamp(),
         'suffocatedBy': null,
+        'pendingFinalTurn': false,
       });
 
-      // Si l'adversaire est éliminé, la partie est finie
-      if (opponentData.eliminated) {
+      if (game.pendingFinalTurn) {
+        tx.update(ref, {'status': GameStatus.finished.name, 'winner': pseudo});
+      } else if (opponentData.eliminated) {
         tx.update(ref, {'status': GameStatus.finished.name, 'winner': pseudo});
       }
     });
@@ -183,13 +189,36 @@ class MultiplayerService {
         pseudo: player.copyWith(errors: newErrors, eliminated: eliminated).toMap(),
       };
 
-      if (eliminated) {
+      if (game.pendingFinalTurn) {
+        // Erreur pendant le tour final → match nul
         tx.update(ref, {
           'players': updatedPlayers,
           'status': GameStatus.finished.name,
-          'winner': opponent,
+          'winner': '__draw__',
           'suffocatedBy': null,
         });
+      } else if (eliminated) {
+        final elimFoundCount = game.foundPlayers.where((f) => f.foundBy == pseudo).length;
+        final oppFoundCount  = game.foundPlayers.where((f) => f.foundBy == opponent).length;
+
+        if (oppFoundCount > elimFoundCount) {
+          // Adversaire déjà devant → victoire normale
+          tx.update(ref, {
+            'players': updatedPlayers,
+            'status': GameStatus.finished.name,
+            'winner': opponent,
+            'suffocatedBy': null,
+          });
+        } else {
+          // Égalité ou éliminé devant → tour final pour l'adversaire
+          tx.update(ref, {
+            'players': updatedPlayers,
+            'currentTurn': opponent,
+            'turnStartedAt': FieldValue.serverTimestamp(),
+            'pendingFinalTurn': true,
+            'suffocatedBy': null,
+          });
+        }
       } else {
         tx.update(ref, {
           'players': updatedPlayers,
@@ -262,13 +291,34 @@ class MultiplayerService {
           activePseudo: player.copyWith(errors: newErrors, eliminated: eliminated).toMap(),
         };
 
-        if (eliminated) {
+        if (game.pendingFinalTurn) {
+          // Timer expiré pendant le tour final → match nul
           tx.update(ref, {
             'players': updatedPlayers,
             'status': GameStatus.finished.name,
-            'winner': waitingPseudo,
+            'winner': '__draw__',
             'suffocatedBy': null,
           });
+        } else if (eliminated) {
+          final elimFoundCount = game.foundPlayers.where((f) => f.foundBy == activePseudo).length;
+          final oppFoundCount  = game.foundPlayers.where((f) => f.foundBy == waitingPseudo).length;
+
+          if (oppFoundCount > elimFoundCount) {
+            tx.update(ref, {
+              'players': updatedPlayers,
+              'status': GameStatus.finished.name,
+              'winner': waitingPseudo,
+              'suffocatedBy': null,
+            });
+          } else {
+            tx.update(ref, {
+              'players': updatedPlayers,
+              'currentTurn': waitingPseudo,
+              'turnStartedAt': FieldValue.serverTimestamp(),
+              'pendingFinalTurn': true,
+              'suffocatedBy': null,
+            });
+          }
         } else {
           tx.update(ref, {
             'players': updatedPlayers,

@@ -505,7 +505,6 @@ class _MultiplayerDuelsTab extends StatelessWidget {
       future: FirebaseFirestore.instance
           .collection('scores')
           .where('gameType', isEqualTo: 'multiplayerCompos')
-          .where('details.won', isEqualTo: true)
           .get(),
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
@@ -532,15 +531,24 @@ class _MultiplayerDuelsTab extends StatelessWidget {
           );
         }
 
-        // Agréger les victoires par pseudo
+        // Agréger victoires + joueurs trouvés par pseudo
         final Map<String, int> winsByPseudo = {};
+        final Map<String, int> foundByPseudo = {};
         for (final doc in docs) {
           final data = doc.data() as Map<String, dynamic>;
           final pseudo = data['pseudo'] as String? ?? '?';
-          winsByPseudo[pseudo] = (winsByPseudo[pseudo] ?? 0) + 1;
+          final details = data['details'] as Map<String, dynamic>? ?? {};
+          final won = details['won'] as bool? ?? false;
+          final found = (details['foundByMe'] as num?)?.toInt() ?? 0;
+          winsByPseudo[pseudo] = (winsByPseudo[pseudo] ?? 0) + (won ? 1 : 0);
+          foundByPseudo[pseudo] = (foundByPseudo[pseudo] ?? 0) + found;
         }
         final ranked = winsByPseudo.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
+          ..sort((a, b) {
+            final cmp = b.value.compareTo(a.value);
+            if (cmp != 0) return cmp;
+            return (foundByPseudo[b.key] ?? 0).compareTo(foundByPseudo[a.key] ?? 0);
+          });
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
@@ -549,6 +557,7 @@ class _MultiplayerDuelsTab extends StatelessWidget {
             final entry = ranked[i];
             final pseudo = entry.key;
             final wins = entry.value;
+            final found = foundByPseudo[pseudo] ?? 0;
             final isMe = pseudo == myPseudo;
             final rank = i + 1;
             const gold   = Color(0xFFFFD700);
@@ -598,13 +607,26 @@ class _MultiplayerDuelsTab extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text(
-                    '$wins victoire${wins > 1 ? 's' : ''}',
-                    style: TextStyle(
-                      color: AppColors.accentBright,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '$wins victoire${wins > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          color: wins > 0 ? AppColors.accentBright : AppColors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (wins == 0)
+                        Text(
+                          '$found trouvé${found > 1 ? 's' : ''}',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
