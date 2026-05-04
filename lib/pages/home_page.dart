@@ -224,6 +224,11 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 24),
 
+            // ── Sondage du jour ───────────────────────────────────
+            _DailySondage(pseudo: _pseudo),
+
+            const SizedBox(height: 20),
+
             // ── Anecdote ────────────────────────────────────────
             Container(
               width: double.infinity,
@@ -351,10 +356,6 @@ class _HomePageState extends State<HomePage> {
                   _HighlightCard(
                     title: '⭐ $_communityGames parties jouées',
                     subtitle: 'Merci à la communauté Tempo !',
-                  ),
-                  const _HighlightCard(
-                    title: '⚽ Zidane ou Platini ?',
-                    subtitle: 'Teste ton flair dans Qui a menti ?',
                   ),
                 ],
               ),
@@ -845,6 +846,298 @@ void _showDifficultyDialog(BuildContext context) {
       ),
     ),
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sondage du jour
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DailySondage extends StatefulWidget {
+  final String pseudo;
+  const _DailySondage({required this.pseudo});
+
+  @override
+  State<_DailySondage> createState() => _DailySondageState();
+}
+
+class _DailySondageState extends State<_DailySondage> {
+  bool _loading = true;
+  Map<String, dynamic>? _poll;
+  String? _pollId;
+  String? _myChoice;
+  bool _voting = false;
+
+  String get _today {
+    final n = DateTime.now();
+    return '${n.day.toString().padLeft(2, '0')}-${n.month.toString().padLeft(2, '0')}-${n.year}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  DateTime? _parseId(String id) {
+    try {
+      final p = id.split('-');
+      if (p.length != 3) return null;
+      return DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+    } catch (_) { return null; }
+  }
+
+  Future<void> _load() async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final today = _today;
+
+      // Essai du sondage du jour
+      var pollDoc = await db.collection('polls').doc(today).get();
+
+      // Fallback : dernier sondage en date
+      if (!pollDoc.exists) {
+        final all = await db.collection('polls').get();
+        String? latestId;
+        DateTime? latestDate;
+        for (final doc in all.docs) {
+          final d = _parseId(doc.id);
+          if (d == null || d.isAfter(DateTime.now())) continue;
+          if (latestDate == null || d.isAfter(latestDate)) {
+            latestId = doc.id;
+            latestDate = d;
+          }
+        }
+        if (latestId != null) pollDoc = await db.collection('polls').doc(latestId).get();
+      }
+
+      if (!pollDoc.exists) {
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+
+      final pollId = pollDoc.id;
+      String? myChoice;
+      if (widget.pseudo.isNotEmpty) {
+        final voteDoc = await db
+            .collection('polls').doc(pollId)
+            .collection('votes').doc(widget.pseudo)
+            .get();
+        if (voteDoc.exists) myChoice = voteDoc.data()?['choice'] as String?;
+      }
+      if (mounted) setState(() {
+        _poll = pollDoc.data() as Map<String, dynamic>?;
+        _pollId = pollId;
+        _myChoice = myChoice;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _vote(String choice) async {
+    if (_voting || widget.pseudo.isEmpty || _myChoice != null || _pollId == null) return;
+    setState(() => _voting = true);
+    try {
+      final pollRef = FirebaseFirestore.instance.collection('polls').doc(_pollId);
+      final voteRef = pollRef.collection('votes').doc(widget.pseudo);
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        tx.set(voteRef, {'choice': choice, 'votedAt': FieldValue.serverTimestamp()});
+        tx.update(pollRef, {
+          choice == 'A' ? 'votesA' : 'votesB': FieldValue.increment(1),
+        });
+      });
+      final updated = await pollRef.get();
+      if (mounted) setState(() { _myChoice = choice; _poll = updated.data(); _voting = false; });
+    } catch (_) {
+      if (mounted) setState(() => _voting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _poll == null) return const SizedBox.shrink();
+
+    final question = _poll!['question'] as String? ?? '';
+    final optionA  = _poll!['optionA']  as String? ?? 'Option A';
+    final optionB  = _poll!['optionB']  as String? ?? 'Option B';
+    final votesA   = (_poll!['votesA']  as num?)?.toInt() ?? 0;
+    final votesB   = (_poll!['votesB']  as num?)?.toInt() ?? 0;
+    final total    = votesA + votesB;
+    final hasVoted = _myChoice != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              '🗳️',
+              style: TextStyle(fontSize: 18),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Sondage du jour',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 17,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.accentBright.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.accentBright.withOpacity(0.35), width: 1.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                question,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (!hasVoted) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SondageButton(
+                        label: optionA,
+                        loading: _voting,
+                        onTap: () => _vote('A'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _SondageButton(
+                        label: optionB,
+                        loading: _voting,
+                        onTap: () => _vote('B'),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                _ResultBar(label: optionA, votes: votesA, total: total, chosen: _myChoice == 'A'),
+                const SizedBox(height: 10),
+                _ResultBar(label: optionB, votes: votesB, total: total, chosen: _myChoice == 'B'),
+                const SizedBox(height: 10),
+                Text(
+                  '$total vote${total > 1 ? 's' : ''}',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SondageButton extends StatelessWidget {
+  final String label;
+  final bool loading;
+  final VoidCallback onTap;
+  const _SondageButton({required this.label, required this.loading, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.accentBright.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.accentBright.withOpacity(0.3)),
+        ),
+        child: Center(
+          child: loading
+              ? SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentBright),
+                )
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: AppColors.accentBright,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultBar extends StatelessWidget {
+  final String label;
+  final int votes;
+  final int total;
+  final bool chosen;
+  const _ResultBar({required this.label, required this.votes, required this.total, required this.chosen});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total > 0 ? votes / total : 0.0;
+    final pctLabel = '${(pct * 100).round()}%';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (chosen)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(Icons.check_circle, size: 14, color: AppColors.accentBright),
+              ),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: chosen ? AppColors.accentBright : AppColors.textPrimary,
+                  fontWeight: chosen ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Text(
+              pctLabel,
+              style: TextStyle(
+                color: chosen ? AppColors.accentBright : AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 6,
+            backgroundColor: AppColors.border,
+            valueColor: AlwaysStoppedAnimation(
+              chosen ? AppColors.accentBright : AppColors.textSecondary.withOpacity(0.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 Widget _difficultyButton(BuildContext context, String difficulty) {
