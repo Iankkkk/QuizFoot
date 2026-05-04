@@ -34,19 +34,62 @@ class _HomePageState extends State<HomePage> {
   // Stat communauté (Firestore)
   int _communityGames = 0;
 
+  // Sondage du jour
+  Map<String, dynamic>? _pollData;
+  String? _pollId;
+  String? _pollMyChoice;
+
   @override
   void initState() {
     super.initState();
     _loadAnecdote();
     _warmCache();
-    _loadPseudo();
+    _loadPseudoThenPoll();
     _loadStats();
     _loadCommunityStats();
   }
 
-  Future<void> _loadPseudo() async {
+  Future<void> _loadPseudoThenPoll() async {
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) setState(() => _pseudo = prefs.getString('pseudo') ?? '');
+    final pseudo = prefs.getString('pseudo') ?? '';
+    if (mounted) setState(() => _pseudo = pseudo);
+    await _loadPoll(pseudo);
+  }
+
+  Future<void> _loadPoll(String pseudo) async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final n = DateTime.now();
+      final today = '${n.day.toString().padLeft(2, '0')}-${n.month.toString().padLeft(2, '0')}-${n.year}';
+
+      var pollDoc = await db.collection('polls').doc(today).get();
+
+      if (!pollDoc.exists) {
+        final all = await db.collection('polls').get();
+        String? latestId;
+        DateTime? latestDate;
+        for (final doc in all.docs) {
+          try {
+            final p = doc.id.split('-');
+            if (p.length != 3) continue;
+            final d = DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+            if (d.isAfter(DateTime.now())) continue;
+            if (latestDate == null || d.isAfter(latestDate)) { latestId = doc.id; latestDate = d; }
+          } catch (_) {}
+        }
+        if (latestId != null) pollDoc = await db.collection('polls').doc(latestId).get();
+      }
+
+      if (!pollDoc.exists) return;
+
+      final pollId = pollDoc.id;
+      String? myChoice;
+      if (pseudo.isNotEmpty) {
+        final voteDoc = await db.collection('polls').doc(pollId).collection('votes').doc(pseudo).get();
+        if (voteDoc.exists) myChoice = voteDoc.data()?['choice'] as String?;
+      }
+      if (mounted) setState(() { _pollData = pollDoc.data() as Map<String, dynamic>?; _pollId = pollId; _pollMyChoice = myChoice; });
+    } catch (_) {}
   }
 
   Future<void> _loadStats() async {
@@ -169,63 +212,65 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      color: Colors.white,
-                      border: Border.all(color: AppColors.border, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withOpacity(0.4),
-                          blurRadius: 40,
-                          spreadRadius: 6,
-                          offset: const Offset(0, 0),
-                        ),
-                        BoxShadow(
-                          color: AppColors.accentBright.withOpacity(0.15),
-                          blurRadius: 70,
-                          spreadRadius: 10,
-                          offset: const Offset(0, 0),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Image.asset('assets/images/logo.png'),
-                    ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    color: Colors.white,
+                    border: Border.all(color: AppColors.border, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withOpacity(0.35),
+                        blurRadius: 24,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'TEMPO',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 32,
-                      letterSpacing: 4,
-                      color: AppColors.textPrimary,
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Image.asset('assets/images/logo.png'),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Le jeu, dans la tête.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                      letterSpacing: 0.5,
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TEMPO',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 26,
+                        letterSpacing: 4,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    Text(
+                      'Le jeu, dans la tête.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // ── Sondage du jour ───────────────────────────────────
-            _DailySondage(pseudo: _pseudo),
+            if (_pollData != null)
+              _DailySondage(
+                pseudo: _pseudo,
+                pollId: _pollId!,
+                initialPoll: _pollData!,
+                initialChoice: _pollMyChoice,
+              ),
 
             const SizedBox(height: 20),
 
@@ -849,106 +894,59 @@ void _showDifficultyDialog(BuildContext context) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sondage du jour
+// Sondage de la semaine
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DailySondage extends StatefulWidget {
   final String pseudo;
-  const _DailySondage({required this.pseudo});
+  final String pollId;
+  final Map<String, dynamic> initialPoll;
+  final String? initialChoice;
+  const _DailySondage({
+    required this.pseudo,
+    required this.pollId,
+    required this.initialPoll,
+    this.initialChoice,
+  });
 
   @override
   State<_DailySondage> createState() => _DailySondageState();
 }
 
 class _DailySondageState extends State<_DailySondage> {
-  bool _loading = true;
-  Map<String, dynamic>? _poll;
-  String? _pollId;
+  late Map<String, dynamic> _poll;
   String? _myChoice;
   bool _voting = false;
-
-  String get _today {
-    final n = DateTime.now();
-    return '${n.day.toString().padLeft(2, '0')}-${n.month.toString().padLeft(2, '0')}-${n.year}';
-  }
 
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  DateTime? _parseId(String id) {
-    try {
-      final p = id.split('-');
-      if (p.length != 3) return null;
-      return DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
-    } catch (_) { return null; }
-  }
-
-  Future<void> _load() async {
-    try {
-      final db = FirebaseFirestore.instance;
-      final today = _today;
-
-      // Essai du sondage du jour
-      var pollDoc = await db.collection('polls').doc(today).get();
-
-      // Fallback : dernier sondage en date
-      if (!pollDoc.exists) {
-        final all = await db.collection('polls').get();
-        String? latestId;
-        DateTime? latestDate;
-        for (final doc in all.docs) {
-          final d = _parseId(doc.id);
-          if (d == null || d.isAfter(DateTime.now())) continue;
-          if (latestDate == null || d.isAfter(latestDate)) {
-            latestId = doc.id;
-            latestDate = d;
-          }
-        }
-        if (latestId != null) pollDoc = await db.collection('polls').doc(latestId).get();
-      }
-
-      if (!pollDoc.exists) {
-        if (mounted) setState(() => _loading = false);
-        return;
-      }
-
-      final pollId = pollDoc.id;
-      String? myChoice;
-      if (widget.pseudo.isNotEmpty) {
-        final voteDoc = await db
-            .collection('polls').doc(pollId)
-            .collection('votes').doc(widget.pseudo)
-            .get();
-        if (voteDoc.exists) myChoice = voteDoc.data()?['choice'] as String?;
-      }
-      if (mounted) setState(() {
-        _poll = pollDoc.data() as Map<String, dynamic>?;
-        _pollId = pollId;
-        _myChoice = myChoice;
-        _loading = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
+    _poll = widget.initialPoll;
+    _myChoice = widget.initialChoice;
   }
 
   Future<void> _vote(String choice) async {
-    if (_voting || widget.pseudo.isEmpty || _myChoice != null || _pollId == null) return;
+    if (_voting || widget.pseudo.isEmpty || _myChoice != null) return;
     setState(() => _voting = true);
     try {
-      final pollRef = FirebaseFirestore.instance.collection('polls').doc(_pollId);
+      final pollRef = FirebaseFirestore.instance.collection('polls').doc(widget.pollId);
       final voteRef = pollRef.collection('votes').doc(widget.pseudo);
       await FirebaseFirestore.instance.runTransaction((tx) async {
-        tx.set(voteRef, {'choice': choice, 'votedAt': FieldValue.serverTimestamp()});
+        tx.set(voteRef, {
+          'choice': choice,
+          'votedAt': FieldValue.serverTimestamp(),
+        });
         tx.update(pollRef, {
           choice == 'A' ? 'votesA' : 'votesB': FieldValue.increment(1),
         });
       });
       final updated = await pollRef.get();
-      if (mounted) setState(() { _myChoice = choice; _poll = updated.data(); _voting = false; });
+      if (mounted)
+        setState(() {
+          _myChoice = choice;
+          _poll = updated.data() ?? _poll;
+          _voting = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _voting = false);
     }
@@ -956,14 +954,12 @@ class _DailySondageState extends State<_DailySondage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading || _poll == null) return const SizedBox.shrink();
-
-    final question = _poll!['question'] as String? ?? '';
-    final optionA  = _poll!['optionA']  as String? ?? 'Option A';
-    final optionB  = _poll!['optionB']  as String? ?? 'Option B';
-    final votesA   = (_poll!['votesA']  as num?)?.toInt() ?? 0;
-    final votesB   = (_poll!['votesB']  as num?)?.toInt() ?? 0;
-    final total    = votesA + votesB;
+    final question = _poll['question'] as String? ?? '';
+    final optionA = _poll['optionA'] as String? ?? 'Option A';
+    final optionB = _poll['optionB'] as String? ?? 'Option B';
+    final votesA = (_poll['votesA'] as num?)?.toInt() ?? 0;
+    final votesB = (_poll['votesB'] as num?)?.toInt() ?? 0;
+    final total = votesA + votesB;
     final hasVoted = _myChoice != null;
 
     return Column(
@@ -971,73 +967,86 @@ class _DailySondageState extends State<_DailySondage> {
       children: [
         Row(
           children: [
+            Text('🗳️', style: TextStyle(fontSize: 15)),
+            const SizedBox(width: 7),
             Text(
-              '🗳️',
-              style: TextStyle(fontSize: 18),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Sondage du jour',
+              'Sondage de la semaine',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
-                fontSize: 17,
+                fontSize: 15,
                 color: AppColors.textPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: AppColors.accentBright.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.accentBright.withOpacity(0.35), width: 1.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.accentBright.withOpacity(0.3),
+              width: 1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                question,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
+          Text(
+            question,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (!hasVoted) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _SondageButton(
+                    label: optionA,
+                    loading: _voting,
+                    onTap: () => _vote('A'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              if (!hasVoted) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SondageButton(
-                        label: optionA,
-                        loading: _voting,
-                        onTap: () => _vote('A'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _SondageButton(
-                        label: optionB,
-                        loading: _voting,
-                        onTap: () => _vote('B'),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                _ResultBar(label: optionA, votes: votesA, total: total, chosen: _myChoice == 'A'),
-                const SizedBox(height: 10),
-                _ResultBar(label: optionB, votes: votesB, total: total, chosen: _myChoice == 'B'),
-                const SizedBox(height: 10),
-                Text(
-                  '$total vote${total > 1 ? 's' : ''}',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SondageButton(
+                    label: optionB,
+                    loading: _voting,
+                    onTap: () => _vote('B'),
+                  ),
                 ),
               ],
-            ],
+            ),
+          ] else ...[
+            _ResultBar(
+              label: optionA,
+              votes: votesA,
+              total: total,
+              chosen: _myChoice == 'A',
+            ),
+            const SizedBox(height: 6),
+            _ResultBar(
+              label: optionB,
+              votes: votesB,
+              total: total,
+              chosen: _myChoice == 'B',
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$total vote${total > 1 ? 's' : ''}',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ],
           ),
         ),
       ],
@@ -1049,31 +1058,39 @@ class _SondageButton extends StatelessWidget {
   final String label;
   final bool loading;
   final VoidCallback onTap;
-  const _SondageButton({required this.label, required this.loading, required this.onTap});
+  const _SondageButton({
+    required this.label,
+    required this.loading,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 9),
         decoration: BoxDecoration(
           color: AppColors.accentBright.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.accentBright.withOpacity(0.3)),
         ),
         child: Center(
           child: loading
               ? SizedBox(
-                  width: 16, height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentBright),
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.accentBright,
+                  ),
                 )
               : Text(
                   label,
                   style: TextStyle(
                     color: AppColors.accentBright,
                     fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
         ),
@@ -1087,7 +1104,12 @@ class _ResultBar extends StatelessWidget {
   final int votes;
   final int total;
   final bool chosen;
-  const _ResultBar({required this.label, required this.votes, required this.total, required this.chosen});
+  const _ResultBar({
+    required this.label,
+    required this.votes,
+    required this.total,
+    required this.chosen,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1101,13 +1123,19 @@ class _ResultBar extends StatelessWidget {
             if (chosen)
               Padding(
                 padding: const EdgeInsets.only(right: 6),
-                child: Icon(Icons.check_circle, size: 14, color: AppColors.accentBright),
+                child: Icon(
+                  Icons.check_circle,
+                  size: 14,
+                  color: AppColors.accentBright,
+                ),
               ),
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
-                  color: chosen ? AppColors.accentBright : AppColors.textPrimary,
+                  color: chosen
+                      ? AppColors.accentBright
+                      : AppColors.textPrimary,
                   fontWeight: chosen ? FontWeight.w700 : FontWeight.w500,
                   fontSize: 13,
                 ),
@@ -1116,7 +1144,9 @@ class _ResultBar extends StatelessWidget {
             Text(
               pctLabel,
               style: TextStyle(
-                color: chosen ? AppColors.accentBright : AppColors.textSecondary,
+                color: chosen
+                    ? AppColors.accentBright
+                    : AppColors.textSecondary,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
               ),
@@ -1131,7 +1161,9 @@ class _ResultBar extends StatelessWidget {
             minHeight: 6,
             backgroundColor: AppColors.border,
             valueColor: AlwaysStoppedAnimation(
-              chosen ? AppColors.accentBright : AppColors.textSecondary.withOpacity(0.5),
+              chosen
+                  ? AppColors.accentBright
+                  : AppColors.textSecondary.withOpacity(0.5),
             ),
           ),
         ),
