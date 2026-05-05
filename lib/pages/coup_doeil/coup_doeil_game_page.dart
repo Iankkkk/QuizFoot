@@ -28,30 +28,30 @@ import '../../data/players_data.dart';
 import '../../data/api_exception.dart';
 import '../../models/player.dart';
 import '../../models/question_result.dart';
-import 'quiz_score_page.dart';
+import 'coup_doeil_score_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QuizTest — StatefulWidget
+// CoupDoeilGamePage — StatefulWidget
 // ─────────────────────────────────────────────────────────────────────────────
 
-class QuizTest extends StatefulWidget {
+class CoupDoeilGamePage extends StatefulWidget {
   /// One of the keys in [kDifficultyPlans] (e.g. 'Pro').
   final String difficulty;
 
   /// Optional category filter. null means all categories are included.
   final String? category;
 
-  const QuizTest({super.key, required this.difficulty, this.category});
+  const CoupDoeilGamePage({super.key, required this.difficulty, this.category});
 
   @override
-  State<QuizTest> createState() => _QuizTestState();
+  State<CoupDoeilGamePage> createState() => _CoupDoeilGamePageState();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _QuizTestState
+// _CoupDoeilGamePageState
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _QuizTestState extends State<QuizTest> {
+class _CoupDoeilGamePageState extends State<CoupDoeilGamePage> {
 
   // ── Asset paths ───────────────────────────────────────────────────────────
   static const String _memeCorrect = 'assets/images/correct.jpg';
@@ -214,7 +214,7 @@ class _QuizTestState extends State<QuizTest> {
       }
     } catch (error, stack) {
       // Catch-all for unexpected errors — shown in debug builds only.
-      debugPrint('QuizTest error: $error\n$stack');
+      debugPrint('CoupDoeilGamePage error: $error\n$stack');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -454,7 +454,7 @@ class _QuizTestState extends State<QuizTest> {
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
-  /// Saves the result to history and navigates to [QuizScorePage].
+  /// Saves the result to history and navigates to [CoupDoeilScorePage].
   Future<void> _showScorePage() async {
     final duration = DateTime.now().difference(_quizStartTime!);
     await _saveResultToHistory(_score, _selectedPlayers.length, duration);
@@ -463,7 +463,7 @@ class _QuizTestState extends State<QuizTest> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => QuizScorePage(
+        builder: (_) => CoupDoeilScorePage(
           score:      _score,
           total:      _selectedPlayers.length,
           timeTaken:  duration,

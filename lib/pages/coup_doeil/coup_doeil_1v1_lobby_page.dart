@@ -1,38 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
-import '../../data/lineup_game_data.dart';
-import '../../models/match_model.dart';
+import '../../data/difficulty_plans.dart';
+import '../../data/players_data.dart';
+import '../../models/player.dart';
+import '../../services/coup_doeil_1v1_service.dart';
 import '../../services/game_history_service.dart';
-import '../../services/multiplayer_service.dart';
-import 'multiplayer_waiting_page.dart';
 import '../../main.dart' show routeObserver;
+import 'coup_doeil_1v1_waiting_room_page.dart';
 
-int _difficultyToLevel(String difficulty) {
-  switch (difficulty) {
-    case 'Amateur':
-      return 1;
-    case 'Semi-Pro':
-      return 2;
-    case 'Pro':
-      return 3;
-    case 'International':
-      return 4;
-    case 'Légende':
-      return 5;
-    default:
-      return 3;
-  }
-}
-
-class MultiplayerLobbyPage extends StatefulWidget {
-  const MultiplayerLobbyPage({super.key});
+class CoupDoeil1v1LobbyPage extends StatefulWidget {
+  const CoupDoeil1v1LobbyPage({super.key});
 
   @override
-  State<MultiplayerLobbyPage> createState() => _MultiplayerLobbyPageState();
+  State<CoupDoeil1v1LobbyPage> createState() => _CoupDoeil1v1LobbyPageState();
 }
 
-class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
+class _CoupDoeil1v1LobbyPageState extends State<CoupDoeil1v1LobbyPage>
     with RouteAware {
   static const List<String> _difficulties = [
     'Amateur',
@@ -66,23 +50,42 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
     super.dispose();
   }
 
-  // ── Create ────────────────────────────────────────────────────────────────
+  // ── Create : catégorie → difficulté ───────────────────────────────────────
 
   void _showCreatePicker() {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.card,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _DifficultyPicker(
-        difficulties: _difficulties,
-        onSelected: _createRoom,
+      builder: (_) => _CategoryPicker(
+        onSelected: (category) {
+          Navigator.pop(context);
+          Future.delayed(const Duration(milliseconds: 200), () {
+            if (!mounted) return;
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: AppColors.card,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              builder: (_) => _DifficultyPicker(
+                difficulties: _difficulties,
+                onSelected: (difficulty) {
+                  Navigator.pop(context);
+                  _createRoom(category, difficulty);
+                },
+              ),
+            );
+          });
+        },
       ),
     );
   }
 
-  Future<void> _createRoom(String difficulty) async {
+  Future<void> _createRoom(String? category, String difficulty) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -91,30 +94,29 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
       final pseudo = await GameHistoryService.instance.getPseudo() ?? '';
       if (pseudo.isEmpty) throw Exception('Pseudo introuvable');
 
-      final matches = await loadMatches();
-      final level = _difficultyToLevel(difficulty);
-      final pool = matches.where((m) => m.level == level).toList();
-      if (pool.isEmpty)
-        throw Exception('Aucun match disponible pour cette difficulté');
+      final allPlayers = await loadPlayers();
+      final filtered = category == null
+          ? allPlayers
+          : allPlayers.where((p) => p.categories.contains(category)).toList();
+      final selected = _selectPlayers(filtered, difficulty);
+      if (selected.length < 10)
+        throw Exception('Pas assez de joueurs pour cette sélection.');
 
-      pool.shuffle();
-      final match = pool.first;
-
-      final code = await MultiplayerService.instance.createRoom(
+      final code = await CoupDoeil1v1Service.instance.createRoom(
         pseudo: pseudo,
-        matchId: match.matchId,
         difficulty: difficulty,
+        category: category,
+        questionNames: selected.map((p) => p.name).toList(),
       );
 
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => MultiplayerWaitingPage(
+          builder: (_) => CoupDoeil1v1WaitingRoomPage(
             roomCode: code,
             pseudo: pseudo,
-            match: match,
-            difficulty: difficulty,
+            isHost: true,
           ),
         ),
       );
@@ -125,7 +127,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
     }
   }
 
-  // ── Join ──────────────────────────────────────────────────────────────────
+  // ── Join ───────────────────────────────────────────────────────────────────
 
   Future<void> _joinRoom() async {
     final code = _codeController.text.trim().toUpperCase();
@@ -140,14 +142,12 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
     try {
       final pseudo = await GameHistoryService.instance.getPseudo() ?? '';
       if (pseudo.isEmpty) throw Exception('Pseudo introuvable');
-
-      await MultiplayerService.instance.joinRoom(code: code, pseudo: pseudo);
-
+      await CoupDoeil1v1Service.instance.joinRoom(code: code, pseudo: pseudo);
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => MultiplayerWaitingPage(
+          builder: (_) => CoupDoeil1v1WaitingRoomPage(
             roomCode: code,
             pseudo: pseudo,
             isHost: false,
@@ -161,7 +161,36 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
     }
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── Player selection ───────────────────────────────────────────────────────
+
+  List<Player> _selectPlayers(List<Player> players, String difficulty) {
+    final remaining = List<Player>.from(players)..shuffle();
+    final selected = <Player>[];
+    for (final step in kDifficultyPlans[difficulty] ?? []) {
+      step.forEach((level, count) {
+        for (int i = 0; i < count; i++) {
+          final match = _pickRandom(remaining, level);
+          if (match != null) {
+            selected.add(match);
+            remaining.remove(match);
+          }
+        }
+      });
+    }
+    return selected;
+  }
+
+  Player? _pickRandom(List<Player> players, int level) {
+    final matching = players.where((p) => p.level == level).toList()..shuffle();
+    if (matching.isNotEmpty) return matching.first;
+    final fallback = players.toList()
+      ..sort(
+        (a, b) => (a.level - level).abs().compareTo((b.level - level).abs()),
+      );
+    return fallback.isEmpty ? null : fallback.first;
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +204,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Compos 1v1',
+          "Coup d'Œil 1v1",
           style: TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w700,
@@ -207,7 +236,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                     right: -10,
                     top: -10,
                     child: Text(
-                      '⚔️',
+                      '👁️',
                       style: TextStyle(
                         fontSize: 110,
                         color: Colors.white.withOpacity(0.05),
@@ -218,7 +247,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Compos 1v1',
+                        "Coup d'Œil 1v1",
                         style: TextStyle(
                           color: Color(0xFF58A6FF),
                           fontSize: 32,
@@ -228,7 +257,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                       ),
                       SizedBox(height: 6),
                       Text(
-                        'Affronte un ami en temps réel\nChacun son tour, 3 erreurs et tu rentres au vestiaire !',
+                        'Affronte un ami sur les mêmes 10 photos\nLe meilleur score l\'emporte !',
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 14,
@@ -246,20 +275,78 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // ── Règles ────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: AppColors.textSecondary,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Comment ça marche',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ...[
+                          ('⏱️', '30 secondes max par photo'),
+                          ('🖼️', '10 photos, les mêmes pour vous deux'),
+                          ('🏃', 'Vous jouez en parallèle, à votre rythme'),
+                          ('🏆', 'Le plus grand score l\'emporte'),
+                        ].map(
+                          (r) => Padding(
+                            padding: const EdgeInsets.only(bottom: 7),
+                            child: Row(
+                              children: [
+                                Text(r.$1, style: TextStyle(fontSize: 13)),
+                                const SizedBox(width: 10),
+                                Text(
+                                  r.$2,
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
                   // ── Créer ─────────────────────────────────────────
                   _SectionCard(
                     icon: Icons.add_circle_outline,
                     title: 'Créer une partie',
                     subtitle:
-                        'Choisis la difficulté puis partage le code à ton ami',
+                        'Choisis la catégorie et la difficulté, puis partage le code',
                     color: AppColors.accentBright,
                     onTap: _loading ? null : _showCreatePicker,
-                    child: const SizedBox.shrink(),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // ── Rejoindre ────────────────────────────────────
+                  // ── Rejoindre ─────────────────────────────────────
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -317,15 +404,11 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                             fillColor: AppColors.bg,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: AppColors.border,
-                              ),
+                              borderSide: BorderSide(color: AppColors.border),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: AppColors.border,
-                              ),
+                              borderSide: BorderSide(color: AppColors.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -381,10 +464,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
                       ),
                       child: Text(
                         _error!,
-                        style: TextStyle(
-                          color: AppColors.red,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: AppColors.red, fontSize: 13),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -413,7 +493,7 @@ class _MultiplayerLobbyPageState extends State<MultiplayerLobbyPage>
   }
 }
 
-// ── Widgets locaux ────────────────────────────────────────────────────────────
+// ── Widgets locaux ─────────────────────────────────────────────────────────────
 
 class _SectionCard extends StatelessWidget {
   final IconData icon;
@@ -421,7 +501,6 @@ class _SectionCard extends StatelessWidget {
   final String subtitle;
   final Color color;
   final VoidCallback? onTap;
-  final Widget child;
 
   const _SectionCard({
     required this.icon,
@@ -429,7 +508,6 @@ class _SectionCard extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.onTap,
-    required this.child,
   });
 
   @override
@@ -478,11 +556,7 @@ class _SectionCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
+            Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
           ],
         ),
       ),
@@ -490,10 +564,146 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CategoryPicker extends StatefulWidget {
+  final void Function(String? category) onSelected;
+  const _CategoryPicker({required this.onSelected});
+
+  @override
+  State<_CategoryPicker> createState() => _CategoryPickerState();
+}
+
+class _CategoryPickerState extends State<_CategoryPicker> {
+  List<String> _categories = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final players = await loadPlayers();
+      final cats =
+          players
+              .expand((p) => p.categories)
+              .map((c) => c.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
+      if (mounted)
+        setState(() {
+          _categories = cats;
+          _loading = false;
+        });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (_, scrollController) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Choisir la catégorie',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: CircularProgressIndicator(),
+                )
+              else
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    children: [
+                      _categoryTile('Toutes les catégories', null),
+                      ..._categories.map((c) => _categoryTile(c, c)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryTile(String label, String? value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: () => widget.onSelected(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.accentBright.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.accentBright.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: AppColors.accentBright,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppColors.accentBright,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _DifficultyPicker extends StatelessWidget {
   final List<String> difficulties;
   final void Function(String) onSelected;
-
   const _DifficultyPicker({
     required this.difficulties,
     required this.onSelected,
@@ -533,10 +743,7 @@ class _DifficultyPicker extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    onSelected(diff);
-                  },
+                  onTap: () => onSelected(diff),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,

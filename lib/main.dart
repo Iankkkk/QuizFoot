@@ -9,7 +9,7 @@ import 'pages/result_page.dart';
 import 'pages/qui_a_menti/qui_a_menti_intro.dart';
 import 'pages/parcours_joueur_page.dart';
 import 'pages/lineup/lineup_match_page.dart';
-import 'pages/coup_doeil/quiz_test_intro.dart';
+import 'pages/coup_doeil/coup_doeil_intro_page.dart';
 import 'data/lineup_game_data.dart';
 import 'services/theme_service.dart';
 import 'constants/app_colors.dart';
@@ -119,7 +119,7 @@ class _MyAppState extends State<MyApp> {
       navigatorObservers: [routeObserver],
       home: widget.hasPseudo ? const HomePage() : const OnboardingPage(),
       routes: {
-        '/quiz_test':      (context) => const QuizTestIntro(),
+        '/quiz_test':      (context) => const CoupDoeilIntroPage(),
         '/result_page':    (context) => const ResultPage(score: 0),
         '/qui_a_menti':    (context) => const QuiAMentiIntro(),
         '/parcours_joueur': (context) => const ParcoursJoueurPage(),

@@ -13,13 +13,13 @@ import '../../constants/app_colors.dart';
 import '../../models/question_result.dart';
 import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
-import 'quiz_test.dart';
+import 'coup_doeil_game_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QuizScorePage
+// CoupDoeilScorePage
 // ─────────────────────────────────────────────────────────────────────────────
 
-class QuizScorePage extends StatefulWidget {
+class CoupDoeilScorePage extends StatefulWidget {
   final int score;
   final int total;
   final Duration timeTaken;
@@ -28,7 +28,7 @@ class QuizScorePage extends StatefulWidget {
   final String? category;
   final List<Map<String, String>> errors;
 
-  const QuizScorePage({
+  const CoupDoeilScorePage({
     super.key,
     required this.score,
     required this.total,
@@ -40,10 +40,10 @@ class QuizScorePage extends StatefulWidget {
   });
 
   @override
-  State<QuizScorePage> createState() => _QuizScorePageState();
+  State<CoupDoeilScorePage> createState() => _CoupDoeilScorePageState();
 }
 
-class _QuizScorePageState extends State<QuizScorePage> {
+class _CoupDoeilScorePageState extends State<CoupDoeilScorePage> {
 
   @override
   void initState() {
@@ -353,7 +353,7 @@ class _QuizScorePageState extends State<QuizScorePage> {
               onPressed: () => Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => QuizTest(
+                  builder: (_) => CoupDoeilGamePage(
                     difficulty: widget.difficulty,
                     category:   widget.category,
                   ),

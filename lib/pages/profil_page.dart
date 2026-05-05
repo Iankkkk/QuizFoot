@@ -51,6 +51,9 @@ class _ProfilPageState extends State<ProfilPage> {
   List<GameResult> get _multiplayerCompos =>
       _results.where((r) => r.gameType == GameType.multiplayerCompos).toList();
 
+  List<GameResult> get _multiplayerCoupDoeil =>
+      _results.where((r) => r.gameType == GameType.multiplayerCoupDoeil).toList();
+
   String _formatDuration(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes % 60;
@@ -70,6 +73,18 @@ class _ProfilPageState extends State<ProfilPage> {
 
   int get _multiplayerLosses => _multiplayerCompos
       .where((r) => r.details['won'] == false && r.details['abandoned'] != true)
+      .length;
+
+  int get _cdoWins => _multiplayerCoupDoeil
+      .where((r) => r.details['won'] == true && r.details['iAbandoned'] != true)
+      .length;
+
+  int get _cdoLosses => _multiplayerCoupDoeil
+      .where((r) => r.details['won'] == false && r.details['draw'] != true && r.details['iAbandoned'] != true)
+      .length;
+
+  int get _cdoDraws => _multiplayerCoupDoeil
+      .where((r) => r.details['draw'] == true)
       .length;
 
   double get _coupDoeilAvg => _coupDoeil.isEmpty
@@ -130,6 +145,8 @@ class _ProfilPageState extends State<ProfilPage> {
                     ),
                     const SizedBox(height: 16),
                     _buildMultiplayerSection(),
+                    const SizedBox(height: 16),
+                    _buildCdoMultiplayerSection(),
                     if (_results.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       _buildMasterclass(),
@@ -495,6 +512,128 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
+  Widget _buildCdoMultiplayerSection() {
+    final mp = _multiplayerCoupDoeil;
+    final total = mp.length;
+    final wins = _cdoWins;
+    final losses = _cdoLosses;
+    final draws = _cdoDraws;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.remove_red_eye_outlined, color: const Color(0xFF58A6FF), size: 16),
+              const SizedBox(width: 8),
+              Text(
+                "Coup d'Œil 1v1",
+                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+              const Spacer(),
+              Text(
+                '$total partie${total > 1 ? 's' : ''}',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+          if (mp.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _StatTile(label: 'Victoires', value: '$wins'),
+                _StatTile(label: 'Défaites', value: '$losses'),
+                _StatTile(label: 'Nuls', value: '$draws'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...mp.take(3).map(_buildCdoMultiplayerRow),
+          ] else ...[
+            const SizedBox(height: 10),
+            Text(
+              'Pas encore de partie jouée.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCdoMultiplayerRow(GameResult r) {
+    final won = r.details['won'] == true;
+    final draw = r.details['draw'] == true;
+    final iAbandoned = r.details['iAbandoned'] == true;
+    final abandoned = r.details['abandoned'] == true;
+    final opponent = r.details['opponentPseudo'] as String? ?? '?';
+    final myScore = r.details['myScore'] as int? ?? 0;
+    final oppScore = r.details['opponentScore'] as int? ?? 0;
+    final date = '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year % 100}';
+
+    final Color tagColor;
+    final String tagText;
+    if (iAbandoned || (abandoned && !won)) {
+      tagColor = AppColors.amber;
+      tagText = 'Abandon';
+    } else if (draw) {
+      tagColor = AppColors.amber;
+      tagText = 'Nul';
+    } else if (won) {
+      tagColor = AppColors.accentBright;
+      tagText = 'Victoire';
+    } else {
+      tagColor = AppColors.red;
+      tagText = 'Défaite';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: tagColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(tagText, style: TextStyle(color: tagColor, fontSize: 11, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'vs $opponent',
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$myScore – $oppScore pts',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              Text(date, style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMultiplayerRow(GameResult r) {
     final won = r.details['won'] == true;
     final abandoned = r.details['abandoned'] == true;
@@ -593,9 +732,8 @@ class _ProfilPageState extends State<ProfilPage> {
   }
 
   Widget _buildResultRow(GameResult r) {
-    if (r.gameType == GameType.multiplayerCompos) {
-      return _buildMultiplayerRow(r);
-    }
+    if (r.gameType == GameType.multiplayerCompos) return _buildMultiplayerRow(r);
+    if (r.gameType == GameType.multiplayerCoupDoeil) return _buildCdoMultiplayerRow(r);
     final isCompos = r.gameType == GameType.compos;
     final cat = r.details['category'] as String?;
     final label = isCompos

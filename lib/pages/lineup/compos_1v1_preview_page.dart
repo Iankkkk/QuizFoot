@@ -5,18 +5,18 @@ import '../../constants/app_colors.dart';
 import '../../services/theme_service.dart';
 import '../../data/lineup_game_data.dart';
 import '../../models/match_model.dart';
-import '../../models/multiplayer_game.dart';
-import '../../services/multiplayer_service.dart';
-import 'multiplayer_game_page.dart';
+import '../../models/compos_1v1_game.dart';
+import '../../services/compos_1v1_service.dart';
+import 'compos_1v1_game_page.dart';
 
-class MultiplayerPreviewPage extends StatefulWidget {
+class Compos1v1PreviewPage extends StatefulWidget {
   final String roomCode;
   final String pseudo;
   final String opponentPseudo;
   final String matchId;
   final String difficulty;
 
-  const MultiplayerPreviewPage({
+  const Compos1v1PreviewPage({
     super.key,
     required this.roomCode,
     required this.pseudo,
@@ -26,10 +26,10 @@ class MultiplayerPreviewPage extends StatefulWidget {
   });
 
   @override
-  State<MultiplayerPreviewPage> createState() => _MultiplayerPreviewPageState();
+  State<Compos1v1PreviewPage> createState() => _Compos1v1PreviewPageState();
 }
 
-class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
+class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     with TickerProviderStateMixin {
   static const int _countdownSeconds = 8;
 
@@ -118,7 +118,7 @@ class _MultiplayerPreviewPageState extends State<MultiplayerPreviewPage>
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => MultiplayerGamePage(
+        builder: (_) => Compos1v1GamePage(
           roomCode: widget.roomCode,
           pseudo: widget.pseudo,
         ),

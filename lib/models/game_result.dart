@@ -1,4 +1,4 @@
-enum GameType { coupDoeil, compos, multiplayerCompos }
+enum GameType { coupDoeil, compos, multiplayerCompos, multiplayerCoupDoeil }
 
 class GameResult {
   final String id;
@@ -136,6 +136,45 @@ class GameResult {
         'foundByOpponent': foundByOpponent,
         'totalPlayers': totalPlayers,
         'myErrors': myErrors,
+      },
+    );
+  }
+
+  factory GameResult.multiplayerCoupDoeil({
+    required String difficulty,
+    String? category,
+    required String opponentPseudo,
+    required int myScore,
+    required int opponentScore,
+    required int myCorrect,
+    required int opponentCorrect,
+    required int total,
+    required bool won,
+    required bool draw,
+    required bool abandoned,
+    required bool iAbandoned,
+  }) {
+    return GameResult(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      gameType: GameType.multiplayerCoupDoeil,
+      difficulty: difficulty,
+      rawScore: myScore,
+      maxRawScore: total * 5,
+      normalizedScore: myScore.toDouble(),
+      timeTaken: Duration.zero,
+      playedAt: DateTime.now(),
+      details: {
+        'opponentPseudo': opponentPseudo,
+        'myScore': myScore,
+        'opponentScore': opponentScore,
+        'myCorrect': myCorrect,
+        'opponentCorrect': opponentCorrect,
+        'total': total,
+        'won': won,
+        'draw': draw,
+        'abandoned': abandoned,
+        'iAbandoned': iAbandoned,
+        if (category != null) 'category': category,
       },
     );
   }

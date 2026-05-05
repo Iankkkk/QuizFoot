@@ -15,20 +15,20 @@ import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
 import '../../main.dart' show routeObserver;
 import '../../services/theme_service.dart';
-import 'quiz_test.dart';
+import 'coup_doeil_game_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QuizTestIntro
+// CoupDoeilIntroPage
 // ─────────────────────────────────────────────────────────────────────────────
 
-class QuizTestIntro extends StatefulWidget {
-  const QuizTestIntro({super.key});
+class CoupDoeilIntroPage extends StatefulWidget {
+  const CoupDoeilIntroPage({super.key});
 
   @override
-  State<QuizTestIntro> createState() => _QuizTestIntroState();
+  State<CoupDoeilIntroPage> createState() => _CoupDoeilIntroPageState();
 }
 
-class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
+class _CoupDoeilIntroPageState extends State<CoupDoeilIntroPage> with RouteAware {
   // ── Constants ──────────────────────────────────────────────────────────────
 
   /// Available difficulty labels, in ascending order.
@@ -134,7 +134,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
   // ── Navigation ────────────────────────────────────────────────────────────
 
   /// Opens the difficulty picker bottom sheet.
-  /// Tapping a difficulty navigates to [QuizTest].
+  /// Tapping a difficulty navigates to [CoupDoeilGamePage].
   void _openDifficultyPicker() {
     showModalBottomSheet(
       context: context,
@@ -147,7 +147,7 @@ class _QuizTestIntroState extends State<QuizTestIntro> with RouteAware {
             context,
             MaterialPageRoute(
               builder: (_) =>
-                  QuizTest(difficulty: difficulty, category: _selectedCategory),
+                  CoupDoeilGamePage(difficulty: difficulty, category: _selectedCategory),
             ),
           );
         },

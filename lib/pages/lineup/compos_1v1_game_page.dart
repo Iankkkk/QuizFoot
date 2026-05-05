@@ -8,30 +8,30 @@ import '../../services/theme_service.dart';
 import '../../data/lineup_game_data.dart';
 import '../../models/lineup_model.dart';
 import '../../models/match_model.dart';
-import '../../models/multiplayer_game.dart';
-import '../../services/multiplayer_service.dart';
+import '../../models/compos_1v1_game.dart';
+import '../../services/compos_1v1_service.dart';
 import '../lineup/formation_layout.dart';
 import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
-import 'multiplayer_result_page.dart';
+import 'compos_1v1_result_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-class MultiplayerGamePage extends StatefulWidget {
+class Compos1v1GamePage extends StatefulWidget {
   final String roomCode;
   final String pseudo;
 
-  const MultiplayerGamePage({
+  const Compos1v1GamePage({
     super.key,
     required this.roomCode,
     required this.pseudo,
   });
 
   @override
-  State<MultiplayerGamePage> createState() => _MultiplayerGamePageState();
+  State<Compos1v1GamePage> createState() => _Compos1v1GamePageState();
 }
 
-class _MultiplayerGamePageState extends State<MultiplayerGamePage>
+class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     with TickerProviderStateMixin {
   // ── Stream ────────────────────────────────────────────────────────────────
   StreamSubscription<MultiplayerGame?>? _gameSub;
@@ -264,7 +264,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
               onPressed: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).pushReplacement(MaterialPageRoute(
-                  builder: (_) => MultiplayerResultPage(
+                  builder: (_) => Compos1v1ResultPage(
                     game: _game!,
                     pseudo: widget.pseudo,
                     match: _match!,
@@ -677,7 +677,7 @@ class _MultiplayerGamePageState extends State<MultiplayerGamePage>
                 Navigator.of(context).pop();
                 if (_match != null) {
                   Navigator.of(context).pushReplacement(MaterialPageRoute(
-                    builder: (_) => MultiplayerResultPage(
+                    builder: (_) => Compos1v1ResultPage(
                       game: game,
                       pseudo: widget.pseudo,
                       match: _match!,

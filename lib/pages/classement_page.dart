@@ -13,21 +13,15 @@ class ClassementPage extends StatefulWidget {
   State<ClassementPage> createState() => _ClassementPageState();
 }
 
-class _ClassementPageState extends State<ClassementPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tab;
+class _ClassementPageState extends State<ClassementPage> {
+  int _selectedTab = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _tab = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tab.dispose();
-    super.dispose();
-  }
+  static const _tabs = [
+    "Coup d'Œil",
+    'Compos',
+    'Compos 1v1',
+    "Coup d'Œil 1v1",
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +30,7 @@ class _ClassementPageState extends State<ClassementPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(20, 24, 20, 16),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
             child: Text(
               'Classement',
               style: TextStyle(
@@ -46,44 +40,82 @@ class _ClassementPageState extends State<ClassementPage>
               ),
             ),
           ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: TabBar(
-              controller: _tab,
-              indicator: BoxDecoration(
-                color: AppColors.accentBright,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.transparent,
-              labelColor: Colors.black,
-              unselectedLabelColor: AppColors.textSecondary,
-              labelStyle:
-                  TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-              tabs: [
-                Tab(text: "Coup d'Œil"),
-                Tab(text: 'Compos'),
-                Tab(text: 'Compos 1v1'),
+
+          // ── 2×2 tab selector ──────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    _TabPill(label: _tabs[0], selected: _selectedTab == 0, onTap: () => setState(() => _selectedTab = 0)),
+                    const SizedBox(width: 8),
+                    _TabPill(label: _tabs[1], selected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _TabPill(label: _tabs[3], selected: _selectedTab == 3, onTap: () => setState(() => _selectedTab = 3)),
+                    const SizedBox(width: 8),
+                    _TabPill(label: _tabs[2], selected: _selectedTab == 2, onTap: () => setState(() => _selectedTab = 2)),
+                  ],
+                ),
               ],
             ),
           ),
+
           const SizedBox(height: 12),
+
+          // ── Content (IndexedStack preserves state) ────────────────────────
           Expanded(
-            child: TabBarView(
-              controller: _tab,
+            child: IndexedStack(
+              index: _selectedTab,
               children: [
                 _LeaderboardTab(gameType: 'coupDoeil', myPseudo: widget.pseudo),
                 _ComposOverallTab(myPseudo: widget.pseudo),
                 _MultiplayerDuelsTab(myPseudo: widget.pseudo),
+                _CdoDuelsTab(myPseudo: widget.pseudo),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TabPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TabPill({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accentBright : AppColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? AppColors.accentBright : AppColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: selected ? Colors.black : AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -637,6 +669,210 @@ class _MultiplayerDuelsTab extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CdoDuelsTab extends StatefulWidget {
+  final String myPseudo;
+  const _CdoDuelsTab({required this.myPseudo});
+
+  @override
+  State<_CdoDuelsTab> createState() => _CdoDuelsTabState();
+}
+
+class _CdoDuelsTabState extends State<_CdoDuelsTab> {
+  String? _selectedCategory;
+  List<String> _categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final players = await loadPlayers();
+      final cats = players
+          .expand((p) => p.categories)
+          .map((c) => c.trim())
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      if (mounted) setState(() => _categories = cats);
+    } catch (_) {}
+  }
+
+  Widget _buildPill({required String label, required bool selected, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentBright : AppColors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? AppColors.accentBright : AppColors.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : AppColors.textSecondary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Category pills
+        if (_categories.isNotEmpty) ...[
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: _categories.length + 1,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                if (i == 0) {
+                  return _buildPill(
+                    label: 'Toutes',
+                    selected: _selectedCategory == null,
+                    onTap: () => setState(() => _selectedCategory = null),
+                  );
+                }
+                final cat = _categories[i - 1];
+                return _buildPill(
+                  label: cat,
+                  selected: _selectedCategory == cat,
+                  onTap: () => setState(() => _selectedCategory = cat),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Expanded(child: _CdoDuelsList(myPseudo: widget.myPseudo, category: _selectedCategory)),
+      ],
+    );
+  }
+}
+
+class _CdoDuelsList extends StatelessWidget {
+  final String myPseudo;
+  final String? category;
+  const _CdoDuelsList({required this.myPseudo, this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    var query = FirebaseFirestore.instance
+        .collection('scores')
+        .where('gameType', isEqualTo: 'multiplayerCoupDoeil');
+    if (category != null) query = query.where('category', isEqualTo: category);
+
+    return FutureBuilder<QuerySnapshot>(
+      future: query.get(),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return Center(child: CircularProgressIndicator(color: AppColors.accentBright));
+        }
+        if (snap.hasError) {
+          return Center(child: Text('Erreur de chargement', style: TextStyle(color: AppColors.textSecondary)));
+        }
+
+        final docs = snap.data!.docs;
+        if (docs.isEmpty) {
+          return Center(
+            child: Text('Aucun duel encore joué.', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+          );
+        }
+
+        // Wins per pseudo (tiebreak: total score across games)
+        final Map<String, int> wins = {};
+        final Map<String, int> totalScore = {};
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final pseudo = data['pseudo'] as String? ?? '?';
+          final details = data['details'] as Map<String, dynamic>? ?? {};
+          final won = details['won'] as bool? ?? false;
+          final score = (details['myScore'] as num?)?.toInt() ?? 0;
+          wins[pseudo] = (wins[pseudo] ?? 0) + (won ? 1 : 0);
+          totalScore[pseudo] = (totalScore[pseudo] ?? 0) + score;
+        }
+
+        final ranked = wins.entries.toList()
+          ..sort((a, b) {
+            final cmp = b.value.compareTo(a.value);
+            if (cmp != 0) return cmp;
+            return (totalScore[b.key] ?? 0).compareTo(totalScore[a.key] ?? 0);
+          });
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          itemCount: ranked.length,
+          itemBuilder: (context, i) {
+            final entry = ranked[i];
+            final pseudo = entry.key;
+            final w = entry.value;
+            final isMe = pseudo == myPseudo;
+            final rank = i + 1;
+            const gold   = Color(0xFFFFD700);
+            const silver = Color(0xFFB0B0B0);
+            const bronze = Color(0xFFCD7F32);
+            final medalColor = rank == 1 ? gold : rank == 2 ? silver : rank == 3 ? bronze : null;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: isMe ? AppColors.accentBright.withValues(alpha: 0.06) : AppColors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isMe ? AppColors.accentBright : AppColors.border, width: isMe ? 1.5 : 1),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 28,
+                    child: medalColor != null
+                        ? Text(rank == 1 ? '🥇' : rank == 2 ? '🥈' : '🥉', style: TextStyle(fontSize: 18))
+                        : Text('$rank', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 14)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      pseudo,
+                      style: TextStyle(
+                        color: isMe ? AppColors.accentBright : AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '$w victoire${w > 1 ? 's' : ''}',
+                    style: TextStyle(
+                      color: w > 0 ? AppColors.accentBright : AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _PseudoChip extends StatelessWidget {
   final String pseudo;

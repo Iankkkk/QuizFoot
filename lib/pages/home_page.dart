@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'coup_doeil/quiz_test.dart';
-import 'coup_doeil/quiz_test_intro.dart';
+import 'coup_doeil/coup_doeil_game_page.dart';
+import 'coup_doeil/coup_doeil_intro_page.dart';
 import 'package:quiz_foot/pages/lineup/lineup_match_page_intro.dart';
-import 'multiplayer/multiplayer_lobby_page.dart';
+import 'lineup/compos_1v1_lobby_page.dart';
+import 'coup_doeil/coup_doeil_1v1_lobby_page.dart';
 import 'package:quiz_foot/data/anecdotes_data.dart';
 import 'package:quiz_foot/data/players_data.dart';
 import 'package:quiz_foot/data/data_cache.dart';
@@ -270,6 +271,7 @@ class _HomePageState extends State<HomePage> {
                 pollId: _pollId!,
                 initialPoll: _pollData!,
                 initialChoice: _pollMyChoice,
+                onVoted: (choice) => setState(() => _pollMyChoice = choice),
               ),
 
             const SizedBox(height: 20),
@@ -394,7 +396,7 @@ class _HomePageState extends State<HomePage> {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const MultiplayerLobbyPage(),
+                        builder: (_) => const Compos1v1LobbyPage(),
                       ),
                     ),
                   ),
@@ -426,9 +428,10 @@ class _HomePageState extends State<HomePage> {
         final seen1v1 = <String>{};
         final docs = snap.data!.docs.where((doc) {
           final d = doc.data() as Map<String, dynamic>;
-          if ((d['gameType'] as String?) != 'multiplayerCompos') return true;
-          final key = d['matchName'] as String? ?? doc.id;
-          return seen1v1.add(key);
+          final type = d['gameType'] as String?;
+          if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil') return true;
+          final key = (d['matchName'] ?? d['opponentPseudo'] ?? '') as String;
+          return seen1v1.add('$type-$key');
         }).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -455,10 +458,14 @@ class _HomePageState extends State<HomePage> {
               final won = d['won'] as bool?;
               final ts = d['createdAt'] as Timestamp?;
               final ago = ts != null ? _timeAgo(ts.toDate()) : '';
-              final is1v1 = gameType == 'multiplayerCompos';
+              final is1v1Compos = gameType == 'multiplayerCompos';
+              final is1v1Cdo = gameType == 'multiplayerCoupDoeil';
+              final is1v1 = is1v1Compos || is1v1Cdo;
               final isCompos = gameType == 'compos';
-              final icon = is1v1
+              final icon = is1v1Compos
                   ? '⚔️'
+                  : is1v1Cdo
+                  ? '👁️⚔️'
                   : isCompos
                   ? '⚽'
                   : '👁️';
@@ -596,15 +603,23 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 24),
             _GameButton(
-              title: "Coup d'œil",
+              title: "Coup d'Œil",
               subtitle: 'Reconnais le joueur grâce à sa photo',
               icon: Icons.remove_red_eye_outlined,
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => QuizTestIntro()),
+                MaterialPageRoute(builder: (_) => CoupDoeilIntroPage()),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
+            _DuelButton(
+              label: "Coup d'Œil 1v1",
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CoupDoeil1v1LobbyPage()),
+              ),
+            ),
+            const SizedBox(height: 16),
             _GameButton(
               title: 'Qui a menti ?',
               subtitle: '1 affirmation, 10 joueurs : 5 menteurs !',
@@ -612,7 +627,7 @@ class _HomePageState extends State<HomePage> {
               locked: true,
               onTap: () {},
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _GameButton(
               title: 'Parcours Joueur',
               subtitle: 'Retrouve le joueur grâce à sa carrière',
@@ -620,26 +635,22 @@ class _HomePageState extends State<HomePage> {
               locked: true,
               onTap: () {},
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _GameButton(
               title: 'Compos',
-              subtitle:
-                  'Retrouve les compositions d\'équipes d\'un match historique',
+              subtitle: "Retrouve les compos d'un match historique",
               icon: Icons.view_module_outlined,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const LineupMatchPageIntro()),
               ),
             ),
-            const SizedBox(height: 12),
-            _GameButton(
-              title: 'Compos 1v1',
-              subtitle: 'Affronte un ami en temps réel',
-              icon: Icons.people_outline,
-              accent: Color(0xFF58A6FF),
+            const SizedBox(height: 6),
+            _DuelButton(
+              label: 'Compos 1v1',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const MultiplayerLobbyPage()),
+                MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
               ),
             ),
           ],
@@ -811,7 +822,7 @@ class _GameButton extends StatelessWidget {
           onTap: locked ? null : onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(12),
@@ -828,9 +839,7 @@ class _GameButton extends StatelessWidget {
                   ),
                   child: Icon(
                     icon,
-                    color: locked
-                        ? AppColors.textSecondary
-                        : (accent ?? AppColors.accentBright),
+                    color: locked ? AppColors.textSecondary : (accent ?? AppColors.accentBright),
                     size: 24,
                   ),
                 ),
@@ -850,10 +859,7 @@ class _GameButton extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         locked ? 'Bientôt disponible' : subtitle,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                        ),
+                        style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -863,6 +869,51 @@ class _GameButton extends StatelessWidget {
                   color: AppColors.textSecondary,
                   size: 20,
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DuelButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _DuelButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 20),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF58A6FF).withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              children: [
+                Text('⚔️', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: const Color(0xFF58A6FF),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const Spacer(),
+                Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 16),
               ],
             ),
           ),
@@ -902,11 +953,13 @@ class _DailySondage extends StatefulWidget {
   final String pollId;
   final Map<String, dynamic> initialPoll;
   final String? initialChoice;
+  final void Function(String choice)? onVoted;
   const _DailySondage({
     required this.pseudo,
     required this.pollId,
     required this.initialPoll,
     this.initialChoice,
+    this.onVoted,
   });
 
   @override
@@ -941,12 +994,14 @@ class _DailySondageState extends State<_DailySondage> {
         });
       });
       final updated = await pollRef.get();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _myChoice = choice;
           _poll = updated.data() ?? _poll;
           _voting = false;
         });
+        widget.onVoted?.call(choice);
+      }
     } catch (_) {
       if (mounted) setState(() => _voting = false);
     }
@@ -1181,7 +1236,7 @@ Widget _difficultyButton(BuildContext context, String difficulty) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => QuizTest(difficulty: difficulty),
+            builder: (context) => CoupDoeilGamePage(difficulty: difficulty),
           ),
         );
       },

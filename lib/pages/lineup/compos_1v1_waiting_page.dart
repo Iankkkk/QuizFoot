@@ -4,18 +4,18 @@ import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import '../../data/lineup_game_data.dart';
 import '../../models/match_model.dart';
-import '../../models/multiplayer_game.dart';
-import '../../services/multiplayer_service.dart';
-import 'multiplayer_preview_page.dart';
+import '../../models/compos_1v1_game.dart';
+import '../../services/compos_1v1_service.dart';
+import 'compos_1v1_preview_page.dart';
 
-class MultiplayerWaitingPage extends StatefulWidget {
+class Compos1v1WaitingPage extends StatefulWidget {
   final String roomCode;
   final String pseudo;
   final bool isHost;
   final Match? match;
   final String? difficulty;
 
-  const MultiplayerWaitingPage({
+  const Compos1v1WaitingPage({
     super.key,
     required this.roomCode,
     required this.pseudo,
@@ -25,10 +25,10 @@ class MultiplayerWaitingPage extends StatefulWidget {
   });
 
   @override
-  State<MultiplayerWaitingPage> createState() => _MultiplayerWaitingPageState();
+  State<Compos1v1WaitingPage> createState() => _Compos1v1WaitingPageState();
 }
 
-class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
+class _Compos1v1WaitingPageState extends State<Compos1v1WaitingPage> {
   StreamSubscription<MultiplayerGame?>? _sub;
   String? _opponentPseudo;
   bool _navigating = false;
@@ -75,7 +75,7 @@ class _MultiplayerWaitingPageState extends State<MultiplayerWaitingPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => MultiplayerPreviewPage(
+          builder: (_) => Compos1v1PreviewPage(
             roomCode: widget.roomCode,
             pseudo: widget.pseudo,
             opponentPseudo: _opponentPseudo ?? '?',

@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/multiplayer_game.dart';
+import '../models/compos_1v1_game.dart';
 
 class MultiplayerService {
   MultiplayerService._();

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/lineup_model.dart';
 import '../../models/match_model.dart';
-import '../../models/multiplayer_game.dart';
-import 'multiplayer_lobby_page.dart';
+import '../../models/compos_1v1_game.dart';
+import 'compos_1v1_lobby_page.dart';
 
-class MultiplayerResultPage extends StatefulWidget {
+class Compos1v1ResultPage extends StatefulWidget {
   final MultiplayerGame game;
   final String pseudo;
   final Match match;
@@ -13,7 +13,7 @@ class MultiplayerResultPage extends StatefulWidget {
   final Duration timeTaken;
   final bool abandoned;
 
-  const MultiplayerResultPage({
+  const Compos1v1ResultPage({
     super.key,
     required this.game,
     required this.pseudo,
@@ -24,10 +24,10 @@ class MultiplayerResultPage extends StatefulWidget {
   });
 
   @override
-  State<MultiplayerResultPage> createState() => _MultiplayerResultPageState();
+  State<Compos1v1ResultPage> createState() => _Compos1v1ResultPageState();
 }
 
-class _MultiplayerResultPageState extends State<MultiplayerResultPage>
+class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
     with TickerProviderStateMixin {
 
   late final AnimationController _entranceController;
@@ -430,7 +430,7 @@ class _MultiplayerResultPageState extends State<MultiplayerResultPage>
                 elevation: 0,
               ),
               onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const MultiplayerLobbyPage()),
+                MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
                 (r) => r.isFirst,
               ),
               child: Text(

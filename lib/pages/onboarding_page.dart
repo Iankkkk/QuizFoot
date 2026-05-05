@@ -53,20 +53,57 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
     setState(() => _loading = true);
     final pseudo = _ctrl.text.trim();
+
     bool available = true;
     try {
       available = await FirestoreService.instance
           .isPseudoAvailable(pseudo)
           .timeout(const Duration(seconds: 6));
     } catch (_) {}
+
     if (!mounted) return;
+    setState(() => _loading = false);
+
     if (!available) {
-      setState(() {
-        _error = 'Ce pseudo est déjà pris';
-        _loading = false;
-      });
+      // Pseudo existe → proposer de se connecter sur ce compte
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Pseudo existant',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            'Le pseudo "$pseudo" est déjà utilisé.\nTu veux te connecter sur ce compte ?',
+            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Changer', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Se connecter', style: TextStyle(color: AppColors.accentBright, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      // Connexion sur compte existant — pas de réservation
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('pseudo', pseudo);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
       return;
     }
+
+    // Nouveau pseudo → réserver + sauvegarder
+    setState(() => _loading = true);
     try {
       await FirestoreService.instance
           .reservePseudo(pseudo)
