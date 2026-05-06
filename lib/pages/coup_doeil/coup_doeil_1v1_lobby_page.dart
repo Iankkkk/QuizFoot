@@ -295,7 +295,7 @@ class _CoupDoeil1v1LobbyPageState extends State<CoupDoeil1v1LobbyPage>
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Comment ça marche',
+                              'Règles du jeu',
                               style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w700,
@@ -306,22 +306,31 @@ class _CoupDoeil1v1LobbyPageState extends State<CoupDoeil1v1LobbyPage>
                         ),
                         const SizedBox(height: 12),
                         ...[
-                          ('⏱️', '30 secondes max par photo'),
-                          ('🖼️', '10 photos, les mêmes pour vous deux'),
-                          ('🏃', 'Vous jouez en parallèle, à votre rythme'),
+                          (
+                            '🖼️',
+                            '10 photos seront affichées, les mêmes pour vous deux',
+                          ),
+                          ('⏱️', '30 secondes maximum par photo'),
+                          (
+                            '🏃',
+                            'Plus tu réponds vite, plus tu gagnes de points',
+                          ),
                           ('🏆', 'Le plus grand score l\'emporte'),
                         ].map(
                           (r) => Padding(
                             padding: const EdgeInsets.only(bottom: 7),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(r.$1, style: TextStyle(fontSize: 13)),
                                 const SizedBox(width: 10),
-                                Text(
-                                  r.$2,
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 13,
+                                Expanded(
+                                  child: Text(
+                                    r.$2,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ),
                               ],

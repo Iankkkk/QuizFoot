@@ -89,9 +89,24 @@ class _CoupDoeil1v1WaitingRoomPageState extends State<CoupDoeil1v1WaitingRoomPag
     try {
       final all = await loadPlayers();
       final byName = {for (final p in all) p.name: p};
-      return names.map((n) => byName[n]).whereType<Player>().toList();
+      final players = names.map((n) => byName[n]).whereType<Player>().toList();
+      if (mounted) {
+        await Future.wait(players.map((p) => _precacheWithRetry(p.imageUrl)));
+      }
+      return players;
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<void> _precacheWithRetry(String url, {int retries = 2}) async {
+    for (int i = 0; i <= retries; i++) {
+      try {
+        await precacheImage(NetworkImage(url), context);
+        return;
+      } catch (_) {
+        if (i < retries) await Future.delayed(const Duration(seconds: 1));
+      }
     }
   }
 

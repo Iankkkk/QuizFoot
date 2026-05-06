@@ -259,7 +259,11 @@ class _Compos1v1LobbyPageState extends State<Compos1v1LobbyPage>
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.info_outline, color: AppColors.textSecondary, size: 16),
+                            Icon(
+                              Icons.info_outline,
+                              color: AppColors.textSecondary,
+                              size: 16,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Comment ça marche',
@@ -275,24 +279,36 @@ class _Compos1v1LobbyPageState extends State<Compos1v1LobbyPage>
                         ...[
                           ('⚽', 'Les 2 joueurs jouent sur le même match'),
                           ('🔄', 'Chacun son tour pour trouver les joueurs'),
-                          ('❌', '3 erreurs et tu rentres au vestiaire'),
-                          ('🏆', 'Celui qui trouve le plus de joueurs gagne'),
-                        ].map((r) => Padding(
-                          padding: const EdgeInsets.only(bottom: 7),
-                          child: Row(
-                            children: [
-                              Text(r.$1, style: TextStyle(fontSize: 13)),
-                              const SizedBox(width: 10),
-                              Text(
-                                r.$2,
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
+                          (
+                            '💡',
+                            'Tu as 5 indices gratuits : clique sur un des joueurs pour les activer',
                           ),
-                        )),
+                          ('❌', '3 erreurs et tu rentres au vestiaire'),
+                          (
+                            '🏆',
+                            'Le joueur toujours en vie remporte le match !',
+                          ),
+                        ].map(
+                          (r) => Padding(
+                            padding: const EdgeInsets.only(bottom: 7),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(r.$1, style: TextStyle(fontSize: 13)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    r.$2,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -370,15 +386,11 @@ class _Compos1v1LobbyPageState extends State<Compos1v1LobbyPage>
                             fillColor: AppColors.bg,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: AppColors.border,
-                              ),
+                              borderSide: BorderSide(color: AppColors.border),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: AppColors.border,
-                              ),
+                              borderSide: BorderSide(color: AppColors.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -434,10 +446,7 @@ class _Compos1v1LobbyPageState extends State<Compos1v1LobbyPage>
                       ),
                       child: Text(
                         _error!,
-                        style: TextStyle(
-                          color: AppColors.red,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: AppColors.red, fontSize: 13),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -531,11 +540,7 @@ class _SectionCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
+            Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
           ],
         ),
       ),

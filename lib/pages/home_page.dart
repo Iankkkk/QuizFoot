@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../constants/app_colors.dart';
 import '../services/game_history_service.dart';
+import '../services/theme_service.dart';
 import '../models/game_result.dart';
 import 'profil_page.dart';
 import 'classement_page.dart';
@@ -48,7 +49,16 @@ class _HomePageState extends State<HomePage> {
     _loadPseudoThenPoll();
     _loadStats();
     _loadCommunityStats();
+    ThemeService.instance.addListener(_onThemeChanged);
   }
+
+  @override
+  void dispose() {
+    ThemeService.instance.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() => setState(() {});
 
   Future<void> _loadPseudoThenPoll() async {
     final prefs = await SharedPreferences.getInstance();
@@ -61,7 +71,8 @@ class _HomePageState extends State<HomePage> {
     try {
       final db = FirebaseFirestore.instance;
       final n = DateTime.now();
-      final today = '${n.day.toString().padLeft(2, '0')}-${n.month.toString().padLeft(2, '0')}-${n.year}';
+      final today =
+          '${n.day.toString().padLeft(2, '0')}-${n.month.toString().padLeft(2, '0')}-${n.year}';
 
       var pollDoc = await db.collection('polls').doc(today).get();
 
@@ -73,12 +84,20 @@ class _HomePageState extends State<HomePage> {
           try {
             final p = doc.id.split('-');
             if (p.length != 3) continue;
-            final d = DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+            final d = DateTime(
+              int.parse(p[2]),
+              int.parse(p[1]),
+              int.parse(p[0]),
+            );
             if (d.isAfter(DateTime.now())) continue;
-            if (latestDate == null || d.isAfter(latestDate)) { latestId = doc.id; latestDate = d; }
+            if (latestDate == null || d.isAfter(latestDate)) {
+              latestId = doc.id;
+              latestDate = d;
+            }
           } catch (_) {}
         }
-        if (latestId != null) pollDoc = await db.collection('polls').doc(latestId).get();
+        if (latestId != null)
+          pollDoc = await db.collection('polls').doc(latestId).get();
       }
 
       if (!pollDoc.exists) return;
@@ -86,10 +105,20 @@ class _HomePageState extends State<HomePage> {
       final pollId = pollDoc.id;
       String? myChoice;
       if (pseudo.isNotEmpty) {
-        final voteDoc = await db.collection('polls').doc(pollId).collection('votes').doc(pseudo).get();
+        final voteDoc = await db
+            .collection('polls')
+            .doc(pollId)
+            .collection('votes')
+            .doc(pseudo)
+            .get();
         if (voteDoc.exists) myChoice = voteDoc.data()?['choice'] as String?;
       }
-      if (mounted) setState(() { _pollData = pollDoc.data() as Map<String, dynamic>?; _pollId = pollId; _pollMyChoice = myChoice; });
+      if (mounted)
+        setState(() {
+          _pollData = pollDoc.data() as Map<String, dynamic>?;
+          _pollId = pollId;
+          _pollMyChoice = myChoice;
+        });
     } catch (_) {}
   }
 
@@ -429,9 +458,13 @@ class _HomePageState extends State<HomePage> {
         final docs = snap.data!.docs.where((doc) {
           final d = doc.data() as Map<String, dynamic>;
           final type = d['gameType'] as String?;
-          if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil') return true;
-          final key = (d['matchName'] ?? d['opponentPseudo'] ?? '') as String;
-          return seen1v1.add('$type-$key');
+          if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil')
+            return true;
+          final p1 = d['pseudo'] as String? ?? '';
+          final p2 = d['opponentPseudo'] as String? ?? '';
+          final matchKey = d['matchName'] as String? ?? '';
+          final pair = ([p1, p2]..sort()).join('-');
+          return seen1v1.add('$type-$pair-$matchKey');
         }).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -463,7 +496,7 @@ class _HomePageState extends State<HomePage> {
               final is1v1 = is1v1Compos || is1v1Cdo;
               final isCompos = gameType == 'compos';
               final icon = is1v1Compos
-                  ? '⚔️'
+                  ? '⚽⚔️'
                   : is1v1Cdo
                   ? '👁️⚔️'
                   : isCompos
@@ -478,7 +511,7 @@ class _HomePageState extends State<HomePage> {
                     ? '$pseudo vs $opp'
                     : won
                     ? '🏆 $pseudo a battu $opp'
-                    : '💀 $opp a battu $pseudo';
+                    : '🏆 $opp a battu $pseudo';
                 spans = [
                   TextSpan(
                     text: winnerLine,
@@ -616,7 +649,9 @@ class _HomePageState extends State<HomePage> {
               label: "Coup d'Œil 1v1",
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const CoupDoeil1v1LobbyPage()),
+                MaterialPageRoute(
+                  builder: (_) => const CoupDoeil1v1LobbyPage(),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -839,7 +874,9 @@ class _GameButton extends StatelessWidget {
                   ),
                   child: Icon(
                     icon,
-                    color: locked ? AppColors.textSecondary : (accent ?? AppColors.accentBright),
+                    color: locked
+                        ? AppColors.textSecondary
+                        : (accent ?? AppColors.accentBright),
                     size: 24,
                   ),
                 ),
@@ -859,7 +896,10 @@ class _GameButton extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         locked ? 'Bientôt disponible' : subtitle,
-                        style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -898,7 +938,9 @@ class _DuelButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF58A6FF).withValues(alpha: 0.35)),
+              border: Border.all(
+                color: const Color(0xFF58A6FF).withValues(alpha: 0.35),
+              ),
             ),
             child: Row(
               children: [
@@ -913,7 +955,11 @@ class _DuelButton extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 16),
+                Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textSecondary,
+                  size: 16,
+                ),
               ],
             ),
           ),
@@ -982,7 +1028,9 @@ class _DailySondageState extends State<_DailySondage> {
     if (_voting || widget.pseudo.isEmpty || _myChoice != null) return;
     setState(() => _voting = true);
     try {
-      final pollRef = FirebaseFirestore.instance.collection('polls').doc(widget.pollId);
+      final pollRef = FirebaseFirestore.instance
+          .collection('polls')
+          .doc(widget.pollId);
       final voteRef = pollRef.collection('votes').doc(widget.pseudo);
       await FirebaseFirestore.instance.runTransaction((tx) async {
         tx.set(voteRef, {
@@ -1049,59 +1097,59 @@ class _DailySondageState extends State<_DailySondage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-          Text(
-            question,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (!hasVoted) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _SondageButton(
-                    label: optionA,
-                    loading: _voting,
-                    onTap: () => _vote('A'),
-                  ),
+              Text(
+                question,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _SondageButton(
-                    label: optionB,
-                    loading: _voting,
-                    onTap: () => _vote('B'),
+              ),
+              const SizedBox(height: 10),
+              if (!hasVoted) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SondageButton(
+                        label: optionA,
+                        loading: _voting,
+                        onTap: () => _vote('A'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SondageButton(
+                        label: optionB,
+                        loading: _voting,
+                        onTap: () => _vote('B'),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                _ResultBar(
+                  label: optionA,
+                  votes: votesA,
+                  total: total,
+                  chosen: _myChoice == 'A',
+                ),
+                const SizedBox(height: 6),
+                _ResultBar(
+                  label: optionB,
+                  votes: votesB,
+                  total: total,
+                  chosen: _myChoice == 'B',
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '$total vote${total > 1 ? 's' : ''}',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
                   ),
                 ),
               ],
-            ),
-          ] else ...[
-            _ResultBar(
-              label: optionA,
-              votes: votesA,
-              total: total,
-              chosen: _myChoice == 'A',
-            ),
-            const SizedBox(height: 6),
-            _ResultBar(
-              label: optionB,
-              votes: votesB,
-              total: total,
-              chosen: _myChoice == 'B',
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '$total vote${total > 1 ? 's' : ''}',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ],
+            ],
           ),
         ),
       ],

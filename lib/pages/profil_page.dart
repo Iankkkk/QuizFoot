@@ -343,13 +343,20 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
-  String get _bestCoupDoeil => _coupDoeil.isEmpty
-      ? '—'
-      : '${_coupDoeil.map((r) => r.normalizedScore).reduce((a, b) => a > b ? a : b).toStringAsFixed(0)} pts';
-
-  String get _bestCompos => _compos.isEmpty
-      ? '—'
-      : '${_compos.map((r) => r.normalizedScore).reduce((a, b) => a > b ? a : b).toStringAsFixed(0)}%';
+  String get _favoriteOpponent {
+    final all = [
+      ..._multiplayerCompos,
+      ..._multiplayerCoupDoeil,
+    ];
+    if (all.isEmpty) return '—';
+    final counts = <String, int>{};
+    for (final r in all) {
+      final opp = r.details['opponentPseudo'] as String?;
+      if (opp != null && opp.isNotEmpty) counts[opp] = (counts[opp] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return '—';
+    return counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
 
   Widget _buildGlobalStats() {
     return Container(
@@ -379,16 +386,8 @@ class _ProfilPageState extends State<ProfilPage> {
           _divider(),
           Expanded(
             child: _StatTile(
-              label: "Meilleur Coup d'Œil",
-              value: _bestCoupDoeil,
-              small: true,
-            ),
-          ),
-          _divider(),
-          Expanded(
-            child: _StatTile(
-              label: 'Meilleur Compos',
-              value: _bestCompos,
+              label: 'Adversaire favori',
+              value: _favoriteOpponent,
               small: true,
             ),
           ),
