@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:string_similarity/string_similarity.dart';
 import '../../constants/app_colors.dart';
+import '../../services/theme_service.dart';
 import '../../data/lineup_game_data.dart';
 import '../../data/api_exception.dart';
 import '../../models/match_model.dart';
@@ -35,27 +36,27 @@ import 'lineup_score_page.dart';
 Color _parseTeamColor(String? name) {
   switch (name?.toLowerCase().trim()) {
     case 'blanc':
-      return const Color(0xFFF0F0F0);
+      return Color(0xFFF0F0F0);
     case 'noir':
       return const Color.fromARGB(255, 0, 0, 0);
     case 'rouge':
-      return const Color(0xFFDC2626);
+      return Color(0xFFDC2626);
     case 'bleu':
-      return const Color(0xFF1D4ED8);
+      return Color(0xFF1D4ED8);
     case 'bleu clair':
-      return const Color(0xFF60A5FA);
+      return Color(0xFF60A5FA);
     case 'bleu foncé':
       return const Color.fromARGB(255, 12, 3, 77);
     case 'vert':
-      return const Color(0xFF16A34A);
+      return Color(0xFF16A34A);
     case 'jaune':
-      return const Color(0xFFFACC15);
+      return Color(0xFFFACC15);
     case 'orange':
       return const Color.fromARGB(255, 225, 104, 6);
     case 'violet':
       return const Color.fromARGB(255, 121, 12, 200);
     default:
-      return const Color(0xFF4A5568);
+      return Color(0xFF4A5568);
   }
 }
 
@@ -87,14 +88,9 @@ int _difficultyToLevel(String difficulty) {
 
 String? _leagueFolder(String competition) {
   final c = competition.toLowerCase();
-  if (c.contains('euro') ||
-      c.contains('coupe du monde') ||
-      c.contains('world cup') ||
-      c.contains('ligue des nations') ||
-      c.contains('copa') ||
-      c.contains('barrage coupe du monde'))
-    return 'pays';
-  if (c.contains('champions league') || c.contains('ligue des champions'))
+  if (c.contains('champions league') ||
+      c.contains('ligue des champions') ||
+      c.contains('ligue europa'))
     return 'Champions League';
   if (c.contains('ligue 1') ||
       c.contains('coupe de france') ||
@@ -104,10 +100,16 @@ String? _leagueFolder(String competition) {
       c.contains('community shield') ||
       c.contains('fa cup'))
     return 'England - Premier League';
-  if (c.contains('laliga') || c.contains('la liga') || c.contains('liga'))
-    return 'Spain - La Liga';
+  if (c.contains('premier league')) return 'England - Premier League';
+  if (c.contains('laliga') || c.contains('la liga')) return 'Spain - La Liga';
   if (c.contains('bundesliga') && !c.contains('austria'))
     return 'Germany - Bundesliga';
+  if (c.contains('euro') ||
+      c.contains('coupe du monde') ||
+      c.contains('world cup') ||
+      c.contains('ligue des nations') ||
+      c.contains('copa'))
+    return 'pays';
   if (c.contains('serie a')) return 'Italy - Serie A';
   if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
   if (c.contains('liga portugal')) return 'Portugal - Liga Portugal';
@@ -131,7 +133,7 @@ Widget _teamLogoSmall(
     decoration: BoxDecoration(
       color: bg,
       shape: BoxShape.circle,
-      border: Border.all(color: const Color(0xFF2D3148), width: 1.5),
+      border: Border.all(color: Color(0xFF2D3148), width: 1.5),
     ),
     child: Center(
       child: Text(
@@ -167,7 +169,10 @@ Widget _competitionLogoSmall(String competition) {
   );
   if (_coloredCompLogos.contains(competition)) return img;
   return ColorFiltered(
-    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+    colorFilter: ColorFilter.mode(
+      ThemeService.instance.isDark ? Colors.white : Colors.black87,
+      BlendMode.srcIn,
+    ),
     child: img,
   );
 }
@@ -201,6 +206,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   // ── Game state ────────────────────────────────────────────────────────────
   final Set<String> _foundPlayers = {};
   final Set<String> _passedPlayers = {};
+  int _foundCount = 0;
   final Map<String, String> _hints = {};
   final List<String> _wrongAnswers = [];
   int _errors = 0;
@@ -301,8 +307,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       }).toList();
 
       if (filtered.isEmpty) {
-        _showFeedback('Aucun match pour cette difficulté', AppColors.red);
-        setState(() => _isLoading = false);
+        await _showErrorAndPop('Aucun match disponible pour cette combinaison difficulté / période.\nEssaie d\'autres filtres.');
         return;
       }
 
@@ -316,12 +321,35 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       setState(() => _selectedMatch = picked);
       await _loadLineups(picked.matchId);
     } on ApiException catch (e) {
-      _showFeedback(e.userMessage, AppColors.red);
-      setState(() => _isLoading = false);
+      await _showErrorAndPop(e.userMessage);
     } catch (_) {
-      _showFeedback('Erreur inattendue. Réessaie.', AppColors.red);
-      setState(() => _isLoading = false);
+      await _showErrorAndPop('Erreur inattendue. Réessaie.');
     }
+  }
+
+  Future<void> _showErrorAndPop(String message) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('Impossible de lancer la partie',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+        content: Text(message,
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (mounted) Navigator.of(context).pop();
+            },
+            child: Text('Retour',
+                style: TextStyle(color: AppColors.accentBright)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadLineups(String matchId) async {
@@ -331,6 +359,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         _lineups = all.where((l) => l.matchId == matchId).toList();
         _foundPlayers.clear();
         _passedPlayers.clear();
+        _foundCount = 0;
         _hints.clear();
         _wrongAnswers.clear();
         _errors = 0;
@@ -426,6 +455,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           _foundPlayers.add(p.playerName);
         }
         _score += newFound.length;
+        _foundCount += newFound.length;
       });
       final label = newFound.length > 1
           ? '${newFound.length} joueurs trouvés ! (+${newFound.length})'
@@ -515,9 +545,9 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
-        title: const Text(
+        title: Text(
           'Indice',
           style: TextStyle(
             color: AppColors.textPrimary,
@@ -530,34 +560,25 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           children: [
             Text(
               'Poste : ${player.position}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
             Text(
               'Équipe : ${player.teamName}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 14),
             Text(
               canHint
                   ? '$remaining indice${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''}'
                   : 'Tu as utilisé tes $_maxFreeHints indices.',
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text(
+            child: Text(
               'Annuler',
               style: TextStyle(color: AppColors.textSecondary),
             ),
@@ -565,7 +586,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           if (canHint) ...[
             TextButton(
               onPressed: () => Navigator.of(ctx).pop('letter'),
-              child: const Text(
+              child: Text(
                 '1ère lettre',
                 style: TextStyle(
                   color: AppColors.accentBright,
@@ -576,7 +597,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             if (hasNumber)
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop('number'),
-                child: const Text(
+                child: Text(
                   'Numéro',
                   style: TextStyle(
                     color: AppColors.amber,
@@ -605,33 +626,30 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
-        title: const Text(
+        title: Text(
           'Terminer la partie ?',
           style: TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
-        content: const Text(
+        content: Text(
           'Les réponses manquantes seront révélées.',
           style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
+            child: Text(
               'Continuer',
               style: TextStyle(color: AppColors.accentBright),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Terminer',
-              style: TextStyle(color: AppColors.red),
-            ),
+            child: Text('Terminer', style: TextStyle(color: AppColors.red)),
           ),
         ],
       ),
@@ -640,7 +658,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   }
 
   void _checkVictory() {
-    if (_foundPlayers.length + _passedPlayers.length == _lineups.length) {
+    if (_foundCount + _passedPlayers.length == _lineups.length) {
       Future.delayed(
         const Duration(milliseconds: 600),
         () => _endGame(defeat: false),
@@ -675,7 +693,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   // ── Computed ──────────────────────────────────────────────────────────────
 
   int get _totalPlayers => _lineups.length;
-  int get _revealedCount => _foundPlayers.length + _passedPlayers.length;
+  int get _revealedCount => _foundCount + _passedPlayers.length;
 
   bool get _isPitchMode {
     final m = _selectedMatch;
@@ -702,19 +720,22 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           onTap: () => _inputFocus.unfocus(),
           behavior: HitTestBehavior.translucent,
           child: _isLoading
-              ? const Center(
+              ? Center(
                   child: CircularProgressIndicator(
                     color: AppColors.accentBright,
                   ),
                 )
-              : Column(
+              : Builder(builder: (context) {
+                  final bool compact =
+                      MediaQuery.of(context).viewInsets.bottom > 50;
+                  return Column(
                   children: [
                     SafeArea(
                       bottom: false,
                       child: Column(
                         children: [
-                          _buildAppBar(),
-                          _buildStatusBar(),
+                          _buildAppBar(compact: compact),
+                          _buildStatusBar(compact: compact),
                           if (_showHintBanner) _buildHintBanner(),
                           if (!_isPitchMode) _buildTabBar(),
                         ],
@@ -730,7 +751,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                     ),
                     _buildInputBar(),
                   ],
-                ),
+                );
+                }),
         ),
       ),
     );
@@ -738,12 +760,12 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   // ── App bar ───────────────────────────────────────────────────────────────
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar({bool compact = false}) {
     final match = _selectedMatch;
     final folder = match != null ? _leagueFolder(match.competition) : null;
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(12, compact ? 4 : 10, 12, compact ? 4 : 12),
+      decoration: BoxDecoration(
         color: AppColors.card,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
@@ -768,7 +790,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back,
                       color: AppColors.textPrimary,
                       size: 18,
@@ -784,7 +806,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                     const SizedBox(width: 6),
                     Text(
                       '${match.competition}  ·  ${match.date}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -794,7 +816,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 6 : 12),
           // Ligne 2 : logo home + titre centré + logo away
           Row(
             children: [
@@ -803,7 +825,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                   match.homeTeam,
                   match.colorHome,
                   folder,
-                  size: 48,
+                  size: compact ? 38 : 48,
                 )
               else
                 const SizedBox(width: 44),
@@ -812,7 +834,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 child: Text(
                   match?.matchName ?? '',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
@@ -828,7 +850,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                   match.awayTeam,
                   match.colorAway,
                   folder,
-                  size: 48,
+                  size: compact ? 38 : 48,
                 )
               else
                 const SizedBox(width: 44),
@@ -853,13 +875,13 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         color: AppColors.accentBright.withValues(alpha: 0.10),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.touch_app_outlined,
               size: 14,
               color: AppColors.accentBright,
             ),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Clique sur un joueur pour obtenir un indice',
                 style: TextStyle(
@@ -869,24 +891,24 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 ),
               ),
             ),
-            const Icon(Icons.close, size: 14, color: AppColors.accentBright),
+            Icon(Icons.close, size: 14, color: AppColors.accentBright),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusBar() {
+  Widget _buildStatusBar({bool compact = false}) {
     final pct = _totalPlayers == 0 ? 0.0 : _revealedCount / _totalPlayers;
     final errorColor = _errors >= 4 ? AppColors.red : AppColors.textSecondary;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(16, compact ? 4 : 8, 16, compact ? 4 : 8),
       color: AppColors.card,
       child: Row(
         children: [
           Text(
             '$_revealedCount/$_totalPlayers',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.accentBright,
               fontWeight: FontWeight.w800,
               fontSize: 13,
@@ -899,9 +921,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
               child: LinearProgressIndicator(
                 value: pct,
                 backgroundColor: AppColors.border,
-                valueColor: const AlwaysStoppedAnimation(
-                  AppColors.accentBright,
-                ),
+                valueColor: AlwaysStoppedAnimation(AppColors.accentBright),
                 minHeight: 6,
               ),
             ),
@@ -910,27 +930,29 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           GestureDetector(
             onTap: _errors > 0 ? _showWrongAnswers : null,
             child: Row(
-              children: List.generate(
-                _maxErrors,
-                (i) => Container(
-                  width: 8,
-                  height: 8,
-                  margin: EdgeInsets.only(left: i > 0 ? 4 : 0),
-                  decoration: BoxDecoration(
-                    color: i < _errors ? AppColors.red : AppColors.border,
-                    shape: BoxShape.circle,
+              children: [
+                ...List.generate(
+                  _maxErrors,
+                  (i) => Container(
+                    width: 8,
+                    height: 8,
+                    margin: EdgeInsets.only(left: i > 0 ? 4 : 0),
+                    decoration: BoxDecoration(
+                      color: i < _errors ? AppColors.red : AppColors.border,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$_errors/${_maxErrors}',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: errorColor,
+                const SizedBox(width: 8),
+                Text(
+                  '$_errors/${_maxErrors}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: errorColor,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -949,8 +971,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         indicatorWeight: 2,
         labelColor: AppColors.accentBright,
         unselectedLabelColor: AppColors.textSecondary,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-        unselectedLabelStyle: const TextStyle(
+        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        unselectedLabelStyle: TextStyle(
           fontWeight: FontWeight.w500,
           fontSize: 13,
         ),
@@ -990,7 +1012,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'TITULAIRES',
           style: TextStyle(
             color: AppColors.textSecondary,
@@ -1023,7 +1045,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
         ),
         if (subs.isNotEmpty) ...[
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'REMPLAÇANTS',
             style: TextStyle(
               color: AppColors.textSecondary,
@@ -1098,7 +1120,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                     top: size.height * 0.06,
                     child: Text(
                       match.awayTeam.toUpperCase(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -1111,7 +1133,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                     bottom: size.height * 0.06,
                     child: Text(
                       match.homeTeam.toUpperCase(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -1155,11 +1177,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
   }) {
     final match = _selectedMatch!;
     final totalLines = lines.length;
-    final double availableY = size.height * 0.40;
-    final double spacePerLine = totalLines > 1
-        ? availableY / (totalLines - 1)
-        : availableY;
-    final double chipRadius = (spacePerLine * 0.38).clamp(12.0, 18.0);
+    final double chipRadius = (size.shortestSide * 0.048).clamp(13.0, 18.0);
     final Color teamColor = isHomeTeam
         ? _parseTeamColor(match.colorHome)
         : _parseTeamColor(match.colorAway);
@@ -1219,7 +1237,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     final match = _selectedMatch!;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.card,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
@@ -1262,7 +1280,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           padding: const EdgeInsets.only(left: 10, bottom: 4),
           child: Text(
             teamName.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 8,
               fontWeight: FontWeight.w700,
@@ -1328,7 +1346,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                   ),
                   child: Text(
                     _feedbackText ?? '',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
@@ -1350,7 +1368,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.card,
-          border: const Border(top: BorderSide(color: AppColors.border)),
+          border: Border(top: BorderSide(color: AppColors.border)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.25),
@@ -1370,18 +1388,18 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                     controller: _inputController,
                     focusNode: _inputFocus,
                     enabled: !_gameOver,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Nom de joueur...',
-                      hintStyle: const TextStyle(
+                      hintStyle: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 15,
                       ),
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.person_search_rounded,
                         color: AppColors.accentBright,
                         size: 22,
@@ -1394,18 +1412,18 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.border),
+                        borderSide: BorderSide(color: AppColors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
+                        borderSide: BorderSide(
                           color: AppColors.accentBright,
                           width: 1.2,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
+                        borderSide: BorderSide(
                           color: AppColors.accentBright,
                           width: 2,
                         ),
@@ -1430,7 +1448,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                     ),
                   ),
                   onPressed: _gameOver ? null : _checkPlayer,
-                  child: const Text(
+                  child: Text(
                     'OK',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                   ),
@@ -1446,7 +1464,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.skip_next_rounded,
                       size: 22,
                       color: AppColors.textSecondary,
@@ -1470,33 +1488,30 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             backgroundColor: AppColors.card,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppColors.border),
+              side: BorderSide(color: AppColors.border),
             ),
-            title: const Text(
+            title: Text(
               'Quitter la partie ?',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            content: const Text(
+            content: Text(
               'Ta progression sera perdue.',
               style: TextStyle(color: AppColors.textSecondary),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text(
+                child: Text(
                   'Continuer',
                   style: TextStyle(color: AppColors.accentBright),
                 ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text(
-                  'Quitter',
-                  style: TextStyle(color: AppColors.red),
-                ),
+                child: Text('Quitter', style: TextStyle(color: AppColors.red)),
               ),
             ],
           ),
@@ -1510,7 +1525,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           border: Border(top: BorderSide(color: AppColors.border)),
@@ -1532,7 +1547,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Liste des erreurs',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -1546,11 +1561,11 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      const Icon(Icons.close, color: AppColors.red, size: 16),
+                      Icon(Icons.close, color: AppColors.red, size: 16),
                       const SizedBox(width: 8),
                       Text(
                         w,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 14,
                         ),
@@ -1581,7 +1596,7 @@ class _PitchPainter extends CustomPainter {
     // Base green
     canvas.drawRect(
       Rect.fromLTWH(0, 0, w, h),
-      Paint()..color = const Color(0xFF1A5C2A),
+      Paint()..color = Color(0xFF1A5C2A),
     );
 
     // Alternating stripes
@@ -1798,7 +1813,7 @@ class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
                           gradient: filled
                               ? LinearGradient(
                                   colors: [c1, c1, c2, c2],
-                                  stops: const [0.0, 0.5, 0.5, 1.0],
+                                  stops: [0.0, 0.5, 0.5, 1.0],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                 )
@@ -1832,7 +1847,7 @@ class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
                               fontWeight: FontWeight.w800,
                               height: 1,
                               shadows: filled && c1 != c2
-                                  ? const [
+                                  ? [
                                       Shadow(
                                         color: Colors.black,
                                         blurRadius: 2,
@@ -1854,7 +1869,7 @@ class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
                                         offset: Offset(1, 1),
                                       ),
                                     ]
-                                  : const [
+                                  : [
                                       Shadow(
                                         color: Colors.black54,
                                         blurRadius: 3,
@@ -2035,7 +2050,7 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
                           gradient: filled
                               ? LinearGradient(
                                   colors: [c1, c1, c2, c2],
-                                  stops: const [0.0, 0.5, 0.5, 1.0],
+                                  stops: [0.0, 0.5, 0.5, 1.0],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                 )
@@ -2069,7 +2084,7 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
                               fontWeight: FontWeight.w800,
                               height: 1,
                               shadows: filled && c1 != c2
-                                  ? const [
+                                  ? [
                                       Shadow(
                                         color: Colors.black,
                                         blurRadius: 2,
@@ -2091,7 +2106,7 @@ class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
                                         offset: Offset(1, 1),
                                       ),
                                     ]
-                                  : const [
+                                  : [
                                       Shadow(
                                         color: Colors.black54,
                                         blurRadius: 3,

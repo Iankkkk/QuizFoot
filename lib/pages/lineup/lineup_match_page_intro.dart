@@ -6,6 +6,7 @@ import '../../models/match_model.dart';
 import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
 import '../../main.dart' show routeObserver;
+import '../../services/theme_service.dart';
 
 class LineupMatchPageIntro extends StatefulWidget {
   const LineupMatchPageIntro({super.key});
@@ -14,7 +15,8 @@ class LineupMatchPageIntro extends StatefulWidget {
   State<LineupMatchPageIntro> createState() => _LineupMatchPageIntroState();
 }
 
-class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteAware {
+class _LineupMatchPageIntroState extends State<LineupMatchPageIntro>
+    with RouteAware {
   static const List<String> _difficulties = [
     "Amateur",
     "Semi-Pro",
@@ -111,7 +113,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
       builder: (_) {
         return Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.card,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             border: Border(top: BorderSide(color: AppColors.border)),
@@ -130,7 +132,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   "Choisis la difficulté",
                   style: TextStyle(
                     fontSize: 18,
@@ -212,10 +214,10 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
         backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           "Compos",
           style: TextStyle(
             color: AppColors.textPrimary,
@@ -232,13 +234,13 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         decoration: BoxDecoration(
           color: AppColors.card,
-          border: const Border(top: BorderSide(color: AppColors.border)),
+          border: Border(top: BorderSide(color: AppColors.border)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Période',
               style: TextStyle(
                 fontSize: 12,
@@ -316,7 +318,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                   ),
                 ),
                 onPressed: _showDifficultyPicker,
-                child: const Text(
+                child: Text(
                   'Jouer !',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                 ),
@@ -332,9 +334,11 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
             // ── Hero ──────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF1A2E1A), AppColors.bg],
+                  colors: ThemeService.instance.isDark
+                      ? [const Color(0xFF1A2E1A), AppColors.bg]
+                      : [const Color(0xFFD6F0E4), AppColors.bg],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -348,14 +352,16 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                       '⚽',
                       style: TextStyle(
                         fontSize: 110,
-                        color: Colors.white.withOpacity(0.05),
+                        color: ThemeService.instance.isDark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black.withOpacity(0.04),
                       ),
                     ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Compos',
                         style: TextStyle(
                           color: AppColors.accentBright,
@@ -371,7 +377,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                         curve: Curves.easeOut,
                         builder: (_, val, __) => Text(
                           '$val compos disponibles',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
                             height: 1.5,
@@ -391,7 +397,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                                 '—';
                             return Text(
                               'Meilleur score : $name · ${best.rawScore}%',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.accentBright,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -421,7 +427,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           "Règles du jeu",
                           style: TextStyle(
                             fontSize: 15,
@@ -445,9 +451,9 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                                 Expanded(
                                   child: Text(
                                     _rules[i],
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
-                                      color: AppColors.textSecondary,
+                                      color: AppColors.textPrimary,
                                       height: 1.4,
                                     ),
                                   ),
@@ -464,7 +470,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
 
                   // ── Mes compos ────────────────────────────────────────
                   if (!_historyLoaded)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
                       child: Center(
                         child: SizedBox(
@@ -480,7 +486,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                   else ...[
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'Mes compos complétées',
                           style: TextStyle(
                             fontSize: 15,
@@ -491,7 +497,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                         const Spacer(),
                         Text(
                           '${_playedResults.length} / $_totalMatchCount',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: AppColors.accentBright,
@@ -511,7 +517,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Text(
                             'Aucune compo jouée pour l\'instant.',
                             style: TextStyle(
@@ -567,7 +573,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                                     Row(
                                       children: [
                                         if (isPerfect) ...[
-                                          const Text(
+                                          Text(
                                             '🏆',
                                             style: TextStyle(fontSize: 13),
                                           ),
@@ -577,7 +583,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                                           child: Text(
                                             r.details['matchName'] as String? ??
                                                 matchId,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               color: AppColors.textPrimary,
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
@@ -651,7 +657,7 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro> with RouteA
                                             .withOpacity(0.4),
                                       ),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       'Rejouer',
                                       style: TextStyle(
                                         color: AppColors.accentBright,

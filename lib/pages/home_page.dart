@@ -1,26 +1,21 @@
 import 'package:flutter/material.dart';
-import 'coup_doeil/quiz_test.dart';
-import 'coup_doeil/quiz_test_intro.dart';
+import 'coup_doeil/coup_doeil_game_page.dart';
+import 'coup_doeil/coup_doeil_intro_page.dart';
 import 'package:quiz_foot/pages/lineup/lineup_match_page_intro.dart';
+import 'lineup/compos_1v1_lobby_page.dart';
+import 'coup_doeil/coup_doeil_1v1_lobby_page.dart';
 import 'package:quiz_foot/data/anecdotes_data.dart';
 import 'package:quiz_foot/data/players_data.dart';
 import 'package:quiz_foot/data/data_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants/app_colors.dart';
 import '../services/game_history_service.dart';
+import '../services/theme_service.dart';
+import '../services/firestore_service.dart';
 import '../models/game_result.dart';
 import 'profil_page.dart';
 import 'classement_page.dart';
-
-// ── Palette MPG-inspired ──────────────────────────────────────────
-const _bg = Color(0xFF171923);
-const _card = Color(0xFF1E2130);
-const _border = Color(0xFF2D3148);
-const _accent = Color(0xFF2EA043);
-const _accentBright = Color(0xFF3FB950);
-const _textPrimary = Color(0xFFE6EDF3);
-const _textSecondary = Color(0xFF8B949E);
-// ─────────────────────────────────────────────────────────────────
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -42,19 +37,104 @@ class _HomePageState extends State<HomePage> {
   // Stat communauté (Firestore)
   int _communityGames = 0;
 
+  // Sondage du jour
+  Map<String, dynamic>? _pollData;
+  String? _pollId;
+  String? _pollMyChoice;
+
   @override
   void initState() {
     super.initState();
     _loadAnecdote();
     _warmCache();
-    _loadPseudo();
+    _loadPseudoThenPoll();
     _loadStats();
     _loadCommunityStats();
+    _retryPendingScores();
+    ThemeService.instance.addListener(_onThemeChanged);
   }
 
-  Future<void> _loadPseudo() async {
+  Future<void> _retryPendingScores() async {
+    final saved = await FirestoreService.instance.retryPendingScores();
+    if (saved > 0 && mounted) {
+      GameHistoryService.instance.invalidateCache();
+      _loadStats();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$saved score${saved > 1 ? 's' : ''} en attente envoyé${saved > 1 ? 's' : ''} ✓',
+          ),
+          backgroundColor: AppColors.accentBright,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    ThemeService.instance.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() => setState(() {});
+
+  Future<void> _loadPseudoThenPoll() async {
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) setState(() => _pseudo = prefs.getString('pseudo') ?? '');
+    final pseudo = prefs.getString('pseudo') ?? '';
+    if (mounted) setState(() => _pseudo = pseudo);
+    await _loadPoll(pseudo);
+  }
+
+  Future<void> _loadPoll(String pseudo) async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final all = await db.collection('polls').get();
+
+      // Toujours afficher le sondage le plus récent dont la date <= aujourd'hui.
+      // Format des IDs : "DD-MM-YYYY".
+      final now = DateTime.now();
+      QueryDocumentSnapshot<Map<String, dynamic>>? latestDoc;
+      DateTime? latestDate;
+      for (final doc in all.docs) {
+        try {
+          final p = doc.id.split('-');
+          if (p.length != 3) continue;
+          final d = DateTime(
+            int.parse(p[2]),
+            int.parse(p[1]),
+            int.parse(p[0]),
+          );
+          if (d.isAfter(now)) continue;
+          if (latestDate == null || d.isAfter(latestDate)) {
+            latestDoc = doc;
+            latestDate = d;
+          }
+        } catch (_) {}
+      }
+
+      if (latestDoc == null) return;
+
+      final pollId = latestDoc.id;
+      final pollData = latestDoc.data();
+      String? myChoice;
+      if (pseudo.isNotEmpty) {
+        final voteDoc = await db
+            .collection('polls')
+            .doc(pollId)
+            .collection('votes')
+            .doc(pseudo)
+            .get();
+        if (voteDoc.exists) myChoice = voteDoc.data()?['choice'] as String?;
+      }
+      if (mounted) {
+        setState(() {
+          _pollData = pollData;
+          _pollId = pollId;
+          _pollMyChoice = myChoice;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadStats() async {
@@ -169,89 +249,101 @@ class _HomePageState extends State<HomePage> {
                 opacity: 0.25,
                 child: IconButton(
                   onPressed: _clearCache,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.refresh,
-                    color: _textSecondary,
+                    color: AppColors.textSecondary,
                     size: 16,
                   ),
                 ),
               ),
             ),
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      color: Colors.white,
-                      border: Border.all(color: _border, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _accent.withOpacity(0.4),
-                          blurRadius: 40,
-                          spreadRadius: 6,
-                          offset: const Offset(0, 0),
-                        ),
-                        BoxShadow(
-                          color: _accentBright.withOpacity(0.15),
-                          blurRadius: 70,
-                          spreadRadius: 10,
-                          offset: const Offset(0, 0),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Image.asset('assets/images/logo.png'),
-                    ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    color: Colors.white,
+                    border: Border.all(color: AppColors.border, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withOpacity(0.35),
+                        blurRadius: 24,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'TEMPO',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 32,
-                      letterSpacing: 4,
-                      color: _textPrimary,
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Image.asset('assets/images/logo.png'),
                   ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Le jeu, dans la tête.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _textSecondary,
-                      letterSpacing: 0.5,
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TEMPO',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 26,
+                        letterSpacing: 4,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    Text(
+                      'Le jeu, dans la tête.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+
+            // ── Sondage du jour ───────────────────────────────────
+            if (_pollData != null)
+              _DailySondage(
+                pseudo: _pseudo,
+                pollId: _pollId!,
+                initialPoll: _pollData!,
+                initialChoice: _pollMyChoice,
+                onVoted: (choice) => setState(() => _pollMyChoice = choice),
+              ),
+
+            const SizedBox(height: 20),
 
             // ── Anecdote ────────────────────────────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: _card,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    children: const [
-                      Icon(Icons.bolt, color: _accentBright, size: 16),
+                    children: [
+                      Icon(
+                        Icons.campaign_rounded,
+                        color: AppColors.accentBright,
+                        size: 16,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Anecdote du jour',
                         style: TextStyle(
-                          color: _accentBright,
+                          color: AppColors.accentBright,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -260,18 +352,18 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 8),
                   _randomAnecdote.isEmpty
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 14,
                           width: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: _accentBright,
+                            color: AppColors.accentBright,
                           ),
                         )
                       : Text(
                           _randomAnecdote,
-                          style: const TextStyle(
-                            color: _textPrimary,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
                             fontSize: 14,
                             height: 1.5,
                           ),
@@ -287,19 +379,19 @@ class _HomePageState extends State<HomePage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               decoration: BoxDecoration(
-                color: _card,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Tes stats',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
-                      color: _textPrimary,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -320,34 +412,41 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 24),
 
+            // ── Feed activité ─────────────────────────────────────
+            _buildFeed(),
+
+            const SizedBox(height: 24),
+
             // ── À la une ─────────────────────────────────────────
-            const Text(
+            Text(
               'À la une',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 17,
-                color: _textPrimary,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 140,
+              height: 158,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 clipBehavior: Clip.none,
                 children: [
-                  const _HighlightCard(
-                    title: '🔥 Nouveau mode Compos',
+                  _HighlightCard(
+                    title: '⚔️ Nouveau mode Compos 1v1 !',
                     subtitle:
-                        'Revis les matchs mythiques et devine les compos !',
+                        'Défie ton pote : qui de vous deux connaît le mieux les compos légendaires ?',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const Compos1v1LobbyPage(),
+                      ),
+                    ),
                   ),
                   _HighlightCard(
                     title: '⭐ $_communityGames parties jouées',
                     subtitle: 'Merci à la communauté Tempo !',
-                  ),
-                  const _HighlightCard(
-                    title: '⚽ Zidane ou Platini ?',
-                    subtitle: 'Teste ton flair dans Qui a menti ?',
                   ),
                 ],
               ),
@@ -360,6 +459,176 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildFeed() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('feed')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData || snap.data!.docs.isEmpty) return const SizedBox();
+        // Dédupliquer les parties 1v1 (2 docs par partie, un par joueur)
+        final seen1v1 = <String>{};
+        final docs = snap.data!.docs.where((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          final type = d['gameType'] as String?;
+          if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil')
+            return true;
+          final p1 = d['pseudo'] as String? ?? '';
+          final p2 = d['opponentPseudo'] as String? ?? '';
+          final matchKey = d['matchName'] as String? ?? '';
+          final pair = ([p1, p2]..sort()).join('-');
+          return seen1v1.add('$type-$pair-$matchKey');
+        }).toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Activité récente',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...docs.map((doc) {
+              final d = doc.data() as Map<String, dynamic>;
+              final pseudo = d['pseudo'] as String? ?? '?';
+              final gameType = d['gameType'] as String? ?? '';
+              final diff = d['difficulty'] as String? ?? '';
+              final score = d['score'] as int? ?? 0;
+              final maxScore = d['maxScore'] as int? ?? 0;
+              final category = d['category'] as String?;
+              final matchName = d['matchName'] as String?;
+              final opponentPseudo = d['opponentPseudo'] as String?;
+              final won = d['won'] as bool?;
+              final ts = d['createdAt'] as Timestamp?;
+              final ago = ts != null ? _timeAgo(ts.toDate()) : '';
+              final is1v1Compos = gameType == 'multiplayerCompos';
+              final is1v1Cdo = gameType == 'multiplayerCoupDoeil';
+              final is1v1 = is1v1Compos || is1v1Cdo;
+              final isCompos = gameType == 'compos';
+              final icon = is1v1Compos
+                  ? '⚽⚔️'
+                  : is1v1Cdo
+                  ? '👁️⚔️'
+                  : isCompos
+                  ? '⚽'
+                  : '👁️';
+              final detail = matchName ?? category ?? '';
+
+              final List<InlineSpan> spans;
+              if (is1v1) {
+                final opp = opponentPseudo ?? '?';
+                final winnerLine = won == null
+                    ? '$pseudo vs $opp'
+                    : won
+                    ? '🏆 $pseudo a battu $opp'
+                    : '🏆 $opp a battu $pseudo';
+                spans = [
+                  TextSpan(
+                    text: winnerLine,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ];
+              } else {
+                final scoreStr = isCompos ? '$score%' : '${score}pts';
+                spans = [
+                  TextSpan(
+                    text: pseudo,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(
+                    text: isCompos ? '  $scoreStr' : '  $scoreStr · $diff',
+                  ),
+                  if (!isCompos && detail.isNotEmpty)
+                    TextSpan(text: ' · $detail'),
+                ];
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  crossAxisAlignment: (is1v1 || isCompos)
+                      ? CrossAxisAlignment.start
+                      : CrossAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(
+                        top: (is1v1 || isCompos) ? 1 : 0,
+                      ),
+                      child: Text(icon, style: TextStyle(fontSize: 18)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          RichText(
+                            text: TextSpan(
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                              children: spans,
+                            ),
+                          ),
+                          if (detail.isNotEmpty && (is1v1 || isCompos)) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              detail,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      ago,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'maintenant';
+    if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes}min';
+    if (diff.inHours < 24) return 'il y a ${diff.inHours}h';
+    return 'il y a ${diff.inDays}j';
+  }
+
   Widget _buildGamesPage() {
     return SafeArea(
       child: SingleChildScrollView(
@@ -367,30 +636,40 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Jeux',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 24,
-                color: _textPrimary,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Choisis ton mode de jeu',
-              style: TextStyle(fontSize: 14, color: _textSecondary),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             _GameButton(
-              title: "Coup d'œil",
+              title: "Coup d'Œil",
               subtitle: 'Reconnais le joueur grâce à sa photo',
               icon: Icons.remove_red_eye_outlined,
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => QuizTestIntro()),
+                MaterialPageRoute(builder: (_) => CoupDoeilIntroPage()),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
+            _DuelButton(
+              label: "Coup d'Œil 1v1",
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CoupDoeil1v1LobbyPage(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             _GameButton(
               title: 'Qui a menti ?',
               subtitle: '1 affirmation, 10 joueurs : 5 menteurs !',
@@ -398,7 +677,7 @@ class _HomePageState extends State<HomePage> {
               locked: true,
               onTap: () {},
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _GameButton(
               title: 'Parcours Joueur',
               subtitle: 'Retrouve le joueur grâce à sa carrière',
@@ -406,14 +685,22 @@ class _HomePageState extends State<HomePage> {
               locked: true,
               onTap: () {},
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _GameButton(
               title: 'Compos',
-              subtitle: 'Devine la composition d\'un match historique',
+              subtitle: "Retrouve les compos d'un match historique",
               icon: Icons.view_module_outlined,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const LineupMatchPageIntro()),
+              ),
+            ),
+            const SizedBox(height: 6),
+            _DuelButton(
+              label: 'Compos 1v1',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
               ),
             ),
           ],
@@ -425,19 +712,19 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       body: _buildContent(),
       persistentFooterButtons: [
         Container(
           height: 40,
           width: double.infinity,
-          color: _card,
+          color: AppColors.card,
           alignment: Alignment.center,
-          child: const Text(
+          child: Text(
             'PUB',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: _textSecondary,
+              color: AppColors.textSecondary,
               fontSize: 13,
             ),
           ),
@@ -446,11 +733,11 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavItemTapped,
-        selectedItemColor: _accentBright,
-        unselectedItemColor: _textSecondary,
-        backgroundColor: _card,
+        selectedItemColor: AppColors.accentBright,
+        unselectedItemColor: AppColors.textSecondary,
+        backgroundColor: AppColors.card,
         type: BottomNavigationBarType.fixed,
-        items: const [
+        items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             label: 'Accueil',
@@ -486,8 +773,8 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
-            color: _accentBright,
+          style: TextStyle(
+            color: AppColors.accentBright,
             fontWeight: FontWeight.w800,
             fontSize: 18,
           ),
@@ -495,7 +782,7 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 3),
         Text(
           label,
-          style: const TextStyle(color: _textSecondary, fontSize: 12),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
           textAlign: TextAlign.center,
         ),
       ],
@@ -506,41 +793,53 @@ class _StatItem extends StatelessWidget {
 class _HighlightCard extends StatelessWidget {
   final String title;
   final String subtitle;
-  const _HighlightCard({required this.title, required this.subtitle});
+  final VoidCallback? onTap;
+  const _HighlightCard({
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: _textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 200,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: onTap != null
+                ? AppColors.accentBright.withOpacity(0.4)
+                : AppColors.border,
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: _textSecondary,
-              fontSize: 12.5,
-              height: 1.4,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -552,12 +851,14 @@ class _GameButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool locked;
+  final Color? accent;
   const _GameButton({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
     this.locked = false,
+    this.accent,
   });
 
   @override
@@ -571,11 +872,11 @@ class _GameButton extends StatelessWidget {
           onTap: locked ? null : onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
             decoration: BoxDecoration(
-              color: _card,
+              color: AppColors.card,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _border),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
@@ -583,12 +884,14 @@ class _GameButton extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: _accent.withOpacity(0.15),
+                    color: AppColors.accent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
-                    color: locked ? _textSecondary : _accentBright,
+                    color: locked
+                        ? AppColors.textSecondary
+                        : (accent ?? AppColors.accentBright),
                     size: 24,
                   ),
                 ),
@@ -599,18 +902,18 @@ class _GameButton extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
-                          color: _textPrimary,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         locked ? 'Bientôt disponible' : subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
-                          color: _textSecondary,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -618,8 +921,59 @@ class _GameButton extends StatelessWidget {
                 ),
                 Icon(
                   locked ? Icons.lock_outline : Icons.chevron_right,
-                  color: _textSecondary,
+                  color: AppColors.textSecondary,
                   size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DuelButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _DuelButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 20),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF58A6FF).withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text('⚔️', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: const Color(0xFF58A6FF),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textSecondary,
+                  size: 16,
                 ),
               ],
             ),
@@ -636,7 +990,7 @@ void _showDifficultyDialog(BuildContext context) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text("Choisis la difficulté"),
+      title: Text("Choisis la difficulté"),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -651,6 +1005,284 @@ void _showDifficultyDialog(BuildContext context) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sondage de la semaine
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DailySondage extends StatefulWidget {
+  final String pseudo;
+  final String pollId;
+  final Map<String, dynamic> initialPoll;
+  final String? initialChoice;
+  final void Function(String choice)? onVoted;
+  const _DailySondage({
+    required this.pseudo,
+    required this.pollId,
+    required this.initialPoll,
+    this.initialChoice,
+    this.onVoted,
+  });
+
+  @override
+  State<_DailySondage> createState() => _DailySondageState();
+}
+
+class _DailySondageState extends State<_DailySondage> {
+  late Map<String, dynamic> _poll;
+  String? _myChoice;
+  bool _voting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _poll = widget.initialPoll;
+    _myChoice = widget.initialChoice;
+  }
+
+  Future<void> _vote(String choice) async {
+    if (_voting || widget.pseudo.isEmpty || _myChoice != null) return;
+    setState(() => _voting = true);
+    try {
+      final pollRef = FirebaseFirestore.instance
+          .collection('polls')
+          .doc(widget.pollId);
+      final voteRef = pollRef.collection('votes').doc(widget.pseudo);
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        tx.set(voteRef, {
+          'choice': choice,
+          'votedAt': FieldValue.serverTimestamp(),
+        });
+        tx.update(pollRef, {
+          choice == 'A' ? 'votesA' : 'votesB': FieldValue.increment(1),
+        });
+      });
+      final updated = await pollRef.get();
+      if (mounted) {
+        setState(() {
+          _myChoice = choice;
+          _poll = updated.data() ?? _poll;
+          _voting = false;
+        });
+        widget.onVoted?.call(choice);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _voting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final question = _poll['question'] as String? ?? '';
+    final optionA = _poll['optionA'] as String? ?? 'Option A';
+    final optionB = _poll['optionB'] as String? ?? 'Option B';
+    final votesA = (_poll['votesA'] as num?)?.toInt() ?? 0;
+    final votesB = (_poll['votesB'] as num?)?.toInt() ?? 0;
+    final total = votesA + votesB;
+    final hasVoted = _myChoice != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('🗳️', style: TextStyle(fontSize: 15)),
+            const SizedBox(width: 7),
+            Text(
+              'Sondage de la semaine',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.accentBright.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.accentBright.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                question,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (!hasVoted) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SondageButton(
+                        label: optionA,
+                        loading: _voting,
+                        onTap: () => _vote('A'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SondageButton(
+                        label: optionB,
+                        loading: _voting,
+                        onTap: () => _vote('B'),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                _ResultBar(
+                  label: optionA,
+                  votes: votesA,
+                  total: total,
+                  chosen: _myChoice == 'A',
+                ),
+                const SizedBox(height: 6),
+                _ResultBar(
+                  label: optionB,
+                  votes: votesB,
+                  total: total,
+                  chosen: _myChoice == 'B',
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SondageButton extends StatelessWidget {
+  final String label;
+  final bool loading;
+  final VoidCallback onTap;
+  const _SondageButton({
+    required this.label,
+    required this.loading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: AppColors.accentBright.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.accentBright.withOpacity(0.3)),
+        ),
+        child: Center(
+          child: loading
+              ? SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.accentBright,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: AppColors.accentBright,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultBar extends StatelessWidget {
+  final String label;
+  final int votes;
+  final int total;
+  final bool chosen;
+  const _ResultBar({
+    required this.label,
+    required this.votes,
+    required this.total,
+    required this.chosen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total > 0 ? votes / total : 0.0;
+    final pctLabel = '${(pct * 100).round()}%';
+    final votesLabel = '$votes vote${votes > 1 ? 's' : ''}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (chosen)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(
+                  Icons.check_circle,
+                  size: 14,
+                  color: AppColors.accentBright,
+                ),
+              ),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: chosen
+                      ? AppColors.accentBright
+                      : AppColors.textPrimary,
+                  fontWeight: chosen ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Text(
+              '$pctLabel · $votesLabel',
+              style: TextStyle(
+                color: chosen
+                    ? AppColors.accentBright
+                    : AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 6,
+            backgroundColor: AppColors.border,
+            valueColor: AlwaysStoppedAnimation(
+              chosen
+                  ? AppColors.accentBright
+                  : AppColors.textSecondary.withOpacity(0.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 Widget _difficultyButton(BuildContext context, String difficulty) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -660,7 +1292,7 @@ Widget _difficultyButton(BuildContext context, String difficulty) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => QuizTest(difficulty: difficulty),
+            builder: (context) => CoupDoeilGamePage(difficulty: difficulty),
           ),
         );
       },

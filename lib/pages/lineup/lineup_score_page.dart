@@ -169,7 +169,7 @@ class _LineupScorePageState extends State<LineupScorePage>
       : 0;
 
   Color get _scoreColor {
-    if (_isPerfect)    return const Color(0xFFFFD740); // gold
+    if (_isPerfect)    return Color(0xFFFFD740); // gold
     if (_pct >= 80)    return AppColors.accentBright;
     if (_pct >= 50)    return AppColors.amber;
     if (widget.defeat) return AppColors.red;
@@ -201,7 +201,7 @@ class _LineupScorePageState extends State<LineupScorePage>
           children: [
             _buildHeader(),
             _buildAnimatedScoreCard(),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -238,11 +238,11 @@ class _LineupScorePageState extends State<LineupScorePage>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Icon(Icons.arrow_back, color: AppColors.textPrimary, size: 20),
+              child: Icon(Icons.arrow_back, color: AppColors.textPrimary, size: 20),
             ),
           ),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'Résultats',
             style: TextStyle(
               color: AppColors.textPrimary,
@@ -291,7 +291,7 @@ class _LineupScorePageState extends State<LineupScorePage>
             Text(
               widget.match.matchName,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -389,7 +389,7 @@ class _LineupScorePageState extends State<LineupScorePage>
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
             child: Text(
               teamName,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
@@ -409,7 +409,7 @@ class _LineupScorePageState extends State<LineupScorePage>
     final color  = found ? AppColors.accentBright : passed ? AppColors.amber : AppColors.red;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: Row(
@@ -439,7 +439,7 @@ class _LineupScorePageState extends State<LineupScorePage>
             ),
             child: Text(
               p.starter ? p.position : 'REM',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -460,7 +460,7 @@ class _LineupScorePageState extends State<LineupScorePage>
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -469,7 +469,7 @@ class _LineupScorePageState extends State<LineupScorePage>
                 MaterialPageRoute(builder: (_) => const LineupMatchPageIntro()),
                 (r) => r.isFirst,
               ),
-              child: const Text('Accueil', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text('Accueil', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
           ),
           const SizedBox(width: 12),
@@ -489,7 +489,7 @@ class _LineupScorePageState extends State<LineupScorePage>
                   builder: (_) => LineupMatchPage(difficulty: widget.difficulty),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Rejouer ↺',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
@@ -525,7 +525,7 @@ class _StatChip extends StatelessWidget {
         Icon(icon, color: color, size: 18),
         const SizedBox(height: 4),
         Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 15)),
-        Text(sublabel, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+        Text(sublabel, style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
       ],
     );
   }

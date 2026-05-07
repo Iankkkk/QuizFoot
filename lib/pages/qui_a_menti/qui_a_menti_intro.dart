@@ -67,10 +67,10 @@ class QuiAMentiIntro extends StatelessWidget {
       backgroundColor: AppColors.card,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+        icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      title: const Text(
+      title: Text(
         'Qui a menti ?',
         style: TextStyle(
           color: AppColors.textPrimary,
@@ -104,7 +104,7 @@ class QuiAMentiIntro extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Règles du jeu',
             style: TextStyle(
               fontSize: 16,
@@ -125,7 +125,7 @@ class QuiAMentiIntro extends StatelessWidget {
                   Expanded(
                     child: Text(
                       _rules[i],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
                         height: 1.4,
@@ -154,7 +154,7 @@ class QuiAMentiIntro extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (_) => const QuiAMentiGame()),
       ),
-      child: const Text(
+      child: Text(
         'Jouer !',
         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
       ),

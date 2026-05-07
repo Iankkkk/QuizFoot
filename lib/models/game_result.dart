@@ -1,4 +1,4 @@
-enum GameType { coupDoeil, compos }
+enum GameType { coupDoeil, compos, multiplayerCompos, multiplayerCoupDoeil }
 
 class GameResult {
   final String id;
@@ -99,6 +99,82 @@ class GameResult {
         'wrongAnswers':  wrongAnswers,
         'foundPlayers':  foundPlayers,
         'defeat':        defeat,
+      },
+    );
+  }
+
+  factory GameResult.multiplayerCompos({
+    required String difficulty,
+    required String matchId,
+    required String matchName,
+    required String opponentPseudo,
+    required bool won,
+    required bool abandoned,
+    required int foundByMe,
+    required int foundByOpponent,
+    required int totalPlayers,
+    required int myErrors,
+    required Duration timeTaken,
+  }) {
+    final score = totalPlayers > 0 ? (foundByMe / totalPlayers * 100).round() : 0;
+    return GameResult(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      gameType: GameType.multiplayerCompos,
+      difficulty: difficulty,
+      rawScore: score,
+      maxRawScore: 100,
+      normalizedScore: score.toDouble(),
+      timeTaken: timeTaken,
+      playedAt: DateTime.now(),
+      details: {
+        'matchId': matchId,
+        'matchName': matchName,
+        'opponentPseudo': opponentPseudo,
+        'won': won,
+        'abandoned': abandoned,
+        'foundByMe': foundByMe,
+        'foundByOpponent': foundByOpponent,
+        'totalPlayers': totalPlayers,
+        'myErrors': myErrors,
+      },
+    );
+  }
+
+  factory GameResult.multiplayerCoupDoeil({
+    required String difficulty,
+    String? category,
+    required String opponentPseudo,
+    required int myScore,
+    required int opponentScore,
+    required int myCorrect,
+    required int opponentCorrect,
+    required int total,
+    required bool won,
+    required bool draw,
+    required bool abandoned,
+    required bool iAbandoned,
+  }) {
+    return GameResult(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      gameType: GameType.multiplayerCoupDoeil,
+      difficulty: difficulty,
+      rawScore: myScore,
+      maxRawScore: total * 5,
+      normalizedScore: myScore.toDouble(),
+      timeTaken: Duration.zero,
+      playedAt: DateTime.now(),
+      details: {
+        'opponentPseudo': opponentPseudo,
+        'myScore': myScore,
+        'opponentScore': opponentScore,
+        'myCorrect': myCorrect,
+        'opponentCorrect': opponentCorrect,
+        'total': total,
+        'won': won,
+        'draw': draw,
+        'abandoned': abandoned,
+        'iAbandoned': iAbandoned,
+        if (category != null) 'category': category,
       },
     );
   }

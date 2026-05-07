@@ -18,7 +18,7 @@ class QuiAMentiConfetti extends StatelessWidget {
 
   const QuiAMentiConfetti({super.key, required this.controller});
 
-  static const _colors = [
+  static final _colors = [
     AppColors.accentBright,
     AppColors.amber,
     AppColors.orange,

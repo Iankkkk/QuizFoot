@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
+import '../services/firestore_service.dart';
+import '../services/theme_service.dart';
 import 'home_page.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -14,8 +16,25 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final _ctrl = TextEditingController();
   final _focus = FocusNode();
   String? _error;
+  bool _loading = false;
 
   static final _validChars = RegExp(r'^[a-zA-Z0-9_\-àâäéèêëîïôùûüç]+$');
+
+  @override
+  void initState() {
+    super.initState();
+    ThemeService.instance.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    ThemeService.instance.removeListener(_onThemeChanged);
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _onThemeChanged() => setState(() {});
 
   String? _validate(String value) {
     final v = value.trim();
@@ -32,8 +51,81 @@ class _OnboardingPageState extends State<OnboardingPage> {
       setState(() => _error = err);
       return;
     }
+    setState(() => _loading = true);
+    final pseudo = _ctrl.text.trim();
+
+    bool? available;
+    try {
+      available = await FirestoreService.instance
+          .isPseudoAvailable(pseudo)
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
+
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (available == null) {
+      setState(() => _error = 'Pas de connexion internet. Réessaie.');
+      return;
+    }
+
+    if (!available) {
+      // Pseudo existe → proposer de se connecter sur ce compte
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Pseudo existant',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            'Le pseudo "$pseudo" est déjà utilisé.\nTu veux te connecter sur ce compte ?',
+            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Changer', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Se connecter', style: TextStyle(color: AppColors.accentBright, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      // Connexion sur compte existant — pas de réservation
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('pseudo', pseudo);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+      return;
+    }
+
+    // Nouveau pseudo → réserver + sauvegarder
+    setState(() => _loading = true);
+    bool reserved = false;
+    try {
+      await FirestoreService.instance
+          .reservePseudo(pseudo)
+          .timeout(const Duration(seconds: 6));
+      reserved = true;
+    } catch (_) {}
+    if (!mounted) return;
+    if (!reserved) {
+      setState(() {
+        _loading = false;
+        _error = 'Échec de la création. Vérifie ta connexion et réessaie.';
+      });
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pseudo', _ctrl.text.trim());
+    await prefs.setString('pseudo', pseudo);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const HomePage()),
@@ -41,14 +133,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   @override
-  void dispose() {
-    _ctrl.dispose();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final isDark = ThemeService.instance.isDark;
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -57,7 +143,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           child: Column(
             children: [
               const Spacer(flex: 3),
-              // Logo + titre
               Container(
                 width: 72,
                 height: 72,
@@ -72,7 +157,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'TEMPO',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -82,7 +167,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Le jeu, dans la tête.',
                 style: TextStyle(
                   color: AppColors.textSecondary,
@@ -91,8 +176,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
               ),
               const Spacer(flex: 2),
-              // Pseudo
-              const Align(
+
+              // ── Choix du thème ─────────────────────────────────────
+              _ThemePicker(isDark: isDark, onChanged: (v) => ThemeService.instance.setDark(v)),
+              const SizedBox(height: 28),
+
+              // ── Pseudo ────────────────────────────────────────────
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Choisis ton pseudo',
@@ -104,14 +194,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
               ),
               const SizedBox(height: 4),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Il sera visible dans le classement.',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
               ),
               const SizedBox(height: 16),
@@ -125,7 +212,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 onChanged: (_) {
                   if (_error != null) setState(() => _error = null);
                 },
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
@@ -133,37 +220,30 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: 'ex : Zizou10',
-                  hintStyle: const TextStyle(color: AppColors.textSecondary),
+                  hintStyle: TextStyle(color: AppColors.textSecondary),
                   filled: true,
                   fillColor: AppColors.card,
                   errorText: _error,
-                  errorStyle: const TextStyle(
-                    color: AppColors.red,
-                    fontSize: 12,
-                  ),
+                  errorStyle: TextStyle(color: AppColors.red, fontSize: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: AppColors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: AppColors.border),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppColors.accentBright,
-                      width: 1.5,
-                    ),
+                    borderSide: BorderSide(color: AppColors.accentBright, width: 1.5),
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.red),
+                    borderSide: BorderSide(color: AppColors.red),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: AppColors.red, width: 1.5),
+                    borderSide: BorderSide(color: AppColors.red, width: 1.5),
                   ),
                 ),
               ),
@@ -172,26 +252,95 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _confirm,
+                  onPressed: _loading ? null : _confirm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accentBright,
-                    foregroundColor: Colors.black,
+                    foregroundColor: isDark ? Colors.black : Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Commencer',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                  child: _loading
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: isDark ? Colors.black : Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Commencer',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
                 ),
               ),
               const Spacer(flex: 3),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Theme picker ───────────────────────────────────────────────────────────────
+
+class _ThemePicker extends StatelessWidget {
+  final bool isDark;
+  final ValueChanged<bool> onChanged;
+  const _ThemePicker({required this.isDark, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          _Chip(label: '🌙  Sombre', selected: isDark,  onTap: () => onChanged(true)),
+          _Chip(label: '☀️  Clair',  selected: !isDark, onTap: () => onChanged(false)),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _Chip({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accentBright.withOpacity(0.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? AppColors.accentBright : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: selected ? AppColors.accentBright : AppColors.textSecondary,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 14,
+            ),
           ),
         ),
       ),

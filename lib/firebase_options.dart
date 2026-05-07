@@ -17,29 +17,17 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -59,4 +47,43 @@ class DefaultFirebaseOptions {
     projectId: 'tempo-ab8cd',
     storageBucket: 'tempo-ab8cd.firebasestorage.app',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyDTPYNtXTPNNI0GuOqtmjfFV6wO2GjJ8_I',
+    appId: '1:577482120939:web:8d2347c8f78e7b28a928ae',
+    messagingSenderId: '577482120939',
+    projectId: 'tempo-ab8cd',
+    authDomain: 'tempo-ab8cd.firebaseapp.com',
+    storageBucket: 'tempo-ab8cd.firebasestorage.app',
+    measurementId: 'G-GNT1XTWPV9',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyALNIBvzQKZhws1OO67QQLQP3YwYRmTeDk',
+    appId: '1:577482120939:ios:e67b6a79f2b5013ea928ae',
+    messagingSenderId: '577482120939',
+    projectId: 'tempo-ab8cd',
+    storageBucket: 'tempo-ab8cd.firebasestorage.app',
+    iosBundleId: 'com.example.quizFoot',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyALNIBvzQKZhws1OO67QQLQP3YwYRmTeDk',
+    appId: '1:577482120939:ios:598df2c596288e79a928ae',
+    messagingSenderId: '577482120939',
+    projectId: 'tempo-ab8cd',
+    storageBucket: 'tempo-ab8cd.firebasestorage.app',
+    iosBundleId: 'com.tempofoot.app',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyDTPYNtXTPNNI0GuOqtmjfFV6wO2GjJ8_I',
+    appId: '1:577482120939:web:62c8052469cdb126a928ae',
+    messagingSenderId: '577482120939',
+    projectId: 'tempo-ab8cd',
+    authDomain: 'tempo-ab8cd.firebaseapp.com',
+    storageBucket: 'tempo-ab8cd.firebasestorage.app',
+    measurementId: 'G-2NW6XNQE45',
+  );
+
 }

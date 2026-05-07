@@ -172,14 +172,14 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
 
   /// Color of the filled stars.
   Color get _starColor {
-    if (widget.stars == 3) return const Color(0xFFFFD740); // gold
+    if (widget.stars == 3) return Color(0xFFFFD740); // gold
     if (widget.stars == 2) return AppColors.amber;
     return AppColors.accentBright; // green for 1 star
   }
 
   Color get _validationColor {
     if (widget.validationsUsed == 1) return AppColors.accentBright;
-    if (widget.validationsUsed == 2) return const Color(0xFF6BCB77);
+    if (widget.validationsUsed == 2) return Color(0xFF6BCB77);
     if (widget.stars > 0) return AppColors.orange;
     return AppColors.red;
   }
@@ -223,7 +223,7 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
               children: [
                 _buildHeader(),
                 _buildAnimatedScoreCard(),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
                   child: Align(
                     alignment: Alignment.centerLeft,
@@ -268,7 +268,7 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back,
                 color: AppColors.textPrimary,
                 size: 20,
@@ -276,7 +276,7 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
             ),
           ),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'Résultats',
             style: TextStyle(
               color: AppColors.textPrimary,
@@ -445,7 +445,7 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
                 const SizedBox(width: 8),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
@@ -467,7 +467,7 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: Row(
@@ -493,7 +493,7 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
           if (!correct)
             Text(
               'placé en $placed',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -522,14 +522,14 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: () => Navigator.pop(context),
-              child: const Text(
+              child: Text(
                 'Accueil',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
@@ -552,7 +552,7 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
                 context,
                 MaterialPageRoute(builder: (_) => const QuiAMentiGame()),
               ),
-              child: const Text(
+              child: Text(
                 'Rejouer ↺',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
@@ -597,7 +597,7 @@ class _StatChip extends StatelessWidget {
         ),
         Text(
           sublabel,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
         ),
       ],
     );
