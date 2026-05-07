@@ -130,7 +130,13 @@ class _CoupDoeil1v1WaitingRoomPageState extends State<CoupDoeil1v1WaitingRoomPag
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop || _navigating) return;
+        await _cancel();
+      },
+      child: Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.card,
@@ -247,6 +253,7 @@ class _CoupDoeil1v1WaitingRoomPageState extends State<CoupDoeil1v1WaitingRoomPag
             ),
           ],
         ),
+      ),
       ),
     );
   }

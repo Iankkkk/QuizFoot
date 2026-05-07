@@ -180,17 +180,17 @@ class _CoupDoeil1v1GamePageState extends State<CoupDoeil1v1GamePage> {
       ));
       setState(() { _showPhotoOverlay = true; _photoScale = 1.05; _photoOverlayColor = Colors.red; });
       _controller.clear();
+      _questionTimer?.cancel();
       _showFeedback(
         '❌ Nan !! T\'es trompé ! C\'était : ${widget.questions[_currentQuestion].name}',
         Colors.red[700]!,
         meme: _memeWrong,
       );
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 1200), () {
         if (!mounted) return;
         setState(() { _showPhotoOverlay = false; _photoScale = 1.0; });
+        _nextQuestion();
       });
-      _questionTimer?.cancel();
-      _nextQuestion();
     }
   }
 

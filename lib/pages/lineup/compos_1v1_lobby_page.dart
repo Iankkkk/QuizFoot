@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import '../../data/lineup_game_data.dart';
-import '../../models/match_model.dart';
 import '../../services/game_history_service.dart';
 import '../../services/compos_1v1_service.dart';
 import 'compos_1v1_waiting_page.dart';

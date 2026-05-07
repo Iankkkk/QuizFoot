@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
-import '../../data/lineup_game_data.dart';
 import '../../models/match_model.dart';
 import '../../models/compos_1v1_game.dart';
 import '../../services/compos_1v1_service.dart';
@@ -109,7 +108,13 @@ class _Compos1v1WaitingPageState extends State<Compos1v1WaitingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop || _navigating) return;
+        await _cancelRoom();
+      },
+      child: Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.card,
@@ -234,6 +239,7 @@ class _Compos1v1WaitingPageState extends State<Compos1v1WaitingPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -12,6 +12,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../constants/app_colors.dart';
 import '../services/game_history_service.dart';
 import '../services/theme_service.dart';
+import '../services/firestore_service.dart';
 import '../models/game_result.dart';
 import 'profil_page.dart';
 import 'classement_page.dart';
@@ -49,7 +50,25 @@ class _HomePageState extends State<HomePage> {
     _loadPseudoThenPoll();
     _loadStats();
     _loadCommunityStats();
+    _retryPendingScores();
     ThemeService.instance.addListener(_onThemeChanged);
+  }
+
+  Future<void> _retryPendingScores() async {
+    final saved = await FirestoreService.instance.retryPendingScores();
+    if (saved > 0 && mounted) {
+      GameHistoryService.instance.invalidateCache();
+      _loadStats();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$saved score${saved > 1 ? 's' : ''} en attente envoyé${saved > 1 ? 's' : ''} ✓',
+          ),
+          backgroundColor: AppColors.accentBright,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -70,39 +89,34 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadPoll(String pseudo) async {
     try {
       final db = FirebaseFirestore.instance;
-      final n = DateTime.now();
-      final today =
-          '${n.day.toString().padLeft(2, '0')}-${n.month.toString().padLeft(2, '0')}-${n.year}';
+      final all = await db.collection('polls').get();
 
-      var pollDoc = await db.collection('polls').doc(today).get();
-
-      if (!pollDoc.exists) {
-        final all = await db.collection('polls').get();
-        String? latestId;
-        DateTime? latestDate;
-        for (final doc in all.docs) {
-          try {
-            final p = doc.id.split('-');
-            if (p.length != 3) continue;
-            final d = DateTime(
-              int.parse(p[2]),
-              int.parse(p[1]),
-              int.parse(p[0]),
-            );
-            if (d.isAfter(DateTime.now())) continue;
-            if (latestDate == null || d.isAfter(latestDate)) {
-              latestId = doc.id;
-              latestDate = d;
-            }
-          } catch (_) {}
-        }
-        if (latestId != null)
-          pollDoc = await db.collection('polls').doc(latestId).get();
+      // Toujours afficher le sondage le plus récent dont la date <= aujourd'hui.
+      // Format des IDs : "DD-MM-YYYY".
+      final now = DateTime.now();
+      QueryDocumentSnapshot<Map<String, dynamic>>? latestDoc;
+      DateTime? latestDate;
+      for (final doc in all.docs) {
+        try {
+          final p = doc.id.split('-');
+          if (p.length != 3) continue;
+          final d = DateTime(
+            int.parse(p[2]),
+            int.parse(p[1]),
+            int.parse(p[0]),
+          );
+          if (d.isAfter(now)) continue;
+          if (latestDate == null || d.isAfter(latestDate)) {
+            latestDoc = doc;
+            latestDate = d;
+          }
+        } catch (_) {}
       }
 
-      if (!pollDoc.exists) return;
+      if (latestDoc == null) return;
 
-      final pollId = pollDoc.id;
+      final pollId = latestDoc.id;
+      final pollData = latestDoc.data();
       String? myChoice;
       if (pseudo.isNotEmpty) {
         final voteDoc = await db
@@ -113,12 +127,13 @@ class _HomePageState extends State<HomePage> {
             .get();
         if (voteDoc.exists) myChoice = voteDoc.data()?['choice'] as String?;
       }
-      if (mounted)
+      if (mounted) {
         setState(() {
-          _pollData = pollDoc.data() as Map<String, dynamic>?;
+          _pollData = pollData;
           _pollId = pollId;
           _pollMyChoice = myChoice;
         });
+      }
     } catch (_) {}
   }
 
@@ -1140,14 +1155,6 @@ class _DailySondageState extends State<_DailySondage> {
                   total: total,
                   chosen: _myChoice == 'B',
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  '$total vote${total > 1 ? 's' : ''}',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
               ],
             ],
           ),
@@ -1218,6 +1225,7 @@ class _ResultBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final pct = total > 0 ? votes / total : 0.0;
     final pctLabel = '${(pct * 100).round()}%';
+    final votesLabel = '$votes vote${votes > 1 ? 's' : ''}';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1245,7 +1253,7 @@ class _ResultBar extends StatelessWidget {
               ),
             ),
             Text(
-              pctLabel,
+              '$pctLabel · $votesLabel',
               style: TextStyle(
                 color: chosen
                     ? AppColors.accentBright

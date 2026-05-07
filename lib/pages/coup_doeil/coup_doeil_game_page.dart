@@ -399,19 +399,18 @@ class _CoupDoeilGamePageState extends State<CoupDoeilGamePage> {
         _photoOverlayColor = Colors.red;
       });
       _controller.clear();
+      _questionTimer?.cancel();
       _showFeedback(
         '❌ Nan !! T\'es trompé ! La bonne réponse était : ${_selectedPlayers[_currentQuestion].name}',
         Colors.red[700]!,
         meme: _memeWrong,
       );
 
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 1200), () {
         if (!mounted) return;
         setState(() { _showPhotoOverlay = false; _photoScale = 1.0; });
+        _nextQuestion();
       });
-
-      _questionTimer?.cancel();
-      _nextQuestion();
     }
   }
 

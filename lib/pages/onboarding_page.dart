@@ -54,7 +54,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     setState(() => _loading = true);
     final pseudo = _ctrl.text.trim();
 
-    bool available = true;
+    bool? available;
     try {
       available = await FirestoreService.instance
           .isPseudoAvailable(pseudo)
@@ -63,6 +63,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
     if (!mounted) return;
     setState(() => _loading = false);
+
+    if (available == null) {
+      setState(() => _error = 'Pas de connexion internet. Réessaie.');
+      return;
+    }
 
     if (!available) {
       // Pseudo existe → proposer de se connecter sur ce compte
@@ -104,11 +109,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
     // Nouveau pseudo → réserver + sauvegarder
     setState(() => _loading = true);
+    bool reserved = false;
     try {
       await FirestoreService.instance
           .reservePseudo(pseudo)
           .timeout(const Duration(seconds: 6));
+      reserved = true;
     } catch (_) {}
+    if (!mounted) return;
+    if (!reserved) {
+      setState(() {
+        _loading = false;
+        _error = 'Échec de la création. Vérifie ta connexion et réessaie.';
+      });
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('pseudo', pseudo);
     if (!mounted) return;
