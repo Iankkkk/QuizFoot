@@ -100,11 +100,7 @@ class _HomePageState extends State<HomePage> {
         try {
           final p = doc.id.split('-');
           if (p.length != 3) continue;
-          final d = DateTime(
-            int.parse(p[2]),
-            int.parse(p[1]),
-            int.parse(p[0]),
-          );
+          final d = DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
           if (d.isAfter(now)) continue;
           if (latestDate == null || d.isAfter(latestDate)) {
             latestDoc = doc;
@@ -366,6 +362,7 @@ class _HomePageState extends State<HomePage> {
                             color: AppColors.textPrimary,
                             fontSize: 14,
                             height: 1.5,
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                 ],
@@ -464,7 +461,7 @@ class _HomePageState extends State<HomePage> {
       stream: FirebaseFirestore.instance
           .collection('feed')
           .orderBy('createdAt', descending: true)
-          .limit(5)
+          .limit(20) // overshoot then dedup 1v1 pairs to keep 5 entries
           .snapshots(),
       builder: (context, snap) {
         if (!snap.hasData || snap.data!.docs.isEmpty) return const SizedBox();
@@ -480,7 +477,7 @@ class _HomePageState extends State<HomePage> {
           final matchKey = d['matchName'] as String? ?? '';
           final pair = ([p1, p2]..sort()).join('-');
           return seen1v1.add('$type-$pair-$matchKey');
-        }).toList();
+        }).take(5).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

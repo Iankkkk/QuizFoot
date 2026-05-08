@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
@@ -102,11 +103,17 @@ class _CoupDoeil1v1LobbyPageState extends State<CoupDoeil1v1LobbyPage>
       if (selected.length < 10)
         throw Exception('Pas assez de joueurs pour cette sélection.');
 
+      // Validation des photos côté host : remplace les URL cassées par d'autres
+      // joueurs du pool jusqu'à avoir 10 photos qui chargent.
+      final validated = await _ensureWorkingPhotos(selected, filtered);
+      if (validated.length < 10)
+        throw Exception('Pas assez de photos disponibles. Réessaie.');
+
       final code = await CoupDoeil1v1Service.instance.createRoom(
         pseudo: pseudo,
         difficulty: difficulty,
         category: category,
-        questionNames: selected.map((p) => p.name).toList(),
+        questionNames: validated.map((p) => p.name).toList(),
       );
 
       if (!mounted) return;
@@ -188,6 +195,46 @@ class _CoupDoeil1v1LobbyPageState extends State<CoupDoeil1v1LobbyPage>
         (a, b) => (a.level - level).abs().compareTo((b.level - level).abs()),
       );
     return fallback.isEmpty ? null : fallback.first;
+  }
+
+  // ── Photo validation ───────────────────────────────────────────────────────
+
+  Future<bool> _imageLoads(String url) async {
+    try {
+      final completer = Completer<bool>();
+      final stream = NetworkImage(url).resolve(ImageConfiguration.empty);
+      late ImageStreamListener listener;
+      listener = ImageStreamListener(
+        (_, __) { if (!completer.isCompleted) completer.complete(true); },
+        onError: (_, __) { if (!completer.isCompleted) completer.complete(false); },
+      );
+      stream.addListener(listener);
+      final ok = await completer.future.timeout(const Duration(seconds: 6), onTimeout: () => false);
+      stream.removeListener(listener);
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<Player>> _ensureWorkingPhotos(List<Player> selected, List<Player> pool) async {
+    // Test les 10 sélectionnés en parallèle
+    final results = await Future.wait(
+      selected.map((p) async => (await _imageLoads(p.imageUrl)) ? p : null),
+    );
+    final valid = results.whereType<Player>().toList();
+
+    if (valid.length >= 10) return valid;
+
+    // Pioche dans le pool restant pour combler
+    final remaining = List<Player>.from(pool)
+      ..removeWhere((p) => selected.contains(p))
+      ..shuffle();
+    for (final p in remaining) {
+      if (valid.length >= 10) break;
+      if (await _imageLoads(p.imageUrl)) valid.add(p);
+    }
+    return valid;
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────

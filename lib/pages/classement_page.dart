@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../constants/app_colors.dart';
 import '../data/players_data.dart';
+import 'duels_page.dart';
 
 const _difficulties = ['Amateur', 'Semi-Pro', 'Pro', 'International', 'Légende'];
 
@@ -31,13 +32,49 @@ class _ClassementPageState extends State<ClassementPage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            child: Text(
-              'Classement',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
+            child: Row(
+              children: [
+                Text(
+                  'Classement',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DuelsPage(myPseudo: widget.pseudo),
+                    ),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('⚔️', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Duels',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -338,20 +375,39 @@ class _LeaderboardList extends StatelessWidget {
         final ranked = bests.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: ranked.length,
-          itemBuilder: (context, i) {
-            final entry = ranked[i];
-            return _LeaderboardRow(
-              rank: i + 1,
-              pseudo: entry.key,
-              score: entry.value,
-              games: games[entry.key] ?? 0,
-              isMe: entry.key == myPseudo,
-              gameType: gameType,
-            );
-          },
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                'Score moyen par partie',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: ranked.length,
+                itemBuilder: (context, i) {
+                  final entry = ranked[i];
+                  return _LeaderboardRow(
+                    rank: i + 1,
+                    pseudo: entry.key,
+                    score: entry.value,
+                    games: games[entry.key] ?? 0,
+                    isMe: entry.key == myPseudo,
+                    gameType: gameType,
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -505,20 +561,39 @@ class _ComposOverallTab extends StatelessWidget {
             .toList()
           ..sort((a, b) => b.value.compareTo(a.value));
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-          itemCount: ranked.length,
-          itemBuilder: (_, i) {
-            final entry = ranked[i];
-            return _LeaderboardRow(
-              rank: i + 1,
-              pseudo: entry.key,
-              score: entry.value,
-              games: counts[entry.key] ?? 0,
-              isMe: entry.key == myPseudo,
-              gameType: 'compos',
-            );
-          },
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                'Score moyen par partie',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                itemCount: ranked.length,
+                itemBuilder: (_, i) {
+                  final entry = ranked[i];
+                  return _LeaderboardRow(
+                    rank: i + 1,
+                    pseudo: entry.key,
+                    score: entry.value,
+                    games: counts[entry.key] ?? 0,
+                    isMe: entry.key == myPseudo,
+                    gameType: 'compos',
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -563,8 +638,9 @@ class _MultiplayerDuelsTab extends StatelessWidget {
           );
         }
 
-        // Agréger victoires + joueurs trouvés par pseudo
+        // Agréger victoires + défaites + joueurs trouvés par pseudo
         final Map<String, int> winsByPseudo = {};
+        final Map<String, int> lossesByPseudo = {};
         final Map<String, int> foundByPseudo = {};
         for (final doc in docs) {
           final data = doc.data() as Map<String, dynamic>;
@@ -573,12 +649,19 @@ class _MultiplayerDuelsTab extends StatelessWidget {
           final won = details['won'] as bool? ?? false;
           final found = (details['foundByMe'] as num?)?.toInt() ?? 0;
           winsByPseudo[pseudo] = (winsByPseudo[pseudo] ?? 0) + (won ? 1 : 0);
+          lossesByPseudo[pseudo] = (lossesByPseudo[pseudo] ?? 0) + (won ? 0 : 1);
           foundByPseudo[pseudo] = (foundByPseudo[pseudo] ?? 0) + found;
         }
         final ranked = winsByPseudo.entries.toList()
           ..sort((a, b) {
+            // 1. Plus de victoires d'abord
             final cmp = b.value.compareTo(a.value);
             if (cmp != 0) return cmp;
+            // 2. Moins de défaites d'abord
+            final lossDiff = (lossesByPseudo[a.key] ?? 0)
+                .compareTo(lossesByPseudo[b.key] ?? 0);
+            if (lossDiff != 0) return lossDiff;
+            // 3. Tiebreak final : plus de joueurs trouvés
             return (foundByPseudo[b.key] ?? 0).compareTo(foundByPseudo[a.key] ?? 0);
           });
 
@@ -589,6 +672,7 @@ class _MultiplayerDuelsTab extends StatelessWidget {
             final entry = ranked[i];
             final pseudo = entry.key;
             final wins = entry.value;
+            final losses = lossesByPseudo[pseudo] ?? 0;
             final found = foundByPseudo[pseudo] ?? 0;
             final isMe = pseudo == myPseudo;
             final rank = i + 1;
@@ -642,15 +726,33 @@ class _MultiplayerDuelsTab extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        '$wins victoire${wins > 1 ? 's' : ''}',
-                        style: TextStyle(
-                          color: wins > 0 ? AppColors.accentBright : AppColors.textSecondary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${wins}V',
+                              style: TextStyle(
+                                color: wins > 0 ? AppColors.accentBright : AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '  ·  ',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                            TextSpan(
+                              text: '${losses}D',
+                              style: TextStyle(
+                                color: losses > 0 ? AppColors.red : AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      if (wins == 0)
+                      if (wins == 0 && losses == 0)
                         Text(
                           '$found trouvé${found > 1 ? 's' : ''}',
                           style: TextStyle(
@@ -793,23 +895,31 @@ class _CdoDuelsList extends StatelessWidget {
           );
         }
 
-        // Wins per pseudo (tiebreak: total score across games)
+        // Wins / losses per pseudo (tiebreak: total score across games)
         final Map<String, int> wins = {};
+        final Map<String, int> losses = {};
         final Map<String, int> totalScore = {};
         for (final doc in docs) {
           final data = doc.data() as Map<String, dynamic>;
           final pseudo = data['pseudo'] as String? ?? '?';
           final details = data['details'] as Map<String, dynamic>? ?? {};
           final won = details['won'] as bool? ?? false;
+          final draw = details['draw'] as bool? ?? false;
           final score = (details['myScore'] as num?)?.toInt() ?? 0;
           wins[pseudo] = (wins[pseudo] ?? 0) + (won ? 1 : 0);
+          losses[pseudo] = (losses[pseudo] ?? 0) + (!won && !draw ? 1 : 0);
           totalScore[pseudo] = (totalScore[pseudo] ?? 0) + score;
         }
 
         final ranked = wins.entries.toList()
           ..sort((a, b) {
+            // 1. Plus de victoires d'abord
             final cmp = b.value.compareTo(a.value);
             if (cmp != 0) return cmp;
+            // 2. Moins de défaites d'abord
+            final lossDiff = (losses[a.key] ?? 0).compareTo(losses[b.key] ?? 0);
+            if (lossDiff != 0) return lossDiff;
+            // 3. Tiebreak final : score total cumulé
             return (totalScore[b.key] ?? 0).compareTo(totalScore[a.key] ?? 0);
           });
 
@@ -820,6 +930,7 @@ class _CdoDuelsList extends StatelessWidget {
             final entry = ranked[i];
             final pseudo = entry.key;
             final w = entry.value;
+            final l = losses[pseudo] ?? 0;
             final isMe = pseudo == myPseudo;
             final rank = i + 1;
             const gold   = Color(0xFFFFD700);
@@ -854,12 +965,30 @@ class _CdoDuelsList extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text(
-                    '$w victoire${w > 1 ? 's' : ''}',
-                    style: TextStyle(
-                      color: w > 0 ? AppColors.accentBright : AppColors.textSecondary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '${w}V',
+                          style: TextStyle(
+                            color: w > 0 ? AppColors.accentBright : AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '  ·  ',
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                        TextSpan(
+                          text: '${l}D',
+                          style: TextStyle(
+                            color: l > 0 ? AppColors.red : AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
