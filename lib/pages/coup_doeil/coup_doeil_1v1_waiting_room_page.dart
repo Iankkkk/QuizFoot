@@ -6,7 +6,7 @@ import '../../data/players_data.dart';
 import '../../models/coup_doeil_1v1_game.dart';
 import '../../models/player.dart';
 import '../../services/coup_doeil_1v1_service.dart';
-import 'coup_doeil_1v1_game_page.dart';
+import 'coup_doeil_1v1_preview_page.dart';
 
 class CoupDoeil1v1WaitingRoomPage extends StatefulWidget {
   final String roomCode;
@@ -69,10 +69,30 @@ class _CoupDoeil1v1WaitingRoomPageState extends State<CoupDoeil1v1WaitingRoomPag
       _navigating = true;
       final questions = await _resolveQuestions(game.questionNames);
       if (!mounted) return;
+
+      if (questions == null || questions.length < game.questionNames.length) {
+        // Échec du chargement d'au moins une photo → abandon de la partie
+        _navigating = false;
+        await CoupDoeil1v1Service.instance.abandonRoom(
+          code: widget.roomCode,
+          pseudo: widget.pseudo,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Échec du chargement des photos. Réessaie.'),
+            backgroundColor: AppColors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        Navigator.pop(context);
+        return;
+      }
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => CoupDoeil1v1GamePage(
+          builder: (_) => CoupDoeil1v1PreviewPage(
             roomCode: widget.roomCode,
             pseudo: widget.pseudo,
             opponentPseudo: _opponentPseudo ?? opponent,
@@ -85,29 +105,39 @@ class _CoupDoeil1v1WaitingRoomPageState extends State<CoupDoeil1v1WaitingRoomPag
     }
   }
 
-  Future<List<Player>> _resolveQuestions(List<String> names) async {
+  /// Retourne null si une photo est définitivement inaccessible (toutes les
+  /// retries ont échoué), sinon la liste des joueurs avec leurs photos en cache.
+  Future<List<Player>?> _resolveQuestions(List<String> names) async {
     try {
       final all = await loadPlayers();
       final byName = {for (final p in all) p.name: p};
       final players = names.map((n) => byName[n]).whereType<Player>().toList();
-      if (mounted) {
-        await Future.wait(players.map((p) => _precacheWithRetry(p.imageUrl)));
-      }
+      if (!mounted) return players;
+      // 5 retries avec backoff exponentiel : 1s, 2s, 4s, 8s, 16s = ~31s max par
+      // photo, en parallèle donc le total reste ~31s.
+      final results = await Future.wait(
+        players.map((p) => _precacheWithRetry(p.imageUrl)),
+      );
+      if (results.contains(false)) return null;
       return players;
     } catch (_) {
-      return [];
+      return null;
     }
   }
 
-  Future<void> _precacheWithRetry(String url, {int retries = 2}) async {
+  Future<bool> _precacheWithRetry(String url, {int retries = 4}) async {
     for (int i = 0; i <= retries; i++) {
       try {
+        if (!mounted) return false;
         await precacheImage(NetworkImage(url), context);
-        return;
+        return true;
       } catch (_) {
-        if (i < retries) await Future.delayed(const Duration(seconds: 1));
+        if (i < retries) {
+          await Future.delayed(Duration(seconds: 1 << i)); // 1, 2, 4, 8 s
+        }
       }
     }
+    return false;
   }
 
   Future<void> _cancel() async {

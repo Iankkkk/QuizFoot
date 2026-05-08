@@ -169,10 +169,13 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       MultiplayerService.instance.startFirstTurn(widget.roomCode);
     }
 
-    // Suffocation animation
+    // Suffocation animation + haptic (triple pulse) when it hits me
     final isSuffocating = _isMyTurn && game.suffocatedBy != null;
     if (isSuffocating && !_suffocateCtrl.isAnimating) {
       _suffocateCtrl.repeat(reverse: true);
+      HapticFeedback.heavyImpact();
+      Future.delayed(const Duration(milliseconds: 120), HapticFeedback.heavyImpact);
+      Future.delayed(const Duration(milliseconds: 240), HapticFeedback.heavyImpact);
     } else if (!isSuffocating && _suffocateCtrl.isAnimating) {
       _suffocateCtrl.stop();
       _suffocateCtrl.value = 0;

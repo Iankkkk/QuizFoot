@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../models/game_result.dart';
@@ -38,6 +39,122 @@ class _ProfilPageState extends State<ProfilPage> {
         _results = results;
         _loading = false;
       });
+  }
+
+  // ── Admin : wipe d'un pseudo (long-press sur l'avatar) ─────────────────────
+
+  Future<void> _showWipeDialog() async {
+    final ctrl = TextEditingController();
+    final pseudo = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Wipe stats',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Supprime tous les scores, feed et la réservation du pseudo.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                hintText: 'Pseudo à wiper',
+                hintStyle: TextStyle(color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.bg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.red, width: 1.5),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Annuler', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: Text('Wiper', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+
+    if (pseudo == null || pseudo.isEmpty || !mounted) return;
+    await _wipePseudo(pseudo);
+  }
+
+  Future<void> _wipePseudo(String pseudo) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Wipe en cours pour "$pseudo"...'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.amber,
+      ),
+    );
+    try {
+      final db = FirebaseFirestore.instance;
+      int deleted = 0;
+
+      // 1. scores collection
+      final scoresSnap = await db.collection('scores').where('pseudo', isEqualTo: pseudo).get();
+      for (final doc in scoresSnap.docs) {
+        await doc.reference.delete();
+        deleted++;
+      }
+
+      // 2. feed collection
+      final feedSnap = await db.collection('feed').where('pseudo', isEqualTo: pseudo).get();
+      for (final doc in feedSnap.docs) {
+        await doc.reference.delete();
+        deleted++;
+      }
+
+      // 3. réservation du pseudo
+      await db.collection('pseudos').doc(pseudo.toLowerCase()).delete();
+
+      // Refresh local cache et stats
+      GameHistoryService.instance.invalidateCache();
+      if (mounted) {
+        await _load();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$pseudo" wipé : $deleted docs supprimés ✓'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: AppColors.accentBright,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            backgroundColor: AppColors.red,
+          ),
+        );
+      }
+    }
   }
 
   // ── Stats calculées ────────────────────────────────────────────────────────
@@ -270,21 +387,24 @@ class _ProfilPageState extends State<ProfilPage> {
     final isDark = ThemeService.instance.isDark;
     return Row(
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.accentBright, width: 2),
-          ),
-          child: Center(
-            child: Text(
-              widget.pseudo.isNotEmpty ? widget.pseudo[0].toUpperCase() : '?',
-              style: TextStyle(
-                color: AppColors.accentBright,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
+        GestureDetector(
+          onLongPress: _showWipeDialog,
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.accentBright, width: 2),
+            ),
+            child: Center(
+              child: Text(
+                widget.pseudo.isNotEmpty ? widget.pseudo[0].toUpperCase() : '?',
+                style: TextStyle(
+                  color: AppColors.accentBright,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
