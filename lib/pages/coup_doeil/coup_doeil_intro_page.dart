@@ -22,7 +22,13 @@ import 'coup_doeil_game_page.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CoupDoeilIntroPage extends StatefulWidget {
-  const CoupDoeilIntroPage({super.key});
+  final String? initialCategory;
+  final bool autoOpenDifficulty;
+  const CoupDoeilIntroPage({
+    super.key,
+    this.initialCategory,
+    this.autoOpenDifficulty = false,
+  });
 
   @override
   State<CoupDoeilIntroPage> createState() => _CoupDoeilIntroPageState();
@@ -68,8 +74,16 @@ class _CoupDoeilIntroPageState extends State<CoupDoeilIntroPage> with RouteAware
   @override
   void initState() {
     super.initState();
+    if (widget.initialCategory != null) {
+      _selectedCategory = widget.initialCategory;
+    }
     _loadCategories();
     _loadHistory();
+    if (widget.autoOpenDifficulty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openDifficultyPicker();
+      });
+    }
   }
 
   @override

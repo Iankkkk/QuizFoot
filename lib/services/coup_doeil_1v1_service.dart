@@ -120,5 +120,11 @@ class CoupDoeil1v1Service {
     } catch (_) {}
   }
 
+  Future<void> requestRematch({required String code, required String pseudo}) async {
+    try {
+      await _games.doc(code).update({'rematch.$pseudo': true});
+    } catch (_) {}
+  }
+
   Future<void> deleteRoom(String code) => _games.doc(code).delete();
 }

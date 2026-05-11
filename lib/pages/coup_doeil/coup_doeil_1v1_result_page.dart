@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/coup_doeil_1v1_game.dart';
 import '../../models/game_result.dart';
 import '../../models/player.dart';
+import '../../services/coup_doeil_1v1_service.dart';
 import '../../services/game_history_service.dart';
+import 'coup_doeil_1v1_lobby_page.dart';
 
 class CoupDoeil1v1ResultPage extends StatefulWidget {
   final String pseudo;
@@ -18,6 +21,7 @@ class CoupDoeil1v1ResultPage extends StatefulWidget {
   final String? category;
   final bool abandoned;
   final String? abandonedBy;
+  final String roomCode;
 
   const CoupDoeil1v1ResultPage({
     super.key,
@@ -33,6 +37,7 @@ class CoupDoeil1v1ResultPage extends StatefulWidget {
     this.category,
     this.abandoned = false,
     this.abandonedBy,
+    required this.roomCode,
   });
 
   @override
@@ -41,10 +46,69 @@ class CoupDoeil1v1ResultPage extends StatefulWidget {
 
 class _CoupDoeil1v1ResultPageState extends State<CoupDoeil1v1ResultPage> {
 
+  // ── Rematch ───────────────────────────────────────────────────────────────
+  bool _rematchRequested = false;
+  bool _opponentReady = false;
+  StreamSubscription<CoupDoeil1v1Game?>? _rematchSub;
+  Timer? _rematchTimeout;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _saveResult());
+  }
+
+  @override
+  void dispose() {
+    _rematchSub?.cancel();
+    _rematchTimeout?.cancel();
+    super.dispose();
+  }
+
+  void _onRematchTap() {
+    if (_rematchRequested) return;
+    setState(() => _rematchRequested = true);
+    CoupDoeil1v1Service.instance.requestRematch(
+      code: widget.roomCode,
+      pseudo: widget.pseudo,
+    );
+    _rematchSub = CoupDoeil1v1Service.instance
+        .watchGame(widget.roomCode)
+        .listen(_onRematchUpdate);
+    _rematchTimeout = Timer(const Duration(seconds: 20), _onRematchTimeout);
+  }
+
+  void _onRematchUpdate(CoupDoeil1v1Game? game) {
+    if (game == null || !mounted) return;
+    final opponentReady = game.rematch[widget.opponentPseudo] == true;
+    if (opponentReady && !_opponentReady) {
+      setState(() => _opponentReady = true);
+    }
+    if (game.rematch[widget.pseudo] == true && game.rematch[widget.opponentPseudo] == true) {
+      _rematchSub?.cancel();
+      _rematchTimeout?.cancel();
+      _goToLobby();
+    }
+  }
+
+  void _onRematchTimeout() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${widget.opponentPseudo} n\'a pas répondu'),
+        backgroundColor: AppColors.card,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    _goToLobby();
+  }
+
+  void _goToLobby() {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const CoupDoeil1v1LobbyPage()),
+      (r) => r.isFirst,
+    );
   }
 
   Future<void> _saveResult() async {
@@ -302,27 +366,58 @@ class _CoupDoeil1v1ResultPageState extends State<CoupDoeil1v1ResultPage> {
   Widget _buildButtons(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: GestureDetector(
-        onTap: () => Navigator.of(context).popUntil((r) => r.isFirst),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Center(
-            child: Text(
-              'Accueil',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textPrimary,
+                side: BorderSide(color: AppColors.border),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+              child: Text('Accueil', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
           ),
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _rematchRequested ? AppColors.border : AppColors.accentBright,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              onPressed: _rematchRequested ? null : _onRematchTap,
+              child: _rematchRequested
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _opponentReady ? AppColors.accentBright : AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _opponentReady ? '${widget.opponentPseudo} est prêt !' : 'En attente...',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: _opponentReady ? AppColors.accentBright : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text('Revanche ! ⚔️', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -75,6 +75,7 @@ class _CoupDoeilGamePageState extends State<CoupDoeilGamePage> {
   String _answer = '';
 
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _inputFocus = FocusNode();
 
   /// Ordered list of outcomes, one entry added per answered/skipped question.
   final List<QuestionResult> _questionResults = [];
@@ -140,6 +141,7 @@ class _CoupDoeilGamePageState extends State<CoupDoeilGamePage> {
   @override
   void dispose() {
     _controller.dispose();
+    _inputFocus.dispose();
     _questionTimer?.cancel();
     super.dispose();
   }
@@ -373,6 +375,7 @@ class _CoupDoeilGamePageState extends State<CoupDoeilGamePage> {
         _photoOverlayColor = Colors.orange;
       });
       _showFeedback("🟡 T'y es presque grand...", Colors.orange[700]!, meme: _memeWrong);
+      _inputFocus.requestFocus();
 
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
@@ -966,6 +969,7 @@ class _CoupDoeilGamePageState extends State<CoupDoeilGamePage> {
   Widget _buildTextField() {
     return TextField(
       autofocus: false,
+      focusNode: _inputFocus,
       controller: _controller,
       style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
       decoration: InputDecoration(

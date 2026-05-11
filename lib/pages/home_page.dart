@@ -1,5 +1,6 @@
+import 'dart:convert';
+import 'dart:math' show log;
 import 'package:flutter/material.dart';
-import 'coup_doeil/coup_doeil_game_page.dart';
 import 'coup_doeil/coup_doeil_intro_page.dart';
 import 'package:quiz_foot/pages/lineup/lineup_match_page_intro.dart';
 import 'lineup/compos_1v1_lobby_page.dart';
@@ -17,6 +18,17 @@ import '../models/game_result.dart';
 import 'profil_page.dart';
 import 'classement_page.dart';
 
+// ── Design tokens (Tempo home — matched to design handoff) ────────────────────
+const _kCard     = Color(0xFF1E2130);
+const _kBorder   = Color(0xFF2D3148);
+const _kAccent   = Color(0xFF2EA043);
+const _kAccentBr = Color(0xFF3FB950);
+const _kAccentDp = Color(0xFF1E7F4F);
+const _kFg1      = Color(0xFFE6EDF3);
+const _kFg2      = Color(0xFF8B949E);
+const _kFg3      = Color(0xFF5A6272);
+const _kOrange   = Color(0xFFE87820);
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -33,6 +45,7 @@ class _HomePageState extends State<HomePage> {
   int _totalGames = 0;
   Duration _totalTime = Duration.zero;
   String _favGame = '—';
+  int _streak = 0;
 
   // Stat communauté (Firestore)
   int _communityGames = 0;
@@ -42,6 +55,15 @@ class _HomePageState extends State<HomePage> {
   String? _pollId;
   String? _pollMyChoice;
 
+  // Hero "Partie rapide"
+  Map<String, dynamic>? _lastConfig;
+
+  // Préférences du modal "Régler" (persistées)
+  Map<String, dynamic> _reglePrefs = {};
+
+  // Top joueurs de l'app
+  List<({String pseudo, double score})> _topPlayers = [];
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +72,9 @@ class _HomePageState extends State<HomePage> {
     _loadPseudoThenPoll();
     _loadStats();
     _loadCommunityStats();
+    _loadLastConfig();
+    _loadReglePrefs();
+    _loadBestPlayer();
     _retryPendingScores();
     ThemeService.instance.addListener(_onThemeChanged);
   }
@@ -64,7 +89,7 @@ class _HomePageState extends State<HomePage> {
           content: Text(
             '$saved score${saved > 1 ? 's' : ''} en attente envoyé${saved > 1 ? 's' : ''} ✓',
           ),
-          backgroundColor: AppColors.accentBright,
+          backgroundColor: _kAccentBr,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -90,9 +115,6 @@ class _HomePageState extends State<HomePage> {
     try {
       final db = FirebaseFirestore.instance;
       final all = await db.collection('polls').get();
-
-      // Toujours afficher le sondage le plus récent dont la date <= aujourd'hui.
-      // Format des IDs : "DD-MM-YYYY".
       final now = DateTime.now();
       QueryDocumentSnapshot<Map<String, dynamic>>? latestDoc;
       DateTime? latestDate;
@@ -108,9 +130,7 @@ class _HomePageState extends State<HomePage> {
           }
         } catch (_) {}
       }
-
       if (latestDoc == null) return;
-
       final pollId = latestDoc.id;
       final pollData = latestDoc.data();
       String? myChoice;
@@ -136,37 +156,50 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadStats() async {
     final results = await GameHistoryService.instance.getAll();
     if (!mounted || results.isEmpty) return;
-    final totalTime = results.fold(
-      Duration.zero,
-      (acc, r) => acc + r.timeTaken,
-    );
-    final coupDoeilCount = results
-        .where((r) => r.gameType == GameType.coupDoeil)
-        .length;
-    final composCount = results
-        .where((r) => r.gameType == GameType.compos)
-        .length;
+    final totalTime = results.fold(Duration.zero, (acc, r) => acc + r.timeTaken);
+    final coupDoeilCount = results.where((r) => r.gameType == GameType.coupDoeil).length;
+    final composCount = results.where((r) => r.gameType == GameType.compos).length;
     final fav = coupDoeilCount >= composCount ? "Coup d'Œil" : 'Compos';
+    final streak = _computeStreak(results);
     setState(() {
       _totalGames = results.length;
       _totalTime = totalTime;
       _favGame = fav;
+      _streak = streak;
     });
+  }
+
+  int _computeStreak(List<GameResult> results) {
+    if (results.isEmpty) return 0;
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final dates = results
+        .map((r) => DateTime(r.playedAt.year, r.playedAt.month, r.playedAt.day))
+        .toSet()
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    if (dates.first.isBefore(todayDate.subtract(const Duration(days: 1)))) return 0;
+    int streak = 1;
+    for (int i = 1; i < dates.length; i++) {
+      if (dates[i - 1].difference(dates[i]).inDays == 1) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
   }
 
   String _formatTime(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes % 60;
-    if (h > 0) return '${h}h${m}min';
+    if (h > 0) return '${h}h${m.toString().padLeft(2, '0')}';
     return '${m}min';
   }
 
   Future<void> _loadCommunityStats() async {
     try {
-      final agg = await FirebaseFirestore.instance
-          .collection('scores')
-          .count()
-          .get();
+      final agg = await FirebaseFirestore.instance.collection('scores').count().get();
       if (mounted) setState(() => _communityGames = agg.count ?? 0);
     } catch (_) {}
   }
@@ -201,16 +234,237 @@ class _HomePageState extends State<HomePage> {
     try {
       final anecdotes = await loadAnecdotes();
       if (anecdotes.isNotEmpty && mounted) {
-        setState(() {
-          _randomAnecdote = (anecdotes..shuffle()).first;
-        });
+        final now = DateTime.now();
+        final daySeed = now.year * 10000 + now.month * 100 + now.day;
+        final index = daySeed % anecdotes.length;
+        setState(() => _randomAnecdote = anecdotes[index]);
       }
     } catch (_) {}
   }
 
+  Future<void> _loadLastConfig() async {
+    final results = await GameHistoryService.instance.getAll();
+    if (!mounted || results.isEmpty) return;
+    results.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+    final last = results.first;
+    final mode = (last.gameType == GameType.compos || last.gameType == GameType.multiplayerCompos)
+        ? 'compos'
+        : 'coupDoeil';
+    final category = last.details['category'] as String?;
+    setState(() => _lastConfig = {'mode': mode, if (category != null) 'category': category});
+  }
+
+  Future<void> _loadReglePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('regle_prefs');
+    if (raw != null && mounted) {
+      try {
+        setState(() => _reglePrefs = jsonDecode(raw) as Map<String, dynamic>);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveReglePrefs(Map<String, dynamic> prefs) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString('regle_prefs', jsonEncode(prefs));
+    if (mounted) setState(() => _reglePrefs = prefs);
+  }
+
+  Future<void> _loadBestPlayer() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('scores')
+          .orderBy('playedAt', descending: true)
+          .limit(300)
+          .get();
+
+      final Map<String, double> sums = {};
+      final Map<String, int> counts = {};
+
+      for (final doc in snap.docs) {
+        final d = doc.data();
+        final pseudo = d['pseudo'] as String? ?? '';
+        if (pseudo.isEmpty) continue;
+        final gameType = d['gameType'] as String? ?? '';
+        final difficulty = d['difficulty'] as String? ?? 'Pro';
+        final rawScore = (d['rawScore'] as num?)?.toInt() ?? 0;
+        final maxRaw = (d['maxRawScore'] as num?)?.toInt() ?? 1;
+        final details = d['details'] as Map<String, dynamic>?;
+        final won = details?['won'] as bool?;
+
+        final isCompos = gameType == 'compos' || gameType == 'multiplayerCompos';
+        final mult = isCompos ? 1.0 : GameResult.difficultyMultiplier(difficulty);
+        final pct = maxRaw > 0 ? rawScore / maxRaw : 0.0;
+        double contribution = pct * 100 * mult;
+
+        final is1v1 = gameType == 'multiplayerCompos' || gameType == 'multiplayerCoupDoeil';
+        if (is1v1 && won == true) contribution += 20 * mult;
+
+        sums[pseudo] = (sums[pseudo] ?? 0) + contribution;
+        counts[pseudo] = (counts[pseudo] ?? 0) + 1;
+      }
+
+      final eligible = sums.entries.where((e) => (counts[e.key] ?? 0) >= 3).toList();
+      if (eligible.isEmpty) return;
+
+      eligible.sort((a, b) {
+        final n1 = counts[a.key]!;
+        final n2 = counts[b.key]!;
+        final scoreA = (a.value / n1) + log(n1.toDouble()) * 3;
+        final scoreB = (b.value / n2) + log(n2.toDouble()) * 3;
+        return scoreB.compareTo(scoreA);
+      });
+
+      final top5 = eligible.take(5).map((e) {
+        final n = counts[e.key]!;
+        final score = (e.value / n) + log(n.toDouble()) * 3;
+        return (pseudo: e.key, score: score);
+      }).toList();
+
+      if (mounted) setState(() => _topPlayers = top5);
+    } catch (_) {}
+  }
+
+  void _launchFromConfig(Map<String, dynamic> config) {
+    final mode = config['mode'] as String? ?? 'coupDoeil';
+    final category = config['category'] as String?;
+    final erasList = (_reglePrefs['eras'] as List?)?.cast<String>() ?? [];
+    final eras = erasList.toSet();
+    if (mode == 'compos') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LineupMatchPageIntro(
+            autoOpenDifficulty: true,
+            initialEras: eras.isNotEmpty ? eras : null,
+          ),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CoupDoeilIntroPage(
+            initialCategory: category,
+            autoOpenDifficulty: true,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showRegleModal() {
+    final current = {
+      'mode': _lastConfig?['mode'] ?? _reglePrefs['mode'] ?? 'coupDoeil',
+      'category': _reglePrefs['category'],
+      'eras': _reglePrefs['eras'],
+    };
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _kCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (_) => _RegleModal(
+        initial: current,
+        onConfirm: (config) {
+          Navigator.pop(context);
+          _saveReglePrefs(config);
+          _launchFromConfig(config);
+        },
+      ),
+    );
+  }
+
+  void _showTop5() {
+    const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _kCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Top 5 de la commu',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _kFg1),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Classement basé sur les scores pondérés par difficulté et volume.',
+                style: TextStyle(fontSize: 11, color: _kFg2),
+              ),
+              const SizedBox(height: 16),
+              ..._topPlayers.asMap().entries.map((entry) {
+                final rank = entry.key;
+                final player = entry.value;
+                final isFirst = rank == 0;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isFirst ? _kAccent.withValues(alpha: 0.12) : const Color(0xFF171923),
+                    border: Border.all(
+                      color: isFirst ? _kAccentBr.withValues(alpha: 0.5) : _kBorder,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(medals[rank], style: const TextStyle(fontSize: 20)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          player.pseudo,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isFirst ? FontWeight.w800 : FontWeight.w600,
+                            color: _kFg1,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        player.score.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isFirst ? _kAccentBr : _kFg2,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      _loadAnecdote(),
+      _loadPseudoThenPoll(),
+      _loadStats(),
+      _loadCommunityStats(),
+      _loadLastConfig(),
+    ]);
+  }
+
   void _onNavItemTapped(int index) {
     setState(() => _selectedIndex = index);
-    if (index == 0) _loadStats();
+    if (index == 0) {
+      _loadStats();
+      _loadLastConfig();
+    }
   }
 
   Widget _buildContent() {
@@ -228,275 +482,418 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ── Home content ─────────────────────────────────────────────────────────────
+
   Widget _buildHomeContent() {
     return SafeArea(
       bottom: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 28),
-
-            // ── Header ──────────────────────────────────────────
-            Align(
-              alignment: Alignment.centerRight,
-              child: Opacity(
-                opacity: 0.25,
-                child: IconButton(
-                  onPressed: _clearCache,
-                  icon: Icon(
-                    Icons.refresh,
-                    color: AppColors.textSecondary,
-                    size: 16,
+      child: RefreshIndicator(
+        color: _kAccentBr,
+        backgroundColor: _kCard,
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              _buildHero(),
+              if (_pollData != null) ...[
+                _SectionTitle('Sondage de la semaine'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _DailySondage(
+                    pseudo: _pseudo,
+                    pollId: _pollId!,
+                    initialPoll: _pollData!,
+                    initialChoice: _pollMyChoice,
+                    onVoted: (choice) => setState(() => _pollMyChoice = choice),
                   ),
                 ),
+              ],
+              _SectionTitle('Le saviez-vous ?'),
+              _buildAnecdoteCard(),
+              _SectionTitle('Activité de la commu', action: 'Tout voir →', onAction: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const _CommunityFeedPage()));
+              }),
+              _buildFeed(),
+              _SectionTitle('Tes stats', action: 'Voir tout →', onAction: () {
+                _onNavItemTapped(3);
+              }),
+              _buildStatsGrid(),
+              _SectionTitle('À la une'),
+              _buildHighlights(),
+              _buildPub(),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Header ───────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Logo tile
+          GestureDetector(
+            onLongPress: _clearCache,
+            child: Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _kBorder),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x882EA043),
+                    blurRadius: 40,
+                    spreadRadius: 6,
+                  ),
+                  BoxShadow(
+                    color: Color(0x403FB950),
+                    blurRadius: 80,
+                    spreadRadius: 14,
+                  ),
+                ],
               ),
+              padding: const EdgeInsets.all(2),
+              child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    color: Colors.white,
-                    border: Border.all(color: AppColors.border, width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.accent.withOpacity(0.35),
-                        blurRadius: 24,
-                        spreadRadius: 2,
+          ),
+          const SizedBox(width: 14),
+          // Wordmark
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'TEMPO',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  letterSpacing: 4.5,
+                  color: _kFg1,
+                  height: 1,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Le jeu, dans la tête.',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: _kFg2,
+                  letterSpacing: 0.3,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          // Streak pill (affiché à partir de 2 jours consécutifs)
+          if (_streak >= 2)
+          GestureDetector(
+              onTap: () => showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  backgroundColor: _kCard,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🔥', style: TextStyle(fontSize: 40)),
+                      const SizedBox(height: 12),
+                      Text(
+                        _streak > 0
+                            ? 'Tu as joué à Tempo Foot $_streak jour${_streak > 1 ? 's' : ''} d\'affilée !'
+                            : 'Joue aujourd\'hui pour démarrer une série !',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kFg1),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _streak > 0 ? 'Merci !' : 'Lance une partie 👇',
+                        style: const TextStyle(fontSize: 13, color: _kFg2),
                       ),
                     ],
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Image.asset('assets/images/logo.png'),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TEMPO',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 26,
-                        letterSpacing: 4,
-                        color: AppColors.textPrimary,
-                      ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Super !', style: TextStyle(color: _kAccentBr, fontWeight: FontWeight.w700)),
                     ),
+                  ],
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                decoration: BoxDecoration(
+                  color: _kCard,
+                  border: Border.all(color: _kOrange.withValues(alpha: 0.33)),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.local_fire_department, size: 17, color: _kOrange),
+                    const SizedBox(width: 5),
                     Text(
-                      'Le jeu, dans la tête.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        letterSpacing: 0.3,
+                      '$_streak',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _kFg1,
                       ),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 20),
+  // ── Hero "Partie rapide" ─────────────────────────────────────────────────────
 
-            // ── Sondage du jour ───────────────────────────────────
-            if (_pollData != null)
-              _DailySondage(
-                pseudo: _pseudo,
-                pollId: _pollId!,
-                initialPoll: _pollData!,
-                initialChoice: _pollMyChoice,
-                onVoted: (choice) => setState(() => _pollMyChoice = choice),
-              ),
+  Widget _buildHero() {
+    final config = _lastConfig;
+    final hasConfig = config != null;
+    final mode = config?['mode'] as String? ?? 'coupDoeil';
+    final category = config?['category'] as String?;
 
-            const SizedBox(height: 20),
+    final modeLabel = mode == 'compos' ? 'Compos' : "Coup d'Œil";
+    final heroTitle = category != null ? '$modeLabel · $category' : modeLabel;
+    final eyebrow = hasConfig ? '▶ REPRENDS OÙ TU EN ÉTAIS' : 'DÉMARRER';
 
-            // ── Anecdote ────────────────────────────────────────
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.campaign_rounded,
-                        color: AppColors.accentBright,
-                        size: 16,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Anecdote du jour',
-                        style: TextStyle(
-                          color: AppColors.accentBright,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [_kAccent, _kAccentDp],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x402EA043),
+              blurRadius: 28,
+              offset: Offset(0, 12),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Stack(
+          children: [
+            // Field lines décor
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.09,
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.white, Colors.transparent],
+                      stops: [0, 1],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  _randomAnecdote.isEmpty
-                      ? SizedBox(
-                          height: 14,
-                          width: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.accentBright,
-                          ),
-                        )
-                      : Text(
-                          _randomAnecdote,
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
-                            height: 1.5,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                ],
+                  child: CustomPaint(painter: _DiagonalLinesPainter()),
+                ),
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // ── Stats ────────────────────────────────────────────
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+            // Watermark icon
+            Positioned(
+              right: -18,
+              bottom: -28,
+              child: Opacity(
+                opacity: 0.13,
+                child: Icon(
+                  mode == 'compos' ? Icons.sports_soccer : Icons.visibility,
+                  size: 180,
+                  color: Colors.white,
+                ),
               ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Tes stats',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: AppColors.textPrimary,
+                    eyebrow,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.6,
+                      color: Color(0xC8FFFFFF),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    heroTitle,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      height: 1.15,
                     ),
                   ),
                   const SizedBox(height: 14),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _StatItem(label: 'Parties jouées', value: '$_totalGames'),
-                      _StatItem(
-                        label: 'Temps total',
-                        value: _totalGames > 0 ? _formatTime(_totalTime) : '—',
+                      // Primary CTA
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _launchFromConfig(
+                            config ?? {'mode': 'coupDoeil'},
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 18),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.play_arrow, size: 20, color: _kAccentDp),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Jouer !',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: _kAccentDp,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                      _StatItem(label: 'Jeu préféré', value: _favGame),
+                      const SizedBox(width: 8),
+                      // Secondary CTA
+                      GestureDetector(
+                        onTap: _showRegleModal,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.tune, size: 16, color: Colors.white),
+                              SizedBox(width: 4),
+                              Text(
+                                'Régler',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            // ── Feed activité ─────────────────────────────────────
-            _buildFeed(),
-
-            const SizedBox(height: 24),
-
-            // ── À la une ─────────────────────────────────────────
-            Text(
-              'À la une',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 158,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                children: [
-                  _HighlightCard(
-                    title: '⚔️ Nouveau mode Compos 1v1 !',
-                    subtitle:
-                        'Défie ton pote : qui de vous deux connaît le mieux les compos légendaires ?',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const Compos1v1LobbyPage(),
-                      ),
-                    ),
-                  ),
-                  _HighlightCard(
-                    title: '⭐ $_communityGames parties jouées',
-                    subtitle: 'Merci à la communauté Tempo !',
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
+  // ── Anecdote card ─────────────────────────────────────────────────────────────
+
+  Widget _buildAnecdoteCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: _kCard,
+          border: Border.all(color: _kBorder),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(Icons.auto_stories_outlined, size: 20, color: _kFg2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _randomAnecdote.isEmpty
+                  ? const SizedBox(
+                      height: 14,
+                      width: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: _kAccentBr),
+                    )
+                  : Text(
+                      _randomAnecdote,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: _kFg1,
+                        height: 1.45,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Feed (activité) ───────────────────────────────────────────────────────────
+
   Widget _buildFeed() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('feed')
           .orderBy('createdAt', descending: true)
-          .limit(20) // overshoot then dedup 1v1 pairs to keep 5 entries
+          .limit(20)
           .snapshots(),
       builder: (context, snap) {
         if (!snap.hasData || snap.data!.docs.isEmpty) return const SizedBox();
-        // Dédupliquer les parties 1v1 (2 docs par partie, un par joueur)
         final seen1v1 = <String>{};
         final docs = snap.data!.docs.where((doc) {
           final d = doc.data() as Map<String, dynamic>;
           final type = d['gameType'] as String?;
-          if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil')
-            return true;
+          if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil') return true;
           final p1 = d['pseudo'] as String? ?? '';
           final p2 = d['opponentPseudo'] as String? ?? '';
           final matchKey = d['matchName'] as String? ?? '';
           final pair = ([p1, p2]..sort()).join('-');
           return seen1v1.add('$type-$pair-$matchKey');
-        }).take(5).toList();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Activité récente',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ...docs.map((doc) {
+        }).take(3).toList();
+
+        if (docs.isEmpty) return const SizedBox();
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: docs.map((doc) {
               final d = doc.data() as Map<String, dynamic>;
               final pseudo = d['pseudo'] as String? ?? '?';
               final gameType = d['gameType'] as String? ?? '';
               final diff = d['difficulty'] as String? ?? '';
               final score = d['score'] as int? ?? 0;
-              final maxScore = d['maxScore'] as int? ?? 0;
               final category = d['category'] as String?;
               final matchName = d['matchName'] as String?;
               final opponentPseudo = d['opponentPseudo'] as String?;
@@ -507,124 +904,300 @@ class _HomePageState extends State<HomePage> {
               final is1v1Cdo = gameType == 'multiplayerCoupDoeil';
               final is1v1 = is1v1Compos || is1v1Cdo;
               final isCompos = gameType == 'compos';
-              final icon = is1v1Compos
-                  ? '⚽⚔️'
-                  : is1v1Cdo
-                  ? '👁️⚔️'
-                  : isCompos
-                  ? '⚽'
-                  : '👁️';
-              final detail = matchName ?? category ?? '';
 
-              final List<InlineSpan> spans;
+              final String emoji = is1v1Compos ? '⚔️' : is1v1Cdo ? '⚔️' : isCompos ? '⚽' : '👁️';
+              final String detail = matchName ?? category ?? '';
+
+              Widget mainText;
               if (is1v1) {
                 final opp = opponentPseudo ?? '?';
                 final winnerLine = won == null
                     ? '$pseudo vs $opp'
                     : won
-                    ? '🏆 $pseudo a battu $opp'
-                    : '🏆 $opp a battu $pseudo';
-                spans = [
-                  TextSpan(
-                    text: winnerLine,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    ? '🏆 $pseudo bat $opp'
+                    : '🏆 $opp bat $pseudo';
+                mainText = RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 12.5, color: _kFg1),
+                    children: [
+                      TextSpan(text: winnerLine, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ],
                   ),
-                ];
+                );
               } else {
                 final scoreStr = isCompos ? '$score%' : '${score}pts';
-                spans = [
-                  TextSpan(
-                    text: pseudo,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                mainText = RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 12.5, color: _kFg1),
+                    children: [
+                      TextSpan(
+                        text: pseudo,
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: _kFg1),
+                      ),
+                      TextSpan(
+                        text: '  $scoreStr',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: _kAccentBr,
+                        ),
+                      ),
+                      if (!isCompos && diff.isNotEmpty)
+                        TextSpan(
+                          text: ' · $diff',
+                          style: const TextStyle(fontWeight: FontWeight.w500, color: _kFg2),
+                        ),
+                    ],
                   ),
-                  TextSpan(
-                    text: isCompos ? '  $scoreStr' : '  $scoreStr · $diff',
-                  ),
-                  if (!isCompos && detail.isNotEmpty)
-                    TextSpan(text: ' · $detail'),
-                ];
+                );
               }
 
               return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 11,
-                ),
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  color: _kCard,
+                  border: Border.all(color: _kBorder),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
-                  crossAxisAlignment: (is1v1 || isCompos)
-                      ? CrossAxisAlignment.start
-                      : CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Padding(
-                      padding: EdgeInsets.only(
-                        top: (is1v1 || isCompos) ? 1 : 0,
+                    // Emoji container
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        border: Border.all(color: _kBorder),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(icon, style: TextStyle(fontSize: 18)),
+                      alignment: Alignment.center,
+                      child: Text(emoji, style: const TextStyle(fontSize: 14, height: 1)),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          RichText(
-                            text: TextSpan(
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                              ),
-                              children: spans,
-                            ),
-                          ),
-                          if (detail.isNotEmpty && (is1v1 || isCompos)) ...[
+                          mainText,
+                          if (detail.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             Text(
                               detail,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _kFg2,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      ago,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    const SizedBox(width: 6),
+                    Text(ago, style: const TextStyle(fontSize: 10, color: _kFg2)),
                   ],
                 ),
               );
-            }),
-          ],
+            }).toList(),
+          ),
         );
       },
     );
   }
 
+  // ── Stats grid ────────────────────────────────────────────────────────────────
+
+  Widget _buildStatsGrid() {
+    final stats = [
+      _StatCell(value: '$_totalGames', label: 'Parties'),
+      _StatCell(value: _totalGames > 0 ? _formatTime(_totalTime) : '—', label: 'Temps total'),
+      _StatCell(value: _favGame, label: 'Préféré'),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: _kCard,
+          border: Border.all(color: _kBorder),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            for (int i = 0; i < stats.length; i++) ...[
+              if (i > 0)
+                Container(width: 1, height: 32, color: _kBorder, margin: const EdgeInsets.symmetric(horizontal: 4)),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      stats[i].value,
+                      style: TextStyle(
+                        fontSize: stats[i].value.length > 6 ? 13 : 17,
+                        fontWeight: FontWeight.w800,
+                        color: _kAccentBr,
+                        height: 1.1,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      stats[i].label,
+                      style: const TextStyle(fontSize: 10.5, color: _kFg2),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── À la une (highlights carousel) ───────────────────────────────────────────
+
+  Widget _buildHighlights() {
+    final cards = [
+      _HighlightData(
+        tag: 'Nouveau',
+        title: 'Compos 1v1',
+        subtitle: 'Défie ton pote sur un match légendaire',
+        emoji: '⚔️',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
+        ),
+      ),
+      _HighlightData(
+        tag: 'Communauté',
+        title: '$_communityGames parties',
+        subtitle: 'Merci à la commu Tempo !',
+        icon: Icons.diversity_3,
+      ),
+      if (_topPlayers.isNotEmpty)
+        _HighlightData(
+          tag: 'Meilleur joueur',
+          title: _topPlayers.first.pseudo,
+          subtitle: '🏆 Top de la commu Tempo !',
+          emoji: '🥇',
+          onTap: () => _showTop5(),
+        ),
+    ];
+
+    return SizedBox(
+      height: 130,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(left: 20),
+        itemCount: cards.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, i) {
+          if (i == cards.length) return const SizedBox(width: 10);
+          final c = cards[i];
+          return GestureDetector(
+            onTap: c.onTap,
+            child: Container(
+              width: 180,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _kCard,
+                border: Border.all(color: _kBorder),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: -8,
+                    right: -8,
+                    child: Opacity(
+                      opacity: 0.08,
+                      child: c.emoji != null
+                          ? Text(c.emoji!, style: const TextStyle(fontSize: 56, height: 1))
+                          : Icon(c.icon, size: 64, color: _kFg1),
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.tag.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          color: _kFg2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        c.title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: _kFg1,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        c.subtitle,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: _kFg2,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── PUB strip ─────────────────────────────────────────────────────────────────
+
+  Widget _buildPub() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: SizedBox(
+        height: 28,
+        child: Center(
+          child: Opacity(
+            opacity: 0.5,
+            child: Text(
+              'PUB',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+                color: _kFg3,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Time helper ───────────────────────────────────────────────────────────────
+
   String _timeAgo(DateTime date) {
     final diff = DateTime.now().difference(date);
     if (diff.inMinutes < 1) return 'maintenant';
-    if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes}min';
-    if (diff.inHours < 24) return 'il y a ${diff.inHours}h';
-    return 'il y a ${diff.inDays}j';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}min';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    return '${diff.inDays}j';
   }
+
+  // ── Games page (unchanged) ────────────────────────────────────────────────────
 
   Widget _buildGamesPage() {
     return SafeArea(
@@ -661,9 +1234,7 @@ class _HomePageState extends State<HomePage> {
               label: "Coup d'Œil 1v1",
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const CoupDoeil1v1LobbyPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const CoupDoeil1v1LobbyPage()),
               ),
             ),
             const SizedBox(height: 16),
@@ -706,133 +1277,314 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ── Scaffold ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: _buildContent(),
-      persistentFooterButtons: [
-        Container(
-          height: 40,
-          width: double.infinity,
-          color: AppColors.card,
-          alignment: Alignment.center,
-          child: Text(
-            'PUB',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColors.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavItemTapped,
-        selectedItemColor: AppColors.accentBright,
-        unselectedItemColor: AppColors.textSecondary,
-        backgroundColor: AppColors.card,
+        selectedItemColor: _kAccentBr,
+        unselectedItemColor: _kFg2,
+        backgroundColor: _kCard,
         type: BottomNavigationBarType.fixed,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Accueil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sports_soccer),
-            label: 'Jeux',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events_outlined),
-            label: 'Classements',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profil',
-          ),
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 10),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Accueil'),
+          BottomNavigationBarItem(icon: Icon(Icons.stadium_outlined), label: 'Jeux'),
+          BottomNavigationBarItem(icon: Icon(Icons.emoji_events_outlined), label: 'Classements'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profil'),
         ],
       ),
     );
   }
 }
 
-// ── Widgets ────────────────────────────────────────────────────────
+// ── Section title helper ───────────────────────────────────────────────────────
 
-class _StatItem extends StatelessWidget {
-  final String label;
-  final String value;
-  const _StatItem({required this.label, required this.value});
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final String? action;
+  final VoidCallback? onAction;
+  const _SectionTitle(this.title, {this.action, this.onAction});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            color: AppColors.accentBright,
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kFg1),
           ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-          textAlign: TextAlign.center,
-        ),
-      ],
+          if (action != null)
+            GestureDetector(
+              onTap: onAction,
+              child: Text(
+                action!,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kAccentBr),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
-class _HighlightCard extends StatelessWidget {
+// ── Diagonal lines painter (hero décor) ───────────────────────────────────────
+
+class _DiagonalLinesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1;
+    const spacing = 22.0;
+    final count = (size.width + size.height) ~/ spacing + 2;
+    for (int i = 0; i < count; i++) {
+      final x = i * spacing - size.height;
+      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ── Stat cell data ─────────────────────────────────────────────────────────────
+
+class _StatCell {
+  final String value;
+  final String label;
+  const _StatCell({required this.value, required this.label});
+}
+
+// ── Highlight data ─────────────────────────────────────────────────────────────
+
+class _HighlightData {
+  final String tag;
   final String title;
   final String subtitle;
+  final IconData? icon;
+  final String? emoji;
   final VoidCallback? onTap;
-  const _HighlightCard({
+  const _HighlightData({
+    required this.tag,
     required this.title,
     required this.subtitle,
+    this.icon,
+    this.emoji,
     this.onTap,
   });
+}
+
+// ── Régler modal ──────────────────────────────────────────────────────────────
+
+class _RegleModal extends StatefulWidget {
+  final Map<String, dynamic> initial;
+  final void Function(Map<String, dynamic>) onConfirm;
+  const _RegleModal({required this.initial, required this.onConfirm});
+
+  @override
+  State<_RegleModal> createState() => _RegleModalState();
+}
+
+class _RegleModalState extends State<_RegleModal> {
+  late String _mode;
+  String? _category;
+  late Set<String> _selectedEras;
+
+  static const _modes = ['coupDoeil', 'compos'];
+  static const _modeLabels = {"coupDoeil": "Coup d'Œil", "compos": "Compos"};
+  static const _categories = ['Ligue 1', 'Ligue 2', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Légendes', 'Équipes nationales'];
+  static const _eras = ['Toutes', 'Avant 2010', '2010-2019', '2020-2026'];
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.initial['mode'] as String? ?? 'coupDoeil';
+    _category = widget.initial['category'] as String?;
+    final erasList = (widget.initial['eras'] as List?)?.cast<String>() ?? [];
+    _selectedEras = erasList.toSet();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 200,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: onTap != null
-                ? AppColors.accentBright.withOpacity(0.4)
-                : AppColors.border,
-          ),
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
+            const Text(
+              'Configurer la partie',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _kFg1),
             ),
+            const SizedBox(height: 20),
+            // Mode
+            const Text('Mode', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kFg2)),
             const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12.5,
-                height: 1.4,
+            Row(
+              children: _modes.map((m) {
+                final selected = _mode == m;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _mode = m),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: selected ? _kAccent.withValues(alpha: 0.15) : _kCard,
+                        border: Border.all(color: selected ? _kAccentBr : _kBorder),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _modeLabels[m]!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: selected ? _kAccentBr : _kFg2,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            if (_mode == 'compos') ...[
+              const SizedBox(height: 16),
+              const Text('Période', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kFg2)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _eras.map((era) {
+                  final isAll = era == 'Toutes';
+                  final selected = isAll ? _selectedEras.isEmpty : _selectedEras.contains(era);
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      if (isAll) {
+                        _selectedEras.clear();
+                      } else {
+                        if (_selectedEras.contains(era)) {
+                          _selectedEras.remove(era);
+                        } else {
+                          _selectedEras.add(era);
+                          if (_selectedEras.length == 3) _selectedEras.clear();
+                        }
+                      }
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: selected ? _kAccent.withValues(alpha: 0.15) : _kCard,
+                        border: Border.all(color: selected ? _kAccentBr : _kBorder),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        era,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: selected ? _kAccentBr : _kFg2,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+            if (_mode == 'coupDoeil') ...[
+              const SizedBox(height: 16),
+              const Text('Catégorie', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kFg2)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  // "Toutes" option
+                  GestureDetector(
+                    onTap: () => setState(() => _category = null),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: _category == null ? _kAccent.withValues(alpha: 0.15) : _kCard,
+                        border: Border.all(color: _category == null ? _kAccentBr : _kBorder),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Toutes',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _category == null ? _kAccentBr : _kFg2,
+                        ),
+                      ),
+                    ),
+                  ),
+                  ..._categories.map((c) {
+                    final selected = _category == c;
+                    return GestureDetector(
+                      onTap: () => setState(() => _category = c),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: selected ? _kAccent.withValues(alpha: 0.15) : _kCard,
+                          border: Border.all(color: selected ? _kAccentBr : _kBorder),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          c,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? _kAccentBr : _kFg2,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ],
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: GestureDetector(
+                onTap: () => widget.onConfirm({
+                  'mode': _mode,
+                  if (_mode == 'coupDoeil') 'category': _category,
+                  if (_mode == 'compos' && _selectedEras.isNotEmpty)
+                    'eras': _selectedEras.toList(),
+                }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    color: _kAccent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Lancer la partie',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ),
             ),
           ],
@@ -842,20 +1594,211 @@ class _HighlightCard extends StatelessWidget {
   }
 }
 
+// ── Sondage du jour ───────────────────────────────────────────────────────────
+
+class _DailySondage extends StatefulWidget {
+  final String pseudo;
+  final String pollId;
+  final Map<String, dynamic> initialPoll;
+  final String? initialChoice;
+  final void Function(String choice)? onVoted;
+  const _DailySondage({
+    required this.pseudo,
+    required this.pollId,
+    required this.initialPoll,
+    this.initialChoice,
+    this.onVoted,
+  });
+
+  @override
+  State<_DailySondage> createState() => _DailySondageState();
+}
+
+class _DailySondageState extends State<_DailySondage> {
+  late Map<String, dynamic> _poll;
+  String? _myChoice;
+  bool _voting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _poll = widget.initialPoll;
+    _myChoice = widget.initialChoice;
+  }
+
+  Future<void> _vote(String choice) async {
+    if (_voting || widget.pseudo.isEmpty || _myChoice != null) return;
+    setState(() => _voting = true);
+    try {
+      final pollRef = FirebaseFirestore.instance.collection('polls').doc(widget.pollId);
+      final voteRef = pollRef.collection('votes').doc(widget.pseudo);
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        tx.set(voteRef, {'choice': choice, 'votedAt': FieldValue.serverTimestamp()});
+        tx.update(pollRef, {
+          choice == 'A' ? 'votesA' : 'votesB': FieldValue.increment(1),
+        });
+      });
+      final updated = await pollRef.get();
+      if (mounted) {
+        setState(() {
+          _myChoice = choice;
+          _poll = updated.data() ?? _poll;
+          _voting = false;
+        });
+        widget.onVoted?.call(choice);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _voting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final question = _poll['question'] as String? ?? '';
+    final optionA = _poll['optionA'] as String? ?? 'Option A';
+    final optionB = _poll['optionB'] as String? ?? 'Option B';
+    final votesA = (_poll['votesA'] as num?)?.toInt() ?? 0;
+    final votesB = (_poll['votesB'] as num?)?.toInt() ?? 0;
+    final total = votesA + votesB;
+
+    final opts = [
+      (key: 'A', label: optionA, votes: votesA),
+      (key: 'B', label: optionB, votes: votesB),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _kCard,
+        border: Border.all(color: _kBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            total > 0 ? '$total votes' : '—',
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+              color: _kFg2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            question,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kFg1, height: 1.3),
+          ),
+          const SizedBox(height: 10),
+          Column(
+            children: opts.map((opt) {
+              final picked = _myChoice == opt.key;
+              final pct = total > 0 ? opt.votes / total : 0.0;
+              final pctLabel = '${(pct * 100).round()}%';
+              final canVote = _myChoice == null && !_voting && widget.pseudo.isNotEmpty;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: GestureDetector(
+                  onTap: canVote ? () => _vote(opt.key) : null,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Stack(
+                      children: [
+                        // Background
+                        Container(
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF171923),
+                            border: Border.all(
+                              color: picked ? _kAccentBr.withValues(alpha: 0.6) : _kBorder,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        // Fill bar
+                        if (_myChoice != null)
+                          FractionallySizedBox(
+                            widthFactor: pct,
+                            child: Container(
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: picked
+                                    ? _kAccentBr.withValues(alpha: 0.13)
+                                    : _kFg3.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        // Content
+                        SizedBox(
+                          height: 36,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Row(
+                              children: [
+                                if (picked)
+                                  const Padding(
+                                    padding: EdgeInsets.only(right: 6),
+                                    child: Icon(Icons.check, size: 13, color: _kAccentBr),
+                                  ),
+                                Expanded(
+                                  child: Text(
+                                    opt.label,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: picked ? FontWeight.w700 : FontWeight.w500,
+                                      color: _kFg1,
+                                    ),
+                                  ),
+                                ),
+                                if (_myChoice != null)
+                                  Text(
+                                    '$pctLabel · ${opt.votes} votes',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: picked ? _kAccentBr : _kFg2,
+                                    ),
+                                  )
+                                else if (_voting && _myChoice == null)
+                                  const SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: _kAccentBr),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Game button (Jeux page) ───────────────────────────────────────────────────
+
 class _GameButton extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
   final bool locked;
-  final Color? accent;
   const _GameButton({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
     this.locked = false,
-    this.accent,
   });
 
   @override
@@ -881,14 +1824,12 @@ class _GameButton extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.15),
+                    color: AppColors.accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
-                    color: locked
-                        ? AppColors.textSecondary
-                        : (accent ?? AppColors.accentBright),
+                    color: locked ? AppColors.textSecondary : AppColors.accentBright,
                     size: 24,
                   ),
                 ),
@@ -908,10 +1849,7 @@ class _GameButton extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         locked ? 'Bientôt disponible' : subtitle,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                        ),
+                        style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -950,28 +1888,22 @@ class _DuelButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: const Color(0xFF58A6FF).withValues(alpha: 0.35),
-              ),
+              border: Border.all(color: const Color(0xFF58A6FF).withValues(alpha: 0.35)),
             ),
             child: Row(
               children: [
-                Text('⚔️', style: TextStyle(fontSize: 13)),
+                const Text('⚔️', style: TextStyle(fontSize: 13)),
                 const SizedBox(width: 10),
                 Text(
                   label,
-                  style: TextStyle(
-                    color: const Color(0xFF58A6FF),
+                  style: const TextStyle(
+                    color: Color(0xFF58A6FF),
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
                 ),
                 const Spacer(),
-                Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textSecondary,
-                  size: 16,
-                ),
+                Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 16),
               ],
             ),
           ),
@@ -981,319 +1913,168 @@ class _DuelButton extends StatelessWidget {
   }
 }
 
-// ── Legacy helpers (still used by other pages) ─────────────────────
+// ── Community feed page ───────────────────────────────────────────────────────
 
-void _showDifficultyDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text("Choisis la difficulté"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _difficultyButton(context, "Amateur"),
-          _difficultyButton(context, "Semi-Pro"),
-          _difficultyButton(context, "Pro"),
-          _difficultyButton(context, "International"),
-          _difficultyButton(context, "Légende"),
-        ],
-      ),
-    ),
-  );
-}
+class _CommunityFeedPage extends StatelessWidget {
+  const _CommunityFeedPage();
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sondage de la semaine
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _DailySondage extends StatefulWidget {
-  final String pseudo;
-  final String pollId;
-  final Map<String, dynamic> initialPoll;
-  final String? initialChoice;
-  final void Function(String choice)? onVoted;
-  const _DailySondage({
-    required this.pseudo,
-    required this.pollId,
-    required this.initialPoll,
-    this.initialChoice,
-    this.onVoted,
-  });
-
-  @override
-  State<_DailySondage> createState() => _DailySondageState();
-}
-
-class _DailySondageState extends State<_DailySondage> {
-  late Map<String, dynamic> _poll;
-  String? _myChoice;
-  bool _voting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _poll = widget.initialPoll;
-    _myChoice = widget.initialChoice;
-  }
-
-  Future<void> _vote(String choice) async {
-    if (_voting || widget.pseudo.isEmpty || _myChoice != null) return;
-    setState(() => _voting = true);
-    try {
-      final pollRef = FirebaseFirestore.instance
-          .collection('polls')
-          .doc(widget.pollId);
-      final voteRef = pollRef.collection('votes').doc(widget.pseudo);
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        tx.set(voteRef, {
-          'choice': choice,
-          'votedAt': FieldValue.serverTimestamp(),
-        });
-        tx.update(pollRef, {
-          choice == 'A' ? 'votesA' : 'votesB': FieldValue.increment(1),
-        });
-      });
-      final updated = await pollRef.get();
-      if (mounted) {
-        setState(() {
-          _myChoice = choice;
-          _poll = updated.data() ?? _poll;
-          _voting = false;
-        });
-        widget.onVoted?.call(choice);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _voting = false);
-    }
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'maintenant';
+    if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes}min';
+    if (diff.inHours < 24) return 'il y a ${diff.inHours}h';
+    return 'il y a ${diff.inDays}j';
   }
 
   @override
   Widget build(BuildContext context) {
-    final question = _poll['question'] as String? ?? '';
-    final optionA = _poll['optionA'] as String? ?? 'Option A';
-    final optionB = _poll['optionB'] as String? ?? 'Option B';
-    final votesA = (_poll['votesA'] as num?)?.toInt() ?? 0;
-    final votesB = (_poll['votesB'] as num?)?.toInt() ?? 0;
-    final total = votesA + votesB;
-    final hasVoted = _myChoice != null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('🗳️', style: TextStyle(fontSize: 15)),
-            const SizedBox(width: 7),
-            Text(
-              'Sondage de la semaine',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: _kCard,
+        elevation: 0,
+        title: const Text(
+          'Activité de la commu',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kFg1),
         ),
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.accentBright.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.accentBright.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                question,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
+        iconTheme: const IconThemeData(color: _kFg1),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: _kBorder),
+        ),
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('feed')
+            .orderBy('createdAt', descending: true)
+            .limit(40)
+            .snapshots(),
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return const Center(child: CircularProgressIndicator(color: _kAccentBr));
+          }
+          final seen1v1 = <String>{};
+          final docs = snap.data!.docs.where((doc) {
+            final d = doc.data() as Map<String, dynamic>;
+            final type = d['gameType'] as String?;
+            if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil') return true;
+            final p1 = d['pseudo'] as String? ?? '';
+            final p2 = d['opponentPseudo'] as String? ?? '';
+            final matchKey = d['matchName'] as String? ?? '';
+            final pair = ([p1, p2]..sort()).join('-');
+            return seen1v1.add('$type-$pair-$matchKey');
+          }).take(25).toList();
+
+          if (docs.isEmpty) {
+            return const Center(
+              child: Text('Aucune activité pour le moment.', style: TextStyle(color: _kFg2)),
+            );
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 6),
+            itemBuilder: (_, i) {
+              final d = docs[i].data() as Map<String, dynamic>;
+              final pseudo = d['pseudo'] as String? ?? '?';
+              final gameType = d['gameType'] as String? ?? '';
+              final diff = d['difficulty'] as String? ?? '';
+              final score = d['score'] as int? ?? 0;
+              final matchName = d['matchName'] as String?;
+              final category = d['category'] as String?;
+              final opponentPseudo = d['opponentPseudo'] as String?;
+              final won = d['won'] as bool?;
+              final ts = d['createdAt'] as Timestamp?;
+              final ago = ts != null ? _timeAgo(ts.toDate()) : '';
+              final is1v1Compos = gameType == 'multiplayerCompos';
+              final is1v1Cdo = gameType == 'multiplayerCoupDoeil';
+              final is1v1 = is1v1Compos || is1v1Cdo;
+              final isCompos = gameType == 'compos';
+              final emoji = is1v1Compos ? '⚔️' : is1v1Cdo ? '⚔️' : isCompos ? '⚽' : '👁️';
+              final detail = matchName ?? category ?? '';
+
+              Widget mainText;
+              if (is1v1) {
+                final opp = opponentPseudo ?? '?';
+                final line = won == null
+                    ? '$pseudo vs $opp'
+                    : won
+                    ? '🏆 $pseudo a battu $opp'
+                    : '🏆 $opp a battu $pseudo';
+                mainText = Text(
+                  line,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kFg1),
+                );
+              } else {
+                final scoreStr = isCompos ? '$score%' : '${score}pts';
+                mainText = RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 13, color: _kFg1),
+                    children: [
+                      TextSpan(text: pseudo, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      TextSpan(
+                        text: '  $scoreStr',
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: _kAccentBr),
+                      ),
+                      if (!isCompos && diff.isNotEmpty)
+                        TextSpan(
+                          text: ' · $diff',
+                          style: const TextStyle(fontWeight: FontWeight.w500, color: _kFg2),
+                        ),
+                    ],
+                  ),
+                );
+              }
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _kCard,
+                  border: Border.all(color: _kBorder),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
-              const SizedBox(height: 10),
-              if (!hasVoted) ...[
-                Row(
+                child: Row(
                   children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        border: Border.all(color: _kBorder),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(emoji, style: const TextStyle(fontSize: 15, height: 1)),
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: _SondageButton(
-                        label: optionA,
-                        loading: _voting,
-                        onTap: () => _vote('A'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          mainText,
+                          if (detail.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              detail,
+                              style: const TextStyle(fontSize: 11.5, color: _kFg2),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: _SondageButton(
-                        label: optionB,
-                        loading: _voting,
-                        onTap: () => _vote('B'),
-                      ),
-                    ),
+                    Text(ago, style: const TextStyle(fontSize: 10.5, color: _kFg2)),
                   ],
                 ),
-              ] else ...[
-                _ResultBar(
-                  label: optionA,
-                  votes: votesA,
-                  total: total,
-                  chosen: _myChoice == 'A',
-                ),
-                const SizedBox(height: 6),
-                _ResultBar(
-                  label: optionB,
-                  votes: votesB,
-                  total: total,
-                  chosen: _myChoice == 'B',
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SondageButton extends StatelessWidget {
-  final String label;
-  final bool loading;
-  final VoidCallback onTap;
-  const _SondageButton({
-    required this.label,
-    required this.loading,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: loading ? null : onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        decoration: BoxDecoration(
-          color: AppColors.accentBright.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.accentBright.withOpacity(0.3)),
-        ),
-        child: Center(
-          child: loading
-              ? SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.accentBright,
-                  ),
-                )
-              : Text(
-                  label,
-                  style: TextStyle(
-                    color: AppColors.accentBright,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
 
-class _ResultBar extends StatelessWidget {
-  final String label;
-  final int votes;
-  final int total;
-  final bool chosen;
-  const _ResultBar({
-    required this.label,
-    required this.votes,
-    required this.total,
-    required this.chosen,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = total > 0 ? votes / total : 0.0;
-    final pctLabel = '${(pct * 100).round()}%';
-    final votesLabel = '$votes vote${votes > 1 ? 's' : ''}';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            if (chosen)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Icon(
-                  Icons.check_circle,
-                  size: 14,
-                  color: AppColors.accentBright,
-                ),
-              ),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: chosen
-                      ? AppColors.accentBright
-                      : AppColors.textPrimary,
-                  fontWeight: chosen ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            Text(
-              '$pctLabel · $votesLabel',
-              style: TextStyle(
-                color: chosen
-                    ? AppColors.accentBright
-                    : AppColors.textSecondary,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: pct,
-            minHeight: 6,
-            backgroundColor: AppColors.border,
-            valueColor: AlwaysStoppedAnimation(
-              chosen
-                  ? AppColors.accentBright
-                  : AppColors.textSecondary.withOpacity(0.5),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-Widget _difficultyButton(BuildContext context, String difficulty) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4.0),
-    child: ElevatedButton(
-      onPressed: () {
-        Navigator.pop(context);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CoupDoeilGamePage(difficulty: difficulty),
-          ),
-        );
-      },
-      child: Text(difficulty),
-    ),
-  );
-}

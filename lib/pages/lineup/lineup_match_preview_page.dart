@@ -61,7 +61,8 @@ String? _leagueFolder(String competition) {
       c.contains('coupe du monde') ||
       c.contains('world cup') ||
       c.contains('ligue des nations') ||
-      c.contains('copa'))
+      c.contains('copa') ||
+      c.contains('can'))
     return 'pays';
   if (c.contains('serie a')) return 'Italy - Serie A';
   if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
@@ -377,7 +378,12 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
   }
 
   // Competitions qui gardent leurs couleurs d'origine
-  static const _coloredLogos = {'Euro', 'Coupe du Monde'};
+  static const _coloredLogos = {
+    'Euro',
+    'Coupe du Monde',
+    "CAN",
+    'Copa America',
+  };
 
   Widget _buildCompetitionLogo(String competition) {
     final img = Image.asset(

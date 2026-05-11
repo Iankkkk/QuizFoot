@@ -9,7 +9,13 @@ import '../../main.dart' show routeObserver;
 import '../../services/theme_service.dart';
 
 class LineupMatchPageIntro extends StatefulWidget {
-  const LineupMatchPageIntro({super.key});
+  final bool autoOpenDifficulty;
+  final Set<String>? initialEras;
+  const LineupMatchPageIntro({
+    super.key,
+    this.autoOpenDifficulty = false,
+    this.initialEras,
+  });
 
   @override
   State<LineupMatchPageIntro> createState() => _LineupMatchPageIntroState();
@@ -61,7 +67,15 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro>
   @override
   void initState() {
     super.initState();
+    if (widget.initialEras != null && widget.initialEras!.isNotEmpty) {
+      _selectedEras.addAll(widget.initialEras!);
+    }
     _loadHistory();
+    if (widget.autoOpenDifficulty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showDifficultyPicker();
+      });
+    }
   }
 
   @override

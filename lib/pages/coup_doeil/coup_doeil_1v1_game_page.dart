@@ -32,7 +32,8 @@ class CoupDoeil1v1GamePage extends StatefulWidget {
   State<CoupDoeil1v1GamePage> createState() => _CoupDoeil1v1GamePageState();
 }
 
-class _CoupDoeil1v1GamePageState extends State<CoupDoeil1v1GamePage> {
+class _CoupDoeil1v1GamePageState extends State<CoupDoeil1v1GamePage>
+    with WidgetsBindingObserver {
 
   static const int _maxSeconds = 30;
   static const String _memeCorrect = 'assets/images/correct.jpg';
@@ -44,6 +45,7 @@ class _CoupDoeil1v1GamePageState extends State<CoupDoeil1v1GamePage> {
   int _score = 0;
   String _answer = '';
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _inputFocus = FocusNode();
   final List<CdoQuestionResult> _questionResults = [];
   bool _hadWrongAttempt = false;
 
@@ -71,8 +73,42 @@ class _CoupDoeil1v1GamePageState extends State<CoupDoeil1v1GamePage> {
   StreamSubscription<CoupDoeil1v1Game?>? _gameSub;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  Timer? _pauseAbandonTimer;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _pauseAbandonTimer?.cancel();
+      _pauseAbandonTimer = Timer(const Duration(seconds: 12), () {
+        if (!_submitted) {
+          CoupDoeil1v1Service.instance.abandonRoom(
+            code: widget.roomCode,
+            pseudo: widget.pseudo,
+          );
+        }
+      });
+    } else if (state == AppLifecycleState.resumed) {
+      _pauseAbandonTimer?.cancel();
+    } else if (state == AppLifecycleState.detached && !_submitted) {
+      _pauseAbandonTimer?.cancel();
+      CoupDoeil1v1Service.instance.abandonRoom(
+        code: widget.roomCode,
+        pseudo: widget.pseudo,
+      );
+    }
+  }
+
+  @override
   void dispose() {
+    _pauseAbandonTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
+    _inputFocus.dispose();
     _questionTimer?.cancel();
     _gameSub?.cancel();
     super.dispose();
@@ -166,6 +202,7 @@ class _CoupDoeil1v1GamePageState extends State<CoupDoeil1v1GamePage> {
       Future.delayed(const Duration(milliseconds: 60), HapticFeedback.heavyImpact);
       setState(() { _showPhotoOverlay = true; _photoScale = 1.05; _photoOverlayColor = Colors.orange; });
       _showFeedback("🟡 T'y es presque grand...", Colors.orange[700]!, meme: _memeWrong);
+      _inputFocus.requestFocus();
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
         setState(() { _showPhotoOverlay = false; _photoScale = 1.0; });
@@ -290,6 +327,7 @@ class _CoupDoeil1v1GamePageState extends State<CoupDoeil1v1GamePage> {
           category: widget.category,
           abandoned: game.abandoned,
           abandonedBy: game.abandonedBy,
+          roomCode: widget.roomCode,
         ),
       ),
     );
@@ -674,6 +712,7 @@ class _CoupDoeil1v1GamePageState extends State<CoupDoeil1v1GamePage> {
               // ── Text field ──────────────────────────────────────────────
               TextField(
                 autofocus: false,
+                focusNode: _inputFocus,
                 controller: _controller,
                 style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
                 decoration: InputDecoration(

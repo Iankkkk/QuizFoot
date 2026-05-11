@@ -116,13 +116,21 @@ class MultiplayerService {
 
       final opponent = game.opponentOf;
       final opponentData = game.players[opponent]!;
+      // All revealed with foundBy: pseudo for proper attribution.
+      // Extras (beyond the first) increment bonusCounts so they don't count as points.
       final found = [
         ...game.foundPlayers.map((f) => f.toMap()),
         ...playerNames.map((n) => FoundPlayer(name: n, foundBy: pseudo).toMap()),
       ];
+      final extraCount = playerNames.length - 1;
+      final updatedBonusCounts = {
+        ...game.bonusCounts,
+        pseudo: (game.bonusCounts[pseudo] ?? 0) + extraCount,
+      };
 
       tx.update(ref, {
         'foundPlayers': found,
+        'bonusCounts': updatedBonusCounts,
         'currentTurn': opponent,
         'turnStartedAt': FieldValue.serverTimestamp(),
         'suffocatedBy': null,
@@ -198,8 +206,8 @@ class MultiplayerService {
           'suffocatedBy': null,
         });
       } else if (eliminated) {
-        final elimFoundCount = game.foundPlayers.where((f) => f.foundBy == pseudo).length;
-        final oppFoundCount  = game.foundPlayers.where((f) => f.foundBy == opponent).length;
+        final elimFoundCount = game.foundPlayers.where((f) => f.foundBy == pseudo).length - (game.bonusCounts[pseudo] ?? 0);
+        final oppFoundCount  = game.foundPlayers.where((f) => f.foundBy == opponent).length - (game.bonusCounts[opponent] ?? 0);
 
         if (oppFoundCount > elimFoundCount) {
           // Adversaire déjà devant → victoire normale
@@ -300,8 +308,8 @@ class MultiplayerService {
             'suffocatedBy': null,
           });
         } else if (eliminated) {
-          final elimFoundCount = game.foundPlayers.where((f) => f.foundBy == activePseudo).length;
-          final oppFoundCount  = game.foundPlayers.where((f) => f.foundBy == waitingPseudo).length;
+          final elimFoundCount = game.foundPlayers.where((f) => f.foundBy == activePseudo).length - (game.bonusCounts[activePseudo] ?? 0);
+          final oppFoundCount  = game.foundPlayers.where((f) => f.foundBy == waitingPseudo).length - (game.bonusCounts[waitingPseudo] ?? 0);
 
           if (oppFoundCount > elimFoundCount) {
             tx.update(ref, {
@@ -346,6 +354,35 @@ class MultiplayerService {
       };
       tx.update(ref, {'players': updatedPlayers});
     });
+  }
+
+  // ── Rematch ───────────────────────────────────────────────────────────────
+
+  Future<void> requestRematch({required String code, required String pseudo}) async {
+    try {
+      await _games.doc(code).update({'rematch.$pseudo': true});
+    } catch (_) {}
+  }
+
+  Future<void> writeRematchRoom({
+    required String oldCode,
+    required String newCode,
+    required String newMatchId,
+  }) async {
+    try {
+      await _games.doc(oldCode).update({
+        'rematchCode': newCode,
+        'rematchMatchId': newMatchId,
+      });
+    } catch (_) {}
+  }
+
+  // ── Heartbeat ─────────────────────────────────────────────────────────────
+
+  Future<void> pingHeartbeat({required String code, required String pseudo}) async {
+    try {
+      await _games.doc(code).update({'heartbeat.$pseudo': FieldValue.serverTimestamp()});
+    } catch (_) {}
   }
 
   // ── Cleanup ───────────────────────────────────────────────────────────────

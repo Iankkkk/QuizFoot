@@ -32,7 +32,7 @@ class Compos1v1GamePage extends StatefulWidget {
 }
 
 class _Compos1v1GamePageState extends State<Compos1v1GamePage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // ── Stream ────────────────────────────────────────────────────────────────
   StreamSubscription<MultiplayerGame?>? _gameSub;
   MultiplayerGame? _game;
@@ -78,6 +78,12 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
   Timer? _opponentOverflowTimer;
   bool _opponentOverflowScheduled = false;
 
+  // ── Heartbeat ─────────────────────────────────────────────────────────────
+  Timer? _heartbeatTimer;
+  bool _heartbeatStarted = false;
+  static const _kHeartbeatInterval = Duration(seconds: 10);
+  static const _kHeartbeatThreshold = Duration(seconds: 25);
+
   // ── Hint banner ───────────────────────────────────────────────────────────
   bool _showHintBanner = false;
   Timer? _hintBannerTimer;
@@ -85,12 +91,14 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
   // ── Suffocation animation ─────────────────────────────────────────────────
   late AnimationController _suffocateCtrl;
   late Animation<double> _suffocatePulse;
+  Timer? _suffocateHapticTimer;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startTime = DateTime.now();
     _tabController = TabController(length: 2, vsync: this);
     _toastCtrl = AnimationController(
@@ -110,7 +118,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
 
     _suffocateCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 280),
     );
     _suffocatePulse = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _suffocateCtrl, curve: Curves.easeInOut),
@@ -121,13 +129,46 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
         .listen(_onGameUpdate);
   }
 
+  Timer? _pauseAbandonTimer;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _pauseAbandonTimer?.cancel();
+      _pauseAbandonTimer = Timer(const Duration(seconds: 12), () {
+        final g = _game;
+        if (g != null && g.status != GameStatus.finished && !g.abandoned) {
+          MultiplayerService.instance.abandonRoom(
+            code: widget.roomCode,
+            pseudo: widget.pseudo,
+          );
+        }
+      });
+    } else if (state == AppLifecycleState.resumed) {
+      _pauseAbandonTimer?.cancel();
+    } else if (state == AppLifecycleState.detached) {
+      _pauseAbandonTimer?.cancel();
+      final g = _game;
+      if (g != null && g.status != GameStatus.finished && !g.abandoned) {
+        MultiplayerService.instance.abandonRoom(
+          code: widget.roomCode,
+          pseudo: widget.pseudo,
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _pauseAbandonTimer?.cancel();
+    _heartbeatTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _gameSub?.cancel();
     _tickTimer?.cancel();
     _hintBannerTimer?.cancel();
     _opponentOverflowTimer?.cancel();
     _toastCtrl.dispose();
+    _suffocateHapticTimer?.cancel();
     _suffocateCtrl.dispose();
     _tabController.dispose();
     _inputController.dispose();
@@ -169,16 +210,40 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       MultiplayerService.instance.startFirstTurn(widget.roomCode);
     }
 
-    // Suffocation animation + haptic (triple pulse) when it hits me
+    // Suffocation animation + haptic during the full 10s when it hits me
     final isSuffocating = _isMyTurn && game.suffocatedBy != null;
     if (isSuffocating && !_suffocateCtrl.isAnimating) {
       _suffocateCtrl.repeat(reverse: true);
-      HapticFeedback.heavyImpact();
-      Future.delayed(const Duration(milliseconds: 120), HapticFeedback.heavyImpact);
-      Future.delayed(const Duration(milliseconds: 240), HapticFeedback.heavyImpact);
+      _suffocateHapticTimer?.cancel();
+      HapticFeedback.vibrate();
+      _suffocateHapticTimer = Timer.periodic(
+        const Duration(milliseconds: 350),
+        (_) => HapticFeedback.vibrate(),
+      );
     } else if (!isSuffocating && _suffocateCtrl.isAnimating) {
+      _suffocateHapticTimer?.cancel();
+      _suffocateHapticTimer = null;
       _suffocateCtrl.stop();
       _suffocateCtrl.value = 0;
+    }
+
+    // Start heartbeat once the game is live
+    if (!_heartbeatStarted && game.status == GameStatus.playing) {
+      _heartbeatStarted = true;
+      MultiplayerService.instance.pingHeartbeat(code: widget.roomCode, pseudo: widget.pseudo);
+      _heartbeatTimer = Timer.periodic(_kHeartbeatInterval, (_) {
+        MultiplayerService.instance.pingHeartbeat(code: widget.roomCode, pseudo: widget.pseudo);
+      });
+    }
+
+    // At each actual turn change → check if opponent's heartbeat is stale
+    final actualTurnChanged = previous?.currentTurn != game.currentTurn;
+    if (actualTurnChanged && _isMyTurn && previous != null && game.status == GameStatus.playing) {
+      final oppPseudo = game.playerOrder.firstWhere((p) => p != widget.pseudo, orElse: () => '');
+      final oppHb = game.heartbeat[oppPseudo];
+      if (oppHb != null && DateTime.now().difference(oppHb) > _kHeartbeatThreshold) {
+        MultiplayerService.instance.abandonRoom(code: widget.roomCode, pseudo: oppPseudo);
+      }
     }
 
     // Reset timer expiry flag on turn change OR when turnStartedAt is first set
@@ -235,6 +300,9 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       if (mounted) { Navigator.of(context).pop(); }
       return;
     }
+    final game = _game;
+    final opponentName = game?.abandonedBy ?? 'Adversaire';
+    final hasAbandoner = game?.abandonedBy != null;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -242,17 +310,32 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: AppColors.amber),
+          side: BorderSide(color: hasAbandoner ? AppColors.accentBright : AppColors.amber),
         ),
         title: Text(
-          '⚠️ Partie interrompue',
-          style: TextStyle(color: AppColors.amber, fontWeight: FontWeight.w800, fontSize: 18),
+          hasAbandoner ? '🏆 Victoire !' : '⚠️ Partie interrompue',
+          style: TextStyle(
+            color: hasAbandoner ? AppColors.accentBright : AppColors.amber,
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+          ),
           textAlign: TextAlign.center,
         ),
-        content: Text(
-          message,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-          textAlign: TextAlign.center,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              hasAbandoner
+                  ? '$opponentName a abandonné la partie.'
+                  : message,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            if (hasAbandoner && game != null) ...[
+              const SizedBox(height: 16),
+              _ScoreSummary(game: game, pseudo: widget.pseudo),
+            ],
+          ],
         ),
         actions: [
           SizedBox(
@@ -307,7 +390,15 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       if (clamped <= 0 && !_isMyTurn && !_opponentOverflowScheduled) {
         _opponentOverflowScheduled = true;
         _opponentOverflowTimer = Timer(const Duration(seconds: 5), () {
-          if (mounted && !_isMyTurn) {
+          if (!mounted || _isMyTurn) return;
+          final g = _game;
+          if (g == null) return;
+          final oppPseudo = g.playerOrder.firstWhere((p) => p != widget.pseudo, orElse: () => '');
+          final oppHb = g.heartbeat[oppPseudo];
+          final isStale = oppHb == null || DateTime.now().difference(oppHb) > _kHeartbeatThreshold;
+          if (isStale) {
+            MultiplayerService.instance.abandonRoom(code: widget.roomCode, pseudo: oppPseudo);
+          } else {
             MultiplayerService.instance.forceOpponentTimeout(
               code: widget.roomCode,
               waitingPseudo: widget.pseudo,
@@ -405,7 +496,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       _inputController.clear();
       _inputFocus.unfocus();
       final label = allMatched.length > 1
-          ? '${_lastName(allMatched.first.playerName)} × ${allMatched.length} ✓'
+          ? '${_lastName(allMatched.first.playerName)} × ${allMatched.length} ✓ (1 pt)'
           : '${_lastName(allMatched.first.playerName)} ✓';
       _showFeedback(label, AppColors.accentBright);
       _hintBannerTimer?.cancel();
@@ -1377,39 +1468,69 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       child: IgnorePointer(
         child: AnimatedBuilder(
           animation: _suffocatePulse,
-          builder: (_, __) => Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: AppColors.red.withValues(alpha: 0.3 + _suffocatePulse.value * 0.55),
-                width: 4 + _suffocatePulse.value * 3,
-              ),
-            ),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Opacity(
-                  opacity: _suffocatePulse.value,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppColors.red,
-                      borderRadius: BorderRadius.circular(20),
+          builder: (_, __) {
+            final t = _suffocatePulse.value;
+            return Stack(
+              children: [
+                // Vignette légère aux coins seulement
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: 1.3,
+                      colors: [
+                        Colors.transparent,
+                        AppColors.red.withValues(alpha: 0.08 + t * 0.14),
+                      ],
+                      stops: const [0.6, 1.0],
                     ),
-                    child: Text(
-                      '😤 SUFFOCATION',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                        letterSpacing: 1,
+                  ),
+                ),
+                // Bordure pulsante
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: AppColors.red.withValues(alpha: 0.5 + t * 0.4),
+                      width: 3 + t * 3,
+                    ),
+                  ),
+                ),
+                // Badge toujours visible, scale-pulsé
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Transform.scale(
+                      scale: 0.92 + t * 0.16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.red.withValues(alpha: 0.85 + t * 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.red.withValues(alpha: 0.4 + t * 0.4),
+                              blurRadius: 8 + t * 10,
+                              spreadRadius: t * 3,
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          '😤 SUFFOCATION',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                            letterSpacing: 1,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ),
+              ],
+            );
+          },
         ),
       ),
     );

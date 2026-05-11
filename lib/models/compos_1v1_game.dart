@@ -67,6 +67,11 @@ class MultiplayerGame {
   final String? abandonedBy;
   final DateTime createdAt;
   final bool pendingFinalTurn;
+  final Map<String, bool> rematch;
+  final String? rematchCode;
+  final String? rematchMatchId;
+  final Map<String, int> bonusCounts;
+  final Map<String, DateTime> heartbeat;
 
   const MultiplayerGame({
     required this.roomCode,
@@ -85,6 +90,11 @@ class MultiplayerGame {
     this.abandonedBy,
     required this.createdAt,
     this.pendingFinalTurn = false,
+    this.rematch = const {},
+    this.rematchCode,
+    this.rematchMatchId,
+    this.bonusCounts = const {},
+    this.heartbeat = const {},
   });
 
   factory MultiplayerGame.fromDoc(DocumentSnapshot doc) {
@@ -113,6 +123,17 @@ class MultiplayerGame {
       abandonedBy: d['abandonedBy'] as String?,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       pendingFinalTurn: d['pendingFinalTurn'] as bool? ?? false,
+      rematch: Map<String, bool>.from(
+        (d['rematch'] as Map<String, dynamic>? ?? {}).map((k, v) => MapEntry(k, v as bool? ?? false)),
+      ),
+      rematchCode: d['rematchCode'] as String?,
+      rematchMatchId: d['rematchMatchId'] as String?,
+      bonusCounts: Map<String, int>.from(
+        (d['bonusCounts'] as Map<String, dynamic>? ?? {}).map((k, v) => MapEntry(k, (v as num).toInt())),
+      ),
+      heartbeat: Map<String, DateTime>.from(
+        (d['heartbeat'] as Map<String, dynamic>? ?? {}).map((k, v) => MapEntry(k, (v as Timestamp).toDate())),
+      ),
     );
   }
 

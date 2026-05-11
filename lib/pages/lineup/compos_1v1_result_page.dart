@@ -1,9 +1,14 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
+import '../../data/lineup_game_data.dart';
 import '../../models/lineup_model.dart';
 import '../../models/match_model.dart';
 import '../../models/compos_1v1_game.dart';
+import '../../services/compos_1v1_service.dart';
 import 'compos_1v1_lobby_page.dart';
+import 'compos_1v1_preview_page.dart';
 
 class Compos1v1ResultPage extends StatefulWidget {
   final MultiplayerGame game;
@@ -34,6 +39,12 @@ class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
   late final Animation<double> _entranceScale;
   late final Animation<double> _entranceOpacity;
 
+  // ── Rematch ───────────────────────────────────────────────────────────────
+  bool _rematchRequested = false;
+  bool _opponentReady = false;
+  StreamSubscription<MultiplayerGame?>? _rematchSub;
+  Timer? _rematchTimeout;
+
   @override
   void initState() {
     super.initState();
@@ -54,8 +65,118 @@ class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
 
   @override
   void dispose() {
+    _rematchSub?.cancel();
+    _rematchTimeout?.cancel();
     _entranceController.dispose();
     super.dispose();
+  }
+
+  bool _isHost() => widget.game.playerOrder.isNotEmpty &&
+      widget.game.playerOrder[0] == widget.pseudo;
+
+  void _onRematchTap() {
+    if (_rematchRequested) return;
+    setState(() => _rematchRequested = true);
+    MultiplayerService.instance.requestRematch(
+      code: widget.game.roomCode,
+      pseudo: widget.pseudo,
+    );
+    _rematchSub = MultiplayerService.instance
+        .watchGame(widget.game.roomCode)
+        .listen(_onRematchUpdate);
+    _rematchTimeout = Timer(const Duration(seconds: 20), _onRematchTimeout);
+  }
+
+  void _onRematchUpdate(MultiplayerGame? game) {
+    if (game == null || !mounted) return;
+
+    final opponentReady = game.rematch[_opponentPseudo] == true;
+    if (opponentReady && !_opponentReady) {
+      setState(() => _opponentReady = true);
+    }
+
+    final bothReady = game.rematch[widget.pseudo] == true &&
+        game.rematch[_opponentPseudo] == true;
+
+    if (bothReady) {
+      // Host crée la room, guest attend rematchCode
+      if (_isHost() && game.rematchCode == null) {
+        _createRematchRoom();
+      } else if (!_isHost() && game.rematchCode != null && game.rematchMatchId != null) {
+        _joinRematchRoom(game.rematchCode!, game.rematchMatchId!);
+      }
+    }
+  }
+
+  Future<void> _createRematchRoom() async {
+    _rematchSub?.cancel();
+    _rematchTimeout?.cancel();
+    try {
+      final matches = await loadMatches();
+      final candidates = matches
+          .where((m) => m.level == widget.game.difficulty && m.matchId != widget.game.matchId)
+          .toList();
+      final pool = candidates.isNotEmpty ? candidates : matches.where((m) => m.matchId != widget.game.matchId).toList();
+      if (pool.isEmpty || !mounted) return;
+      final newMatch = pool[Random().nextInt(pool.length)];
+      final newCode = await MultiplayerService.instance.createRoom(
+        pseudo: widget.pseudo,
+        matchId: newMatch.matchId,
+        difficulty: widget.game.difficulty,
+      );
+      await MultiplayerService.instance.joinRoom(code: newCode, pseudo: _opponentPseudo);
+      await MultiplayerService.instance.writeRematchRoom(
+        oldCode: widget.game.roomCode,
+        newCode: newCode,
+        newMatchId: newMatch.matchId,
+      );
+      if (!mounted) return;
+      _goToPreview(newCode, newMatch.matchId);
+    } catch (_) {
+      if (mounted) _goToLobby();
+    }
+  }
+
+  void _joinRematchRoom(String newCode, String newMatchId) {
+    _rematchSub?.cancel();
+    _rematchTimeout?.cancel();
+    _goToPreview(newCode, newMatchId);
+  }
+
+  void _onRematchTimeout() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$_opponentPseudo n\'a pas répondu'),
+        backgroundColor: AppColors.card,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    _goToLobby();
+  }
+
+  void _goToPreview(String roomCode, String matchId) {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => Compos1v1PreviewPage(
+          roomCode: roomCode,
+          pseudo: widget.pseudo,
+          opponentPseudo: _opponentPseudo,
+          matchId: matchId,
+          difficulty: widget.game.difficulty,
+        ),
+      ),
+      (r) => r.isFirst,
+    );
+  }
+
+  void _goToLobby() {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
+      (r) => r.isFirst,
+    );
   }
 
   // ── Computed ──────────────────────────────────────────────────────────────
@@ -68,10 +189,12 @@ class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
   );
 
   int get _myFound =>
-      widget.game.foundPlayers.where((f) => f.foundBy == widget.pseudo).length;
+      widget.game.foundPlayers.where((f) => f.foundBy == widget.pseudo).length -
+      (widget.game.bonusCounts[widget.pseudo] ?? 0);
 
   int get _oppFound =>
-      widget.game.foundPlayers.where((f) => f.foundBy == _opponentPseudo).length;
+      widget.game.foundPlayers.where((f) => f.foundBy == _opponentPseudo).length -
+      (widget.game.bonusCounts[_opponentPseudo] ?? 0);
 
   int get _myErrors => widget.game.players[widget.pseudo]?.errors ?? 0;
 
@@ -423,20 +546,36 @@ class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
             flex: 2,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentBright,
+                backgroundColor: _rematchRequested ? AppColors.border : AppColors.accentBright,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
               ),
-              onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
-                (r) => r.isFirst,
-              ),
-              child: Text(
-                'Nouvelle partie ↺',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
+              onPressed: _rematchRequested ? null : _onRematchTap,
+              child: _rematchRequested
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _opponentReady ? AppColors.accentBright : AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _opponentReady ? '$_opponentPseudo est prêt !' : 'En attente...',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: _opponentReady ? AppColors.accentBright : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text('Revanche ! ⚔️', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             ),
           ),
         ],

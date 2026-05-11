@@ -57,11 +57,21 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-    _fadeAnim = CurvedAnimation(parent: _entranceController, curve: Curves.easeOut);
+    _fadeAnim = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic));
+        .animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
-    _sub = MultiplayerService.instance.watchGame(widget.roomCode).listen(_onGameUpdate);
+    _sub = MultiplayerService.instance
+        .watchGame(widget.roomCode)
+        .listen(_onGameUpdate);
     _loadMatch();
   }
 
@@ -73,7 +83,10 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
         orElse: () => throw Exception('Match introuvable'),
       );
       if (!mounted) return;
-      setState(() { _match = match; _matchLoading = false; });
+      setState(() {
+        _match = match;
+        _matchLoading = false;
+      });
       _entranceController.forward();
       _progressController.forward();
       _navTimer = Timer(const Duration(seconds: _countdownSeconds), _goToGame);
@@ -118,10 +131,8 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => Compos1v1GamePage(
-          roomCode: widget.roomCode,
-          pseudo: widget.pseudo,
-        ),
+        builder: (_) =>
+            Compos1v1GamePage(roomCode: widget.roomCode, pseudo: widget.pseudo),
       ),
     );
   }
@@ -133,7 +144,9 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     if (_matchLoading || _match == null) {
       return Scaffold(
         backgroundColor: AppColors.bg,
-        body: Center(child: CircularProgressIndicator(color: AppColors.accentBright)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.accentBright),
+        ),
       );
     }
 
@@ -154,7 +167,10 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.card,
                       borderRadius: BorderRadius.circular(8),
@@ -163,7 +179,11 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.people_outline, color: AppColors.textSecondary, size: 13),
+                        Icon(
+                          Icons.people_outline,
+                          color: AppColors.textSecondary,
+                          size: 13,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           '${widget.pseudo}  vs  ${widget.opponentPseudo}',
@@ -178,11 +198,16 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: diffColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: diffColor.withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: diffColor.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
                       widget.difficulty,
@@ -227,7 +252,9 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
                   AnimatedBuilder(
                     animation: _progressController,
                     builder: (_, __) {
-                      final remaining = (_countdownSeconds * (1 - _progressController.value)).ceil();
+                      final remaining =
+                          (_countdownSeconds * (1 - _progressController.value))
+                              .ceil();
                       return Column(
                         children: [
                           ClipRRect(
@@ -235,7 +262,9 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
                             child: LinearProgressIndicator(
                               value: 1 - _progressController.value,
                               backgroundColor: AppColors.border,
-                              valueColor: AlwaysStoppedAnimation(AppColors.accentBright),
+                              valueColor: AlwaysStoppedAnimation(
+                                AppColors.accentBright,
+                              ),
                               minHeight: 3,
                             ),
                           ),
@@ -350,12 +379,20 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     );
     if (_coloredLogos.contains(competition)) return img;
     return ColorFiltered(
-      colorFilter: ColorFilter.mode(ThemeService.instance.isDark ? Colors.white : Colors.black87, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(
+        ThemeService.instance.isDark ? Colors.white : Colors.black87,
+        BlendMode.srcIn,
+      ),
       child: img,
     );
   }
 
-  Widget _buildMatchCard(Match match, bool hasScore, bool hasPens, String? folder) {
+  Widget _buildMatchCard(
+    Match match,
+    bool hasScore,
+    bool hasPens,
+    String? folder,
+  ) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -370,7 +407,13 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildTeamColumn(name: match.homeTeam, color: match.colorHome, folder: folder)),
+                Expanded(
+                  child: _buildTeamColumn(
+                    name: match.homeTeam,
+                    color: match.colorHome,
+                    folder: folder,
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Column(
@@ -411,7 +454,13 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
                     ],
                   ),
                 ),
-                Expanded(child: _buildTeamColumn(name: match.awayTeam, color: match.colorAway, folder: folder)),
+                Expanded(
+                  child: _buildTeamColumn(
+                    name: match.awayTeam,
+                    color: match.colorAway,
+                    folder: folder,
+                  ),
+                ),
               ],
             ),
           ),
@@ -422,11 +471,18 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 13),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  color: AppColors.textSecondary,
+                  size: 13,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   match.date,
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -436,7 +492,11 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     );
   }
 
-  Widget _buildTeamColumn({required String name, required String color, String? folder}) {
+  Widget _buildTeamColumn({
+    required String name,
+    required String color,
+    String? folder,
+  }) {
     return Column(
       children: [
         _TeamLogo(name: name, colorName: color, folder: folder),
@@ -462,13 +522,27 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
 
 String? _leagueFolder(String competition) {
   final c = competition.toLowerCase();
-  if (c.contains('euro') || c.contains('coupe du monde') || c.contains('world cup') ||
-      c.contains('ligue des nations') || c.contains('copa')) return 'pays';
-  if (c.contains('champions league') || c.contains('ligue des champions')) return 'Champions League';
-  if (c.contains('ligue 1') || c.contains('coupe de france') || c.contains('coupe de la ligue')) return 'France - Ligue 1';
-  if (c.contains('premier league') || c.contains('community shield') || c.contains('fa cup')) return 'England - Premier League';
-  if (c.contains('laliga') || c.contains('la liga') || c.contains('liga')) return 'Spain - La Liga';
-  if (c.contains('bundesliga') && !c.contains('austria')) return 'Germany - Bundesliga';
+  if (c.contains('euro') ||
+      c.contains('coupe du monde') ||
+      c.contains('world cup') ||
+      c.contains('ligue des nations') ||
+      c.contains('copa') ||
+      c.contains('can'))
+    return 'pays';
+  if (c.contains('champions league') || c.contains('ligue des champions'))
+    return 'Champions League';
+  if (c.contains('ligue 1') ||
+      c.contains('coupe de france') ||
+      c.contains('coupe de la ligue'))
+    return 'France - Ligue 1';
+  if (c.contains('premier league') ||
+      c.contains('community shield') ||
+      c.contains('fa cup'))
+    return 'England - Premier League';
+  if (c.contains('laliga') || c.contains('la liga') || c.contains('liga'))
+    return 'Spain - La Liga';
+  if (c.contains('bundesliga') && !c.contains('austria'))
+    return 'Germany - Bundesliga';
   if (c.contains('serie a')) return 'Italy - Serie A';
   if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
   if (c.contains('liga portugal')) return 'Portugal - Liga Portugal';
@@ -478,17 +552,28 @@ String? _leagueFolder(String competition) {
 
 Color _parseColor(String? name) {
   switch (name?.toLowerCase().trim()) {
-    case 'blanc':      return Color(0xFFF0F0F0);
-    case 'noir':       return Color(0xFF1A1A1A);
-    case 'rouge':      return Color(0xFFDC2626);
-    case 'bleu':       return Color(0xFF1D4ED8);
-    case 'bleu clair': return Color(0xFF60A5FA);
-    case 'bleu foncé': return Color(0xFF0C0A4D);
-    case 'vert':       return Color(0xFF16A34A);
-    case 'jaune':      return Color(0xFFFACC15);
-    case 'orange':     return Color(0xFFE16806);
-    case 'violet':     return Color(0xFF790CC8);
-    default:           return Color(0xFF2D3148);
+    case 'blanc':
+      return Color(0xFFF0F0F0);
+    case 'noir':
+      return Color(0xFF1A1A1A);
+    case 'rouge':
+      return Color(0xFFDC2626);
+    case 'bleu':
+      return Color(0xFF1D4ED8);
+    case 'bleu clair':
+      return Color(0xFF60A5FA);
+    case 'bleu foncé':
+      return Color(0xFF0C0A4D);
+    case 'vert':
+      return Color(0xFF16A34A);
+    case 'jaune':
+      return Color(0xFFFACC15);
+    case 'orange':
+      return Color(0xFFE16806);
+    case 'violet':
+      return Color(0xFF790CC8);
+    default:
+      return Color(0xFF2D3148);
   }
 }
 
@@ -503,7 +588,9 @@ class _TeamLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     final fallback = _buildFallback();
     if (folder == null) return fallback;
-    final fileName = folder == 'pays' ? removeDiacritics(name.toLowerCase()) : name;
+    final fileName = folder == 'pays'
+        ? removeDiacritics(name.toLowerCase())
+        : name;
     return Image.asset(
       'assets/logos/$folder/$fileName.png',
       width: 64,

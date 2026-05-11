@@ -80,6 +80,7 @@ class CoupDoeil1v1Game {
   final bool abandoned;
   final String? abandonedBy;
   final DateTime createdAt;
+  final Map<String, bool> rematch;
 
   const CoupDoeil1v1Game({
     required this.roomCode,
@@ -93,6 +94,7 @@ class CoupDoeil1v1Game {
     this.abandoned = false,
     this.abandonedBy,
     required this.createdAt,
+    this.rematch = const {},
   });
 
   factory CoupDoeil1v1Game.fromDoc(DocumentSnapshot doc) {
@@ -114,6 +116,9 @@ class CoupDoeil1v1Game {
       abandoned: d['abandoned'] as bool? ?? false,
       abandonedBy: d['abandonedBy'] as String?,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      rematch: Map<String, bool>.from(
+        (d['rematch'] as Map<String, dynamic>? ?? {}).map((k, v) => MapEntry(k, v as bool? ?? false)),
+      ),
     );
   }
 
