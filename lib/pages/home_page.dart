@@ -10,6 +10,7 @@ import 'package:quiz_foot/data/players_data.dart';
 import 'package:quiz_foot/data/data_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../services/game_history_service.dart';
 import '../services/theme_service.dart';
@@ -17,17 +18,34 @@ import '../services/firestore_service.dart';
 import '../models/game_result.dart';
 import 'profil_page.dart';
 import 'classement_page.dart';
+import 'qui_a_menti/qui_a_menti_intro.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-// ── Design tokens (Tempo home — matched to design handoff) ────────────────────
-const _kCard     = Color(0xFF1E2130);
-const _kBorder   = Color(0xFF2D3148);
-const _kAccent   = Color(0xFF2EA043);
-const _kAccentBr = Color(0xFF3FB950);
-const _kAccentDp = Color(0xFF1E7F4F);
-const _kFg1      = Color(0xFFE6EDF3);
-const _kFg2      = Color(0xFF8B949E);
-const _kFg3      = Color(0xFF5A6272);
-const _kOrange   = Color(0xFFE87820);
+// ── Design tokens (Tempo home — dark + light) ────────────────────────────────
+class _C {
+  static bool get _d => ThemeService.instance.isDark;
+  static Color get card =>
+      _d ? const Color(0xFF1E2130) : const Color(0xFFF0F2F8);
+  static Color get border =>
+      _d ? const Color(0xFF2D3148) : const Color(0xFFD4D9E8);
+  static Color get accent =>
+      _d ? const Color(0xFF2EA043) : const Color(0xFF009E6B);
+  static Color get accentBr =>
+      _d ? const Color(0xFF3FB950) : const Color(0xFF00B87A);
+  static Color get accentDp =>
+      _d ? const Color(0xFF1E7F4F) : const Color(0xFF006B47);
+  static Color get fg1 =>
+      _d ? const Color(0xFFE6EDF3) : const Color(0xFF0D1117);
+  static Color get fg2 =>
+      _d ? const Color(0xFF8B949E) : const Color(0xFF586069);
+  static Color get fg3 =>
+      _d ? const Color(0xFF5A6272) : const Color(0xFF9AA3B0);
+  static Color get orange =>
+      _d ? const Color(0xFFE87820) : const Color(0xFFC85D0F);
+  static Color get bg => _d ? const Color(0xFF111318) : const Color(0xFFECEFF5);
+  static Color get cardAlt =>
+      _d ? const Color(0xFF171923) : const Color(0xFFE4E8F2);
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -89,7 +107,7 @@ class _HomePageState extends State<HomePage> {
           content: Text(
             '$saved score${saved > 1 ? 's' : ''} en attente envoyé${saved > 1 ? 's' : ''} ✓',
           ),
-          backgroundColor: _kAccentBr,
+          backgroundColor: _C.accentBr,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -156,9 +174,16 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadStats() async {
     final results = await GameHistoryService.instance.getAll();
     if (!mounted || results.isEmpty) return;
-    final totalTime = results.fold(Duration.zero, (acc, r) => acc + r.timeTaken);
-    final coupDoeilCount = results.where((r) => r.gameType == GameType.coupDoeil).length;
-    final composCount = results.where((r) => r.gameType == GameType.compos).length;
+    final totalTime = results.fold(
+      Duration.zero,
+      (acc, r) => acc + r.timeTaken,
+    );
+    final coupDoeilCount = results
+        .where((r) => r.gameType == GameType.coupDoeil)
+        .length;
+    final composCount = results
+        .where((r) => r.gameType == GameType.compos)
+        .length;
     final fav = coupDoeilCount >= composCount ? "Coup d'Œil" : 'Compos';
     final streak = _computeStreak(results);
     setState(() {
@@ -173,12 +198,17 @@ class _HomePageState extends State<HomePage> {
     if (results.isEmpty) return 0;
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
-    final dates = results
-        .map((r) => DateTime(r.playedAt.year, r.playedAt.month, r.playedAt.day))
-        .toSet()
-        .toList()
-      ..sort((a, b) => b.compareTo(a));
-    if (dates.first.isBefore(todayDate.subtract(const Duration(days: 1)))) return 0;
+    final dates =
+        results
+            .map(
+              (r) =>
+                  DateTime(r.playedAt.year, r.playedAt.month, r.playedAt.day),
+            )
+            .toSet()
+            .toList()
+          ..sort((a, b) => b.compareTo(a));
+    if (dates.first.isBefore(todayDate.subtract(const Duration(days: 1))))
+      return 0;
     int streak = 1;
     for (int i = 1; i < dates.length; i++) {
       if (dates[i - 1].difference(dates[i]).inDays == 1) {
@@ -199,7 +229,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadCommunityStats() async {
     try {
-      final agg = await FirebaseFirestore.instance.collection('scores').count().get();
+      final agg = await FirebaseFirestore.instance
+          .collection('scores')
+          .count()
+          .get();
       if (mounted) setState(() => _communityGames = agg.count ?? 0);
     } catch (_) {}
   }
@@ -247,11 +280,18 @@ class _HomePageState extends State<HomePage> {
     if (!mounted || results.isEmpty) return;
     results.sort((a, b) => b.playedAt.compareTo(a.playedAt));
     final last = results.first;
-    final mode = (last.gameType == GameType.compos || last.gameType == GameType.multiplayerCompos)
+    final mode =
+        (last.gameType == GameType.compos ||
+            last.gameType == GameType.multiplayerCompos)
         ? 'compos'
         : 'coupDoeil';
     final category = last.details['category'] as String?;
-    setState(() => _lastConfig = {'mode': mode, if (category != null) 'category': category});
+    setState(
+      () => _lastConfig = {
+        'mode': mode,
+        if (category != null) 'category': category,
+      },
+    );
   }
 
   Future<void> _loadReglePrefs() async {
@@ -292,19 +332,27 @@ class _HomePageState extends State<HomePage> {
         final details = d['details'] as Map<String, dynamic>?;
         final won = details?['won'] as bool?;
 
-        final isCompos = gameType == 'compos' || gameType == 'multiplayerCompos';
-        final mult = isCompos ? 1.0 : GameResult.difficultyMultiplier(difficulty);
+        final isCompos =
+            gameType == 'compos' || gameType == 'multiplayerCompos';
+        final isNoDifficulty = isCompos || gameType == 'quiAMenti';
+        final mult = isNoDifficulty
+            ? 1.0
+            : GameResult.difficultyMultiplier(difficulty);
         final pct = maxRaw > 0 ? rawScore / maxRaw : 0.0;
         double contribution = pct * 100 * mult;
 
-        final is1v1 = gameType == 'multiplayerCompos' || gameType == 'multiplayerCoupDoeil';
+        final is1v1 =
+            gameType == 'multiplayerCompos' ||
+            gameType == 'multiplayerCoupDoeil';
         if (is1v1 && won == true) contribution += 20 * mult;
 
         sums[pseudo] = (sums[pseudo] ?? 0) + contribution;
         counts[pseudo] = (counts[pseudo] ?? 0) + 1;
       }
 
-      final eligible = sums.entries.where((e) => (counts[e.key] ?? 0) >= 3).toList();
+      final eligible = sums.entries
+          .where((e) => (counts[e.key] ?? 0) >= 3)
+          .toList();
       if (eligible.isEmpty) return;
 
       eligible.sort((a, b) {
@@ -361,7 +409,7 @@ class _HomePageState extends State<HomePage> {
     };
     showModalBottomSheet(
       context: context,
-      backgroundColor: _kCard,
+      backgroundColor: _C.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -381,7 +429,7 @@ class _HomePageState extends State<HomePage> {
     const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
     showModalBottomSheet(
       context: context,
-      backgroundColor: _kCard,
+      backgroundColor: _C.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -392,14 +440,18 @@ class _HomePageState extends State<HomePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Top 5 de la commu',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _kFg1),
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _C.fg1,
+                ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Classement basé sur les scores pondérés par difficulté et volume.',
-                style: TextStyle(fontSize: 11, color: _kFg2),
+                style: TextStyle(fontSize: 11, color: _C.fg2),
               ),
               const SizedBox(height: 16),
               ..._topPlayers.asMap().entries.map((entry) {
@@ -408,11 +460,18 @@ class _HomePageState extends State<HomePage> {
                 final isFirst = rank == 0;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: isFirst ? _kAccent.withValues(alpha: 0.12) : const Color(0xFF171923),
+                    color: isFirst
+                        ? _C.accent.withValues(alpha: 0.12)
+                        : _C.cardAlt,
                     border: Border.all(
-                      color: isFirst ? _kAccentBr.withValues(alpha: 0.5) : _kBorder,
+                      color: isFirst
+                          ? _C.accentBr.withValues(alpha: 0.5)
+                          : _C.border,
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -425,8 +484,10 @@ class _HomePageState extends State<HomePage> {
                           player.pseudo,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: isFirst ? FontWeight.w800 : FontWeight.w600,
-                            color: _kFg1,
+                            fontWeight: isFirst
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: _C.fg1,
                           ),
                         ),
                       ),
@@ -435,7 +496,7 @@ class _HomePageState extends State<HomePage> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: isFirst ? _kAccentBr : _kFg2,
+                          color: isFirst ? _C.accentBr : _C.fg2,
                         ),
                       ),
                     ],
@@ -488,8 +549,8 @@ class _HomePageState extends State<HomePage> {
     return SafeArea(
       bottom: false,
       child: RefreshIndicator(
-        color: _kAccentBr,
-        backgroundColor: _kCard,
+        color: _C.accentBr,
+        backgroundColor: _C.card,
         onRefresh: _onRefresh,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -499,7 +560,7 @@ class _HomePageState extends State<HomePage> {
               _buildHeader(),
               _buildHero(),
               if (_pollData != null) ...[
-                _SectionTitle('Sondage de la semaine'),
+                _SectionTitle('📊 Sondage de la semaine'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _DailySondage(
@@ -513,13 +574,26 @@ class _HomePageState extends State<HomePage> {
               ],
               _SectionTitle('Le saviez-vous ?'),
               _buildAnecdoteCard(),
-              _SectionTitle('Activité de la commu', action: 'Tout voir →', onAction: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const _CommunityFeedPage()));
-              }),
+              _SectionTitle(
+                'Activité de la commu',
+                action: 'Voir tout →',
+                onAction: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const _CommunityFeedPage(),
+                    ),
+                  );
+                },
+              ),
               _buildFeed(),
-              _SectionTitle('Tes stats', action: 'Voir tout →', onAction: () {
-                _onNavItemTapped(3);
-              }),
+              _SectionTitle(
+                'Tes stats',
+                action: 'Voir tout →',
+                onAction: () {
+                  _onNavItemTapped(3);
+                },
+              ),
               _buildStatsGrid(),
               _SectionTitle('À la une'),
               _buildHighlights(),
@@ -543,33 +617,11 @@ class _HomePageState extends State<HomePage> {
           // Logo tile
           GestureDetector(
             onLongPress: _clearCache,
-            child: Container(
-              width: 62,
-              height: 62,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _kBorder),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x882EA043),
-                    blurRadius: 40,
-                    spreadRadius: 6,
-                  ),
-                  BoxShadow(
-                    color: Color(0x403FB950),
-                    blurRadius: 80,
-                    spreadRadius: 14,
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(2),
-              child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
-            ),
+            child: Image.asset('assets/images/logo.png', width: 58, height: 58),
           ),
           const SizedBox(width: 14),
           // Wordmark
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -579,7 +631,7 @@ class _HomePageState extends State<HomePage> {
                   fontWeight: FontWeight.w900,
                   fontSize: 22,
                   letterSpacing: 4.5,
-                  color: _kFg1,
+                  color: _C.fg1,
                   height: 1,
                 ),
               ),
@@ -588,7 +640,7 @@ class _HomePageState extends State<HomePage> {
                 'Le jeu, dans la tête.',
                 style: TextStyle(
                   fontSize: 12.5,
-                  color: _kFg2,
+                  color: _C.fg2,
                   letterSpacing: 0.3,
                   fontStyle: FontStyle.italic,
                 ),
@@ -598,12 +650,14 @@ class _HomePageState extends State<HomePage> {
           const Spacer(),
           // Streak pill (affiché à partir de 2 jours consécutifs)
           if (_streak >= 2)
-          GestureDetector(
+            GestureDetector(
               onTap: () => showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
-                  backgroundColor: _kCard,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: _C.card,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -613,48 +667,73 @@ class _HomePageState extends State<HomePage> {
                         _streak > 0
                             ? 'Tu as joué à Tempo Foot $_streak jour${_streak > 1 ? 's' : ''} d\'affilée !'
                             : 'Joue aujourd\'hui pour démarrer une série !',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kFg1),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: _C.fg1,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 6),
                       Text(
                         _streak > 0 ? 'Merci !' : 'Lance une partie 👇',
-                        style: const TextStyle(fontSize: 13, color: _kFg2),
+                        style: TextStyle(fontSize: 13, color: _C.fg2),
                       ),
                     ],
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Super !', style: TextStyle(color: _kAccentBr, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        'Super !',
+                        style: TextStyle(
+                          color: _C.accentBr,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
-                  color: _kCard,
-                  border: Border.all(color: _kOrange.withValues(alpha: 0.33)),
+                  color: _C.card,
+                  border: Border.all(color: _C.orange.withValues(alpha: 0.33)),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.local_fire_department, size: 17, color: _kOrange),
+                    Icon(
+                      Icons.local_fire_department,
+                      size: 17,
+                      color: _C.orange,
+                    ),
                     const SizedBox(width: 5),
                     Text(
                       '$_streak',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: _kFg1,
+                        color: _C.fg1,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+          const SizedBox(width: 6),
+          IconButton(
+            onPressed: _clearCache,
+            icon: Icon(Icons.refresh_rounded, size: 22, color: _C.fg2),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            tooltip: 'Rafraîchir',
+          ),
         ],
       ),
     );
@@ -676,8 +755,8 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [_kAccent, _kAccentDp],
+          gradient: LinearGradient(
+            colors: [_C.accent, _C.accentDp],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -756,22 +835,29 @@ class _HomePageState extends State<HomePage> {
                             config ?? {'mode': 'coupDoeil'},
                           ),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 18),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 11,
+                              horizontal: 18,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.play_arrow, size: 20, color: _kAccentDp),
+                                Icon(
+                                  Icons.play_arrow,
+                                  size: 20,
+                                  color: _C.accentDp,
+                                ),
                                 SizedBox(width: 6),
                                 Text(
                                   'Jouer !',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
-                                    color: _kAccentDp,
+                                    color: _C.accentDp,
                                   ),
                                 ),
                               ],
@@ -784,11 +870,16 @@ class _HomePageState extends State<HomePage> {
                       GestureDetector(
                         onTap: _showRegleModal,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 11,
+                            horizontal: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.18),
+                            ),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -796,7 +887,7 @@ class _HomePageState extends State<HomePage> {
                               Icon(Icons.tune, size: 16, color: Colors.white),
                               SizedBox(width: 4),
                               Text(
-                                'Régler',
+                                'Paramètres',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -826,30 +917,33 @@ class _HomePageState extends State<HomePage> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
-          color: _kCard,
-          border: Border.all(color: _kBorder),
+          color: _C.card,
+          border: Border.all(color: _C.border),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 1),
-              child: Icon(Icons.auto_stories_outlined, size: 20, color: _kFg2),
+              child: Icon(Icons.auto_stories_outlined, size: 20, color: _C.fg2),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _randomAnecdote.isEmpty
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 14,
                       width: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: _kAccentBr),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _C.accentBr,
+                      ),
                     )
                   : Text(
                       _randomAnecdote,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: _kFg1,
+                        color: _C.fg1,
                         height: 1.45,
                       ),
                     ),
@@ -872,16 +966,20 @@ class _HomePageState extends State<HomePage> {
       builder: (context, snap) {
         if (!snap.hasData || snap.data!.docs.isEmpty) return const SizedBox();
         final seen1v1 = <String>{};
-        final docs = snap.data!.docs.where((doc) {
-          final d = doc.data() as Map<String, dynamic>;
-          final type = d['gameType'] as String?;
-          if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil') return true;
-          final p1 = d['pseudo'] as String? ?? '';
-          final p2 = d['opponentPseudo'] as String? ?? '';
-          final matchKey = d['matchName'] as String? ?? '';
-          final pair = ([p1, p2]..sort()).join('-');
-          return seen1v1.add('$type-$pair-$matchKey');
-        }).take(3).toList();
+        final docs = snap.data!.docs
+            .where((doc) {
+              final d = doc.data() as Map<String, dynamic>;
+              final type = d['gameType'] as String?;
+              if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil')
+                return true;
+              final p1 = d['pseudo'] as String? ?? '';
+              final p2 = d['opponentPseudo'] as String? ?? '';
+              final matchKey = d['matchName'] as String? ?? '';
+              final pair = ([p1, p2]..sort()).join('-');
+              return seen1v1.add('$type-$pair-$matchKey');
+            })
+            .take(3)
+            .toList();
 
         if (docs.isEmpty) return const SizedBox();
 
@@ -904,8 +1002,17 @@ class _HomePageState extends State<HomePage> {
               final is1v1Cdo = gameType == 'multiplayerCoupDoeil';
               final is1v1 = is1v1Compos || is1v1Cdo;
               final isCompos = gameType == 'compos';
+              final isQuiAMenti = gameType == 'quiAMenti';
 
-              final String emoji = is1v1Compos ? '⚔️' : is1v1Cdo ? '⚔️' : isCompos ? '⚽' : '👁️';
+              final String emoji = is1v1Compos
+                  ? '⚔️'
+                  : is1v1Cdo
+                  ? '⚔️'
+                  : isCompos
+                  ? '⚽'
+                  : isQuiAMenti
+                  ? '🎭'
+                  : '👁️';
               final String detail = matchName ?? category ?? '';
 
               Widget mainText;
@@ -918,9 +1025,12 @@ class _HomePageState extends State<HomePage> {
                     : '🏆 $opp bat $pseudo';
                 mainText = RichText(
                   text: TextSpan(
-                    style: const TextStyle(fontSize: 12.5, color: _kFg1),
+                    style: TextStyle(fontSize: 12.5, color: _C.fg1),
                     children: [
-                      TextSpan(text: winnerLine, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      TextSpan(
+                        text: winnerLine,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ],
                   ),
                 );
@@ -928,23 +1038,32 @@ class _HomePageState extends State<HomePage> {
                 final scoreStr = isCompos ? '$score%' : '${score}pts';
                 mainText = RichText(
                   text: TextSpan(
-                    style: const TextStyle(fontSize: 12.5, color: _kFg1),
+                    style: TextStyle(fontSize: 12.5, color: _C.fg1),
                     children: [
                       TextSpan(
                         text: pseudo,
-                        style: const TextStyle(fontWeight: FontWeight.w700, color: _kFg1),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: _C.fg1,
+                        ),
                       ),
                       TextSpan(
                         text: '  $scoreStr',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: _kAccentBr,
+                          color: _C.accentBr,
                         ),
                       ),
-                      if (!isCompos && diff.isNotEmpty)
+                      if (!isCompos &&
+                          !isQuiAMenti &&
+                          diff.isNotEmpty &&
+                          diff != 'Standard')
                         TextSpan(
                           text: ' · $diff',
-                          style: const TextStyle(fontWeight: FontWeight.w500, color: _kFg2),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: _C.fg2,
+                          ),
                         ),
                     ],
                   ),
@@ -953,10 +1072,13 @@ class _HomePageState extends State<HomePage> {
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: _kCard,
-                  border: Border.all(color: _kBorder),
+                  color: _C.card,
+                  border: Border.all(color: _C.border),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -968,11 +1090,14 @@ class _HomePageState extends State<HomePage> {
                       height: 28,
                       decoration: BoxDecoration(
                         color: AppColors.bg,
-                        border: Border.all(color: _kBorder),
+                        border: Border.all(color: _C.border),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
-                      child: Text(emoji, style: const TextStyle(fontSize: 14, height: 1)),
+                      child: Text(
+                        emoji,
+                        style: const TextStyle(fontSize: 14, height: 1),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -984,10 +1109,7 @@ class _HomePageState extends State<HomePage> {
                             const SizedBox(height: 2),
                             Text(
                               detail,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: _kFg2,
-                              ),
+                              style: TextStyle(fontSize: 11, color: _C.fg2),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -996,7 +1118,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(ago, style: const TextStyle(fontSize: 10, color: _kFg2)),
+                    Text(ago, style: TextStyle(fontSize: 10, color: _C.fg2)),
                   ],
                 ),
               );
@@ -1012,7 +1134,10 @@ class _HomePageState extends State<HomePage> {
   Widget _buildStatsGrid() {
     final stats = [
       _StatCell(value: '$_totalGames', label: 'Parties'),
-      _StatCell(value: _totalGames > 0 ? _formatTime(_totalTime) : '—', label: 'Temps total'),
+      _StatCell(
+        value: _totalGames > 0 ? _formatTime(_totalTime) : '—',
+        label: 'Temps total',
+      ),
       _StatCell(value: _favGame, label: 'Préféré'),
     ];
     return Padding(
@@ -1020,15 +1145,20 @@ class _HomePageState extends State<HomePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
-          color: _kCard,
-          border: Border.all(color: _kBorder),
+          color: _C.card,
+          border: Border.all(color: _C.border),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
             for (int i = 0; i < stats.length; i++) ...[
               if (i > 0)
-                Container(width: 1, height: 32, color: _kBorder, margin: const EdgeInsets.symmetric(horizontal: 4)),
+                Container(
+                  width: 1,
+                  height: 32,
+                  color: _C.border,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                ),
               Expanded(
                 child: Column(
                   children: [
@@ -1037,7 +1167,7 @@ class _HomePageState extends State<HomePage> {
                       style: TextStyle(
                         fontSize: stats[i].value.length > 6 ? 13 : 17,
                         fontWeight: FontWeight.w800,
-                        color: _kAccentBr,
+                        color: _C.accentBr,
                         height: 1.1,
                       ),
                       textAlign: TextAlign.center,
@@ -1045,7 +1175,7 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 3),
                     Text(
                       stats[i].label,
-                      style: const TextStyle(fontSize: 10.5, color: _kFg2),
+                      style: TextStyle(fontSize: 10.5, color: _C.fg2),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -1065,7 +1195,8 @@ class _HomePageState extends State<HomePage> {
       _HighlightData(
         tag: 'Nouveau',
         title: 'Compos 1v1',
-        subtitle: 'Défie ton pote sur un match légendaire',
+        subtitle:
+            'Défie ton pote sur les compositions d\'équipe d\'un match légendaire !',
         emoji: '⚔️',
         onTap: () => Navigator.push(
           context,
@@ -1075,14 +1206,14 @@ class _HomePageState extends State<HomePage> {
       _HighlightData(
         tag: 'Communauté',
         title: '$_communityGames parties',
-        subtitle: 'Merci à la commu Tempo !',
+        subtitle: 'Merci à la commu Tempo ! 💚💚💚',
         icon: Icons.diversity_3,
       ),
       if (_topPlayers.isNotEmpty)
         _HighlightData(
           tag: 'Meilleur joueur',
-          title: _topPlayers.first.pseudo,
-          subtitle: '🏆 Top de la commu Tempo !',
+          title: "🏆 ${_topPlayers.first.pseudo}",
+          subtitle: 'Le crack de la commu Tempo !',
           emoji: '🥇',
           onTap: () => _showTop5(),
         ),
@@ -1104,8 +1235,8 @@ class _HomePageState extends State<HomePage> {
               width: 180,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _kCard,
-                border: Border.all(color: _kBorder),
+                color: _C.card,
+                border: Border.all(color: _C.border),
                 borderRadius: BorderRadius.circular(12),
               ),
               clipBehavior: Clip.hardEdge,
@@ -1117,8 +1248,11 @@ class _HomePageState extends State<HomePage> {
                     child: Opacity(
                       opacity: 0.08,
                       child: c.emoji != null
-                          ? Text(c.emoji!, style: const TextStyle(fontSize: 56, height: 1))
-                          : Icon(c.icon, size: 64, color: _kFg1),
+                          ? Text(
+                              c.emoji!,
+                              style: const TextStyle(fontSize: 56, height: 1),
+                            )
+                          : Icon(c.icon, size: 64, color: _C.fg1),
                     ),
                   ),
                   Column(
@@ -1126,28 +1260,28 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Text(
                         c.tag.toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.2,
-                          color: _kFg2,
+                          color: _C.fg2,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         c.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: _kFg1,
+                          color: _C.fg1,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         c.subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
-                          color: _kFg2,
+                          color: _C.fg2,
                           height: 1.35,
                         ),
                       ),
@@ -1165,8 +1299,8 @@ class _HomePageState extends State<HomePage> {
   // ── PUB strip ─────────────────────────────────────────────────────────────────
 
   Widget _buildPub() {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
       child: SizedBox(
         height: 28,
         child: Center(
@@ -1178,7 +1312,7 @@ class _HomePageState extends State<HomePage> {
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 2,
-                color: _kFg3,
+                color: _C.fg3,
               ),
             ),
           ),
@@ -1197,79 +1331,90 @@ class _HomePageState extends State<HomePage> {
     return '${diff.inDays}j';
   }
 
-  // ── Games page (unchanged) ────────────────────────────────────────────────────
+  // ── Games page ───────────────────────────────────────────────────────────────
 
   Widget _buildGamesPage() {
     return SafeArea(
+      bottom: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Jeux',
               style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 24,
-                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w900,
+                fontSize: 26,
+                color: _C.fg1,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               'Choisis ton mode de jeu',
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13.5, color: _C.fg2),
             ),
-            const SizedBox(height: 24),
-            _GameButton(
+            const SizedBox(height: 28),
+
+            // ── Coup d'Œil ──────────────────────────────────────────────────
+            _GameCard(
+              icon: PhosphorIconsFill.eye,
               title: "Coup d'Œil",
               subtitle: 'Reconnais le joueur grâce à sa photo',
-              icon: Icons.remove_red_eye_outlined,
+              accentColor: _C.accent,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => CoupDoeilIntroPage()),
               ),
-            ),
-            const SizedBox(height: 6),
-            _DuelButton(
-              label: "Coup d'Œil 1v1",
-              onTap: () => Navigator.push(
+              duelLabel: "Coup d'Œil 1v1",
+              onDuelTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const CoupDoeil1v1LobbyPage()),
+                MaterialPageRoute(
+                  builder: (_) => const CoupDoeil1v1LobbyPage(),
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-            _GameButton(
-              title: 'Qui a menti ?',
-              subtitle: '1 affirmation, 10 joueurs : 5 menteurs !',
-              icon: Icons.psychology_alt_outlined,
-              locked: true,
-              onTap: () {},
-            ),
-            const SizedBox(height: 16),
-            _GameButton(
-              title: 'Parcours Joueur',
-              subtitle: 'Retrouve le joueur grâce à sa carrière',
-              icon: Icons.emoji_events_outlined,
-              locked: true,
-              onTap: () {},
-            ),
-            const SizedBox(height: 16),
-            _GameButton(
+            const SizedBox(height: 12),
+
+            // ── Compos ──────────────────────────────────────────────────────
+            _GameCard(
+              icon: PhosphorIconsFill.usersThree,
               title: 'Compos',
               subtitle: "Retrouve les compos d'un match historique",
-              icon: Icons.view_module_outlined,
+              accentColor: _C.accent,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const LineupMatchPageIntro()),
               ),
-            ),
-            const SizedBox(height: 6),
-            _DuelButton(
-              label: 'Compos 1v1',
-              onTap: () => Navigator.push(
+              duelLabel: 'Compos 1v1',
+              onDuelTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
               ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Qui a menti ? ───────────────────────────────────────────────
+            _GameCard(
+              icon: PhosphorIconsFill.maskHappy,
+              title: 'Qui a menti ?',
+              subtitle: '1 affirmation, 10 joueurs : 5 menteurs !',
+              accentColor: _C.accent,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const QuiAMentiIntro()),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Parcours Joueur ─────────────────────────────────────────────
+            _GameCard(
+              icon: Icons.route_outlined,
+              title: 'Parcours Joueur',
+              subtitle: 'Retrouve le joueur grâce à sa carrière',
+              accentColor: _C.fg3,
+              locked: true,
+              onTap: () {},
             ),
           ],
         ),
@@ -1287,17 +1432,35 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavItemTapped,
-        selectedItemColor: _kAccentBr,
-        unselectedItemColor: _kFg2,
-        backgroundColor: _kCard,
+        selectedItemColor: _C.accentBr,
+        unselectedItemColor: _C.fg2,
+        backgroundColor: _C.card,
         type: BottomNavigationBarType.fixed,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 10),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10),
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 10,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 10,
+        ),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Accueil'),
-          BottomNavigationBarItem(icon: Icon(Icons.stadium_outlined), label: 'Jeux'),
-          BottomNavigationBarItem(icon: Icon(Icons.emoji_events_outlined), label: 'Classements'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profil'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            label: 'Accueil',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.stadium_outlined),
+            label: 'Jeux',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.emoji_events_outlined),
+            label: 'Classements',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profil',
+          ),
         ],
       ),
     );
@@ -1321,14 +1484,22 @@ class _SectionTitle extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _kFg1),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: _C.fg1,
+            ),
           ),
           if (action != null)
             GestureDetector(
               onTap: onAction,
               child: Text(
                 action!,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kAccentBr),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _C.accentBr,
+                ),
               ),
             ),
         ],
@@ -1349,7 +1520,11 @@ class _DiagonalLinesPainter extends CustomPainter {
     final count = (size.width + size.height) ~/ spacing + 2;
     for (int i = 0; i < count; i++) {
       final x = i * spacing - size.height;
-      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height, size.height),
+        paint,
+      );
     }
   }
 
@@ -1402,7 +1577,16 @@ class _RegleModalState extends State<_RegleModal> {
 
   static const _modes = ['coupDoeil', 'compos'];
   static const _modeLabels = {"coupDoeil": "Coup d'Œil", "compos": "Compos"};
-  static const _categories = ['Ligue 1', 'Ligue 2', 'Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Légendes', 'Équipes nationales'];
+  static const _categories = [
+    'Ligue 1',
+    'Ligue 2',
+    'Premier League',
+    'La Liga',
+    'Serie A',
+    'Bundesliga',
+    'Légendes',
+    'Équipes nationales',
+  ];
   static const _eras = ['Toutes', 'Avant 2010', '2010-2019', '2020-2026'];
 
   @override
@@ -1428,13 +1612,24 @@ class _RegleModalState extends State<_RegleModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Configurer la partie',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _kFg1),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: _C.fg1,
+              ),
             ),
             const SizedBox(height: 20),
             // Mode
-            const Text('Mode', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kFg2)),
+            Text(
+              'Mode',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _C.fg2,
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               children: _modes.map((m) {
@@ -1444,10 +1639,17 @@ class _RegleModalState extends State<_RegleModal> {
                   child: GestureDetector(
                     onTap: () => setState(() => _mode = m),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: selected ? _kAccent.withValues(alpha: 0.15) : _kCard,
-                        border: Border.all(color: selected ? _kAccentBr : _kBorder),
+                        color: selected
+                            ? _C.accent.withValues(alpha: 0.15)
+                            : _C.card,
+                        border: Border.all(
+                          color: selected ? _C.accentBr : _C.border,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1455,7 +1657,7 @@ class _RegleModalState extends State<_RegleModal> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: selected ? _kAccentBr : _kFg2,
+                          color: selected ? _C.accentBr : _C.fg2,
                         ),
                       ),
                     ),
@@ -1465,14 +1667,23 @@ class _RegleModalState extends State<_RegleModal> {
             ),
             if (_mode == 'compos') ...[
               const SizedBox(height: 16),
-              const Text('Période', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kFg2)),
+              Text(
+                'Période',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _C.fg2,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: _eras.map((era) {
                   final isAll = era == 'Toutes';
-                  final selected = isAll ? _selectedEras.isEmpty : _selectedEras.contains(era);
+                  final selected = isAll
+                      ? _selectedEras.isEmpty
+                      : _selectedEras.contains(era);
                   return GestureDetector(
                     onTap: () => setState(() {
                       if (isAll) {
@@ -1487,10 +1698,17 @@ class _RegleModalState extends State<_RegleModal> {
                       }
                     }),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
-                        color: selected ? _kAccent.withValues(alpha: 0.15) : _kCard,
-                        border: Border.all(color: selected ? _kAccentBr : _kBorder),
+                        color: selected
+                            ? _C.accent.withValues(alpha: 0.15)
+                            : _C.card,
+                        border: Border.all(
+                          color: selected ? _C.accentBr : _C.border,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1498,7 +1716,7 @@ class _RegleModalState extends State<_RegleModal> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: selected ? _kAccentBr : _kFg2,
+                          color: selected ? _C.accentBr : _C.fg2,
                         ),
                       ),
                     ),
@@ -1508,7 +1726,14 @@ class _RegleModalState extends State<_RegleModal> {
             ],
             if (_mode == 'coupDoeil') ...[
               const SizedBox(height: 16),
-              const Text('Catégorie', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kFg2)),
+              Text(
+                'Catégorie',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _C.fg2,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -1518,10 +1743,17 @@ class _RegleModalState extends State<_RegleModal> {
                   GestureDetector(
                     onTap: () => setState(() => _category = null),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
-                        color: _category == null ? _kAccent.withValues(alpha: 0.15) : _kCard,
-                        border: Border.all(color: _category == null ? _kAccentBr : _kBorder),
+                        color: _category == null
+                            ? _C.accent.withValues(alpha: 0.15)
+                            : _C.card,
+                        border: Border.all(
+                          color: _category == null ? _C.accentBr : _C.border,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1529,7 +1761,7 @@ class _RegleModalState extends State<_RegleModal> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: _category == null ? _kAccentBr : _kFg2,
+                          color: _category == null ? _C.accentBr : _C.fg2,
                         ),
                       ),
                     ),
@@ -1539,10 +1771,17 @@ class _RegleModalState extends State<_RegleModal> {
                     return GestureDetector(
                       onTap: () => setState(() => _category = c),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
                         decoration: BoxDecoration(
-                          color: selected ? _kAccent.withValues(alpha: 0.15) : _kCard,
-                          border: Border.all(color: selected ? _kAccentBr : _kBorder),
+                          color: selected
+                              ? _C.accent.withValues(alpha: 0.15)
+                              : _C.card,
+                          border: Border.all(
+                            color: selected ? _C.accentBr : _C.border,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1550,7 +1789,7 @@ class _RegleModalState extends State<_RegleModal> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: selected ? _kAccentBr : _kFg2,
+                            color: selected ? _C.accentBr : _C.fg2,
                           ),
                         ),
                       ),
@@ -1572,7 +1811,7 @@ class _RegleModalState extends State<_RegleModal> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   decoration: BoxDecoration(
-                    color: _kAccent,
+                    color: _C.accent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
@@ -1630,10 +1869,15 @@ class _DailySondageState extends State<_DailySondage> {
     if (_voting || widget.pseudo.isEmpty || _myChoice != null) return;
     setState(() => _voting = true);
     try {
-      final pollRef = FirebaseFirestore.instance.collection('polls').doc(widget.pollId);
+      final pollRef = FirebaseFirestore.instance
+          .collection('polls')
+          .doc(widget.pollId);
       final voteRef = pollRef.collection('votes').doc(widget.pseudo);
       await FirebaseFirestore.instance.runTransaction((tx) async {
-        tx.set(voteRef, {'choice': choice, 'votedAt': FieldValue.serverTimestamp()});
+        tx.set(voteRef, {
+          'choice': choice,
+          'votedAt': FieldValue.serverTimestamp(),
+        });
         tx.update(pollRef, {
           choice == 'A' ? 'votesA' : 'votesB': FieldValue.increment(1),
         });
@@ -1669,8 +1913,8 @@ class _DailySondageState extends State<_DailySondage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _kCard,
-        border: Border.all(color: _kBorder),
+        color: _C.card,
+        border: Border.all(color: _C.border),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1678,17 +1922,22 @@ class _DailySondageState extends State<_DailySondage> {
         children: [
           Text(
             total > 0 ? '$total votes' : '—',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
-              color: _kFg2,
+              color: _C.fg2,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             question,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kFg1, height: 1.3),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _C.fg1,
+              height: 1.3,
+            ),
           ),
           const SizedBox(height: 10),
           Column(
@@ -1696,7 +1945,8 @@ class _DailySondageState extends State<_DailySondage> {
               final picked = _myChoice == opt.key;
               final pct = total > 0 ? opt.votes / total : 0.0;
               final pctLabel = '${(pct * 100).round()}%';
-              final canVote = _myChoice == null && !_voting && widget.pseudo.isNotEmpty;
+              final canVote =
+                  _myChoice == null && !_voting && widget.pseudo.isNotEmpty;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -1710,9 +1960,11 @@ class _DailySondageState extends State<_DailySondage> {
                         Container(
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF171923),
+                            color: _C.cardAlt,
                             border: Border.all(
-                              color: picked ? _kAccentBr.withValues(alpha: 0.6) : _kBorder,
+                              color: picked
+                                  ? _C.accentBr.withValues(alpha: 0.6)
+                                  : _C.border,
                             ),
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -1725,8 +1977,8 @@ class _DailySondageState extends State<_DailySondage> {
                               height: 36,
                               decoration: BoxDecoration(
                                 color: picked
-                                    ? _kAccentBr.withValues(alpha: 0.13)
-                                    : _kFg3.withValues(alpha: 0.1),
+                                    ? _C.accentBr.withValues(alpha: 0.13)
+                                    : _C.fg3.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
@@ -1739,17 +1991,23 @@ class _DailySondageState extends State<_DailySondage> {
                             child: Row(
                               children: [
                                 if (picked)
-                                  const Padding(
+                                  Padding(
                                     padding: EdgeInsets.only(right: 6),
-                                    child: Icon(Icons.check, size: 13, color: _kAccentBr),
+                                    child: Icon(
+                                      Icons.check,
+                                      size: 13,
+                                      color: _C.accentBr,
+                                    ),
                                   ),
                                 Expanded(
                                   child: Text(
                                     opt.label,
                                     style: TextStyle(
                                       fontSize: 12.5,
-                                      fontWeight: picked ? FontWeight.w700 : FontWeight.w500,
-                                      color: _kFg1,
+                                      fontWeight: picked
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: _C.fg1,
                                     ),
                                   ),
                                 ),
@@ -1759,14 +2017,17 @@ class _DailySondageState extends State<_DailySondage> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
-                                      color: picked ? _kAccentBr : _kFg2,
+                                      color: picked ? _C.accentBr : _C.fg2,
                                     ),
                                   )
                                 else if (_voting && _myChoice == null)
-                                  const SizedBox(
+                                  SizedBox(
                                     width: 12,
                                     height: 12,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: _kAccentBr),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: _C.accentBr,
+                                    ),
                                   ),
                               ],
                             ),
@@ -1785,129 +2046,137 @@ class _DailySondageState extends State<_DailySondage> {
   }
 }
 
-// ── Game button (Jeux page) ───────────────────────────────────────────────────
+// ── Game card (Jeux page) ─────────────────────────────────────────────────────
 
-class _GameButton extends StatelessWidget {
+class _GameCard extends StatelessWidget {
+  final IconData icon;
   final String title;
   final String subtitle;
-  final IconData icon;
+  final Color accentColor;
   final VoidCallback onTap;
   final bool locked;
-  const _GameButton({
+  final String? duelLabel;
+  final VoidCallback? onDuelTap;
+
+  const _GameCard({
+    required this.icon,
     required this.title,
     required this.subtitle,
-    required this.icon,
+    required this.accentColor,
     required this.onTap,
     this.locked = false,
+    this.duelLabel,
+    this.onDuelTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Opacity(
-      opacity: locked ? 0.45 : 1.0,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: locked ? null : onTap,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: locked ? AppColors.textSecondary : AppColors.accentBright,
-                    size: 24,
-                  ),
+      opacity: locked ? 0.4 : 1.0,
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: locked ? null : onTap,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: AppColors.textPrimary,
+                decoration: BoxDecoration(
+                  color: _C.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _C.border),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.13),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        locked ? Icons.lock_outline : icon,
+                        color: locked ? _C.fg3 : accentColor,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: _C.fg1,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            locked ? 'Bientôt disponible' : subtitle,
+                            style: TextStyle(fontSize: 12.5, color: _C.fg2),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: _C.fg3, size: 20),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (duelLabel != null && onDuelTap != null && !locked) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onDuelTap,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 11,
+                      horizontal: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _C.cardAlt,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF58A6FF).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('⚔️', style: TextStyle(fontSize: 13)),
+                        const SizedBox(width: 10),
+                        Text(
+                          duelLabel!,
+                          style: const TextStyle(
+                            color: Color(0xFF58A6FF),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        locked ? 'Bientôt disponible' : subtitle,
-                        style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-                      ),
-                    ],
+                        const Spacer(),
+                        Icon(Icons.chevron_right, color: _C.fg3, size: 16),
+                      ],
+                    ),
                   ),
                 ),
-                Icon(
-                  locked ? Icons.lock_outline : Icons.chevron_right,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DuelButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _DuelButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onTap,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF58A6FF).withValues(alpha: 0.35)),
-            ),
-            child: Row(
-              children: [
-                const Text('⚔️', style: TextStyle(fontSize: 13)),
-                const SizedBox(width: 10),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Color(0xFF58A6FF),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-                const Spacer(),
-                Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 16),
-              ],
-            ),
-          ),
-        ),
+          ],
+        ],
       ),
     );
   }
@@ -1931,16 +2200,20 @@ class _CommunityFeedPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: _kCard,
+        backgroundColor: _C.card,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Activité de la commu',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kFg1),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: _C.fg1,
+          ),
         ),
-        iconTheme: const IconThemeData(color: _kFg1),
+        iconTheme: IconThemeData(color: _C.fg1),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: _kBorder),
+          child: Container(height: 1, color: _C.border),
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -1951,23 +2224,31 @@ class _CommunityFeedPage extends StatelessWidget {
             .snapshots(),
         builder: (context, snap) {
           if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator(color: _kAccentBr));
+            return Center(child: CircularProgressIndicator(color: _C.accentBr));
           }
           final seen1v1 = <String>{};
-          final docs = snap.data!.docs.where((doc) {
-            final d = doc.data() as Map<String, dynamic>;
-            final type = d['gameType'] as String?;
-            if (type != 'multiplayerCompos' && type != 'multiplayerCoupDoeil') return true;
-            final p1 = d['pseudo'] as String? ?? '';
-            final p2 = d['opponentPseudo'] as String? ?? '';
-            final matchKey = d['matchName'] as String? ?? '';
-            final pair = ([p1, p2]..sort()).join('-');
-            return seen1v1.add('$type-$pair-$matchKey');
-          }).take(25).toList();
+          final docs = snap.data!.docs
+              .where((doc) {
+                final d = doc.data() as Map<String, dynamic>;
+                final type = d['gameType'] as String?;
+                if (type != 'multiplayerCompos' &&
+                    type != 'multiplayerCoupDoeil')
+                  return true;
+                final p1 = d['pseudo'] as String? ?? '';
+                final p2 = d['opponentPseudo'] as String? ?? '';
+                final matchKey = d['matchName'] as String? ?? '';
+                final pair = ([p1, p2]..sort()).join('-');
+                return seen1v1.add('$type-$pair-$matchKey');
+              })
+              .take(25)
+              .toList();
 
           if (docs.isEmpty) {
-            return const Center(
-              child: Text('Aucune activité pour le moment.', style: TextStyle(color: _kFg2)),
+            return Center(
+              child: Text(
+                'Aucune activité pour le moment.',
+                style: TextStyle(color: _C.fg2),
+              ),
             );
           }
 
@@ -1991,7 +2272,16 @@ class _CommunityFeedPage extends StatelessWidget {
               final is1v1Cdo = gameType == 'multiplayerCoupDoeil';
               final is1v1 = is1v1Compos || is1v1Cdo;
               final isCompos = gameType == 'compos';
-              final emoji = is1v1Compos ? '⚔️' : is1v1Cdo ? '⚔️' : isCompos ? '⚽' : '👁️';
+              final isQuiAMenti = gameType == 'quiAMenti';
+              final emoji = is1v1Compos
+                  ? '⚔️'
+                  : is1v1Cdo
+                  ? '⚔️'
+                  : isCompos
+                  ? '⚽'
+                  : isQuiAMenti
+                  ? '🎭'
+                  : '👁️';
               final detail = matchName ?? category ?? '';
 
               Widget mainText;
@@ -2004,23 +2294,39 @@ class _CommunityFeedPage extends StatelessWidget {
                     : '🏆 $opp a battu $pseudo';
                 mainText = Text(
                   line,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kFg1),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _C.fg1,
+                  ),
                 );
               } else {
                 final scoreStr = isCompos ? '$score%' : '${score}pts';
                 mainText = RichText(
                   text: TextSpan(
-                    style: const TextStyle(fontSize: 13, color: _kFg1),
+                    style: TextStyle(fontSize: 13, color: _C.fg1),
                     children: [
-                      TextSpan(text: pseudo, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      TextSpan(
+                        text: pseudo,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                       TextSpan(
                         text: '  $scoreStr',
-                        style: const TextStyle(fontWeight: FontWeight.w700, color: _kAccentBr),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: _C.accentBr,
+                        ),
                       ),
-                      if (!isCompos && diff.isNotEmpty)
+                      if (!isCompos &&
+                          !isQuiAMenti &&
+                          diff.isNotEmpty &&
+                          diff != 'Standard')
                         TextSpan(
                           text: ' · $diff',
-                          style: const TextStyle(fontWeight: FontWeight.w500, color: _kFg2),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: _C.fg2,
+                          ),
                         ),
                     ],
                   ),
@@ -2028,10 +2334,13 @@ class _CommunityFeedPage extends StatelessWidget {
               }
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
-                  color: _kCard,
-                  border: Border.all(color: _kBorder),
+                  color: _C.card,
+                  border: Border.all(color: _C.border),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -2041,11 +2350,14 @@ class _CommunityFeedPage extends StatelessWidget {
                       height: 32,
                       decoration: BoxDecoration(
                         color: AppColors.bg,
-                        border: Border.all(color: _kBorder),
+                        border: Border.all(color: _C.border),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
-                      child: Text(emoji, style: const TextStyle(fontSize: 15, height: 1)),
+                      child: Text(
+                        emoji,
+                        style: const TextStyle(fontSize: 15, height: 1),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -2057,7 +2369,7 @@ class _CommunityFeedPage extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               detail,
-                              style: const TextStyle(fontSize: 11.5, color: _kFg2),
+                              style: TextStyle(fontSize: 11.5, color: _C.fg2),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2066,7 +2378,7 @@ class _CommunityFeedPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(ago, style: const TextStyle(fontSize: 10.5, color: _kFg2)),
+                    Text(ago, style: TextStyle(fontSize: 10.5, color: _C.fg2)),
                   ],
                 ),
               );
@@ -2077,4 +2389,3 @@ class _CommunityFeedPage extends StatelessWidget {
     );
   }
 }
-

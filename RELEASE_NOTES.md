@@ -8,6 +8,8 @@
 
 🌬️ Suffocage : vibration continue + visuel plus urgent sur les 10 secondes de suffocage
 
+☀️ Amélioration du mode Clair de l'application
+
 🔧 Bug Fixes :
 
 * Compos 1v1 : les doublons de noms sont maintenant gérés correctement

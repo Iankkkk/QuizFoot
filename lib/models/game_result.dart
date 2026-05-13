@@ -1,4 +1,4 @@
-enum GameType { coupDoeil, compos, multiplayerCompos, multiplayerCoupDoeil }
+enum GameType { coupDoeil, compos, multiplayerCompos, multiplayerCoupDoeil, quiAMenti }
 
 class GameResult {
   final String id;
@@ -175,6 +175,30 @@ class GameResult {
         'abandoned': abandoned,
         'iAbandoned': iAbandoned,
         if (category != null) 'category': category,
+      },
+    );
+  }
+
+  factory GameResult.quiAMenti({
+    required int points,
+    required int correctCount,
+    required int validationsUsed,
+    required bool timedOut,
+    required Duration timeTaken,
+  }) {
+    return GameResult(
+      id:              DateTime.now().microsecondsSinceEpoch.toString(),
+      gameType:        GameType.quiAMenti,
+      difficulty:      'Standard',
+      rawScore:        points,
+      maxRawScore:     50,
+      normalizedScore: points.toDouble(),
+      timeTaken:       timeTaken,
+      playedAt:        DateTime.now(),
+      details: {
+        'correctCount':     correctCount,
+        'validationsUsed':  validationsUsed,
+        'timedOut':         timedOut,
       },
     );
   }

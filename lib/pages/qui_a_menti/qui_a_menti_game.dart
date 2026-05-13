@@ -15,10 +15,11 @@
 //   5. On game end → QuiAMentiScore page
 //
 // Scoring (points awarded on the score page):
-//   • 1st validation correct  → 100 pts
-//   • 2nd validation correct  → 60 pts
-//   • 3rd validation correct  → 30 pts
-//   • Failed all 3 or timeout →  0 pts
+//   • 10/10 en 1 tenta → 50 pts
+//   • 10/10 en 2 tentas → 40 pts
+//   • 10/10 en 3 tentas → 30 pts
+//   • 8/10  → 15 pts
+//   • ≤6/10 → 0 pts
 
 import 'dart:async';
 import 'dart:math';
@@ -392,19 +393,23 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
 
   // ── End game ──────────────────────────────────────────────────────────────
 
-  /// Stops the timer, computes stars, and navigates to [QuiAMentiScore].
+  /// Stops the timer, computes points, and navigates to [QuiAMentiScore].
   void _endGame({required bool timedOut, int? correctCount}) {
     _countdownTimer?.cancel();
 
     final int correct = correctCount ?? _computeCorrectCount();
 
-    // Stars: only awarded for a perfect 10/10.
-    // 3 stars → 1st attempt, 2 stars → 2nd, 1 star → 3rd, 0 → failed/timeout.
-    int stars = 0;
+    // Scoring:
+    //   10/10 → 50 (1 tenta) / 40 (2 tentas) / 30 (3 tentas)
+    //    8/10 → 15 pts (always after 3 attempts or timeout)
+    //   ≤6/10 → 0 pts
+    int points = 0;
     if (correct == 10) {
-      if (_validationCount == 1)      stars = 3;
-      else if (_validationCount == 2) stars = 2;
-      else                            stars = 1;
+      if (_validationCount == 1)      points = 50;
+      else if (_validationCount == 2) points = 40;
+      else                            points = 30;
+    } else if (correct == 8) {
+      points = 15;
     }
 
     final timeTaken = DateTime.now().difference(_startTime);
@@ -413,7 +418,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
       context,
       MaterialPageRoute(
         builder: (_) => QuiAMentiScore(
-          stars: stars,
+          points: points,
           correctCount: correct,
           validationsUsed: _validationCount,
           timeTaken: timeTaken,

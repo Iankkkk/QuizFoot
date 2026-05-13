@@ -15,6 +15,8 @@
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/claim.dart';
+import '../../models/game_result.dart';
+import '../../services/game_history_service.dart';
 import 'qui_a_menti_confetti.dart';
 import 'qui_a_menti_game.dart';
 
@@ -23,10 +25,10 @@ import 'qui_a_menti_game.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class QuiAMentiScore extends StatefulWidget {
-  /// Stars earned (0 = fail, 1 = 3rd attempt, 2 = 2nd attempt, 3 = 1st attempt).
-  final int stars;
+  /// Points earned (50 / 40 / 30 / 15 / 0).
+  final int points;
 
-  /// Number of candidates correctly placed (0–10).
+  /// Number of candidates correctly placed (0–10, even numbers only).
   final int correctCount;
 
   /// Number of validations used (1–3).
@@ -49,7 +51,7 @@ class QuiAMentiScore extends StatefulWidget {
 
   const QuiAMentiScore({
     super.key,
-    required this.stars,
+    required this.points,
     required this.correctCount,
     required this.validationsUsed,
     required this.timeTaken,
@@ -72,17 +74,17 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
   late final Animation<double> _entranceScale;
   late final Animation<double> _entranceOpacity;
 
-  /// Star reveal: lights up 0 → widget.stars icons one by one.
-  late final AnimationController _starController;
-  late final Animation<int> _starRevealValue;
+  /// Points counter: animates from 0 to widget.points.
+  late final AnimationController _pointsController;
+  late final Animation<int> _pointsAnim;
 
-  /// End animation: shake (0 stars) or confetti (3 stars).
+  /// End animation: shake (0 pts) or confetti (50 pts).
   late final AnimationController _endController;
 
-  /// Horizontal offset for the shake animation (0 stars).
+  /// Horizontal offset for the shake animation (0 pts).
   late final Animation<double> _shakeOffset;
 
-  /// Whether to show full-screen confetti (3 stars = perfect first attempt).
+  /// Whether to show full-screen confetti (50 pts = perfect first attempt).
   bool _showConfetti = false;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -92,12 +94,25 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
     super.initState();
     _setupAnimations();
     _playSequence();
+    _saveScore();
+  }
+
+  Future<void> _saveScore() async {
+    await GameHistoryService.instance.save(
+      GameResult.quiAMenti(
+        points:          widget.points,
+        correctCount:    widget.correctCount,
+        validationsUsed: widget.validationsUsed,
+        timedOut:        widget.timedOut,
+        timeTaken:       widget.timeTaken,
+      ),
+    );
   }
 
   @override
   void dispose() {
     _entranceController.dispose();
-    _starController.dispose();
+    _pointsController.dispose();
     _endController.dispose();
     super.dispose();
   }
@@ -119,25 +134,24 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
       curve: Curves.easeIn,
     );
 
-    // 2. Star reveal — lights up one star at a time
-    _starController = AnimationController(
+    // 2. Points counter animation
+    _pointsController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 800),
     );
-    _starRevealValue = IntTween(
+    _pointsAnim = IntTween(
       begin: 0,
-      end: widget.stars,
-    ).animate(CurvedAnimation(parent: _starController, curve: Curves.easeOut));
+      end: widget.points,
+    ).animate(CurvedAnimation(parent: _pointsController, curve: Curves.easeOut));
 
     // 3. End animation
     _endController = AnimationController(
       vsync: this,
-      duration: widget.stars > 0
-          ? const Duration(milliseconds: 1200) // confetti
-          : const Duration(milliseconds: 500), // shake
+      duration: widget.points > 0
+          ? const Duration(milliseconds: 1200)
+          : const Duration(milliseconds: 500),
     );
 
-    // Shake: quick left-right oscillation (0 stars only)
     _shakeOffset = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 0.0, end: -10.0), weight: 15),
       TweenSequenceItem(tween: Tween(begin: -10.0, end: 10.0), weight: 30),
@@ -147,48 +161,45 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
     ]).animate(_endController);
   }
 
-  /// Chains all three animation phases.
   Future<void> _playSequence() async {
-    // Phase 1 — entrance
     await _entranceController.forward();
     await Future.delayed(const Duration(milliseconds: 120));
 
-    // Phase 2 — star reveal (only if stars > 0)
-    if (widget.stars > 0) await _starController.forward();
+    if (widget.points > 0) await _pointsController.forward();
     await Future.delayed(const Duration(milliseconds: 200));
 
-    // Phase 3 — end animation
-    if (widget.stars == 3) {
+    if (widget.points == 50) {
       setState(() => _showConfetti = true);
       await _endController.forward();
       await Future.delayed(const Duration(milliseconds: 600));
       if (mounted) setState(() => _showConfetti = false);
-    } else if (widget.stars == 0) {
+    } else if (widget.points == 0) {
       await _endController.forward();
     }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  /// Color of the filled stars.
-  Color get _starColor {
-    if (widget.stars == 3) return Color(0xFFFFD740); // gold
-    if (widget.stars == 2) return AppColors.amber;
-    return AppColors.accentBright; // green for 1 star
+  Color get _pointsColor {
+    if (widget.points == 50) return const Color(0xFFFFD740);
+    if (widget.points >= 30) return AppColors.accentBright;
+    if (widget.points > 0)  return AppColors.amber;
+    return AppColors.red;
   }
 
   Color get _validationColor {
     if (widget.validationsUsed == 1) return AppColors.accentBright;
-    if (widget.validationsUsed == 2) return Color(0xFF6BCB77);
-    if (widget.stars > 0) return AppColors.orange;
+    if (widget.validationsUsed == 2) return const Color(0xFF6BCB77);
+    if (widget.points > 0) return AppColors.orange;
     return AppColors.red;
   }
 
   String get _scoreMessage {
     if (widget.timedOut) return 'Temps écoulé !';
-    if (widget.stars == 3) return 'Parfait, du premier coup !';
-    if (widget.stars == 2) return 'Bien joué !';
-    if (widget.stars == 1) return "Validé, au bout du suspense";
+    if (widget.points == 50) return 'Parfait, du premier coup !';
+    if (widget.points == 40) return 'Bien joué !';
+    if (widget.points == 30) return 'Trouvé au bout du suspense';
+    if (widget.points == 15) return 'Presque… 8/10 !';
     return 'Raté cette fois. Rejoue !';
   }
 
@@ -295,12 +306,10 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
       animation: Listenable.merge([
         _entranceController,
         _endController,
-        _starController,
+        _pointsController,
       ]),
       builder: (_, __) {
-        // Shake offset (only for 0 stars)
-        final double dx = widget.stars == 0 ? _shakeOffset.value : 0.0;
-
+        final double dx = widget.points == 0 ? _shakeOffset.value : 0.0;
         return Transform.translate(
           offset: Offset(dx, 0),
           child: FadeTransition(
@@ -329,31 +338,26 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
         ),
         child: Column(
           children: [
-            // Stars — light up one by one
+            // Points counter animé
             AnimatedBuilder(
-              animation: _starController,
-              builder: (_, __) => Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (i) {
-                  final filled = i < _starRevealValue.value;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(
-                      filled ? Icons.star_rounded : Icons.star_outline_rounded,
-                      color: filled ? _starColor : AppColors.border,
-                      size: 52,
-                    ),
-                  );
-                }),
+              animation: _pointsController,
+              builder: (_, __) => Text(
+                '${_pointsAnim.value} pts',
+                style: TextStyle(
+                  fontSize: 56,
+                  fontWeight: FontWeight.w900,
+                  color: _pointsColor,
+                  letterSpacing: -1,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Text(
               _scoreMessage,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 16,
-                color: widget.stars > 0
+                fontSize: 15,
+                color: widget.points > 0
                     ? AppColors.textPrimary
                     : AppColors.textSecondary,
                 fontWeight: FontWeight.w600,

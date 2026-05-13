@@ -363,7 +363,12 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     );
   }
 
-  static const _coloredLogos = {'Euro', 'Coupe du Monde'};
+  static const _coloredLogos = {
+    'Euro',
+    'Coupe du Monde',
+    "CAN",
+    'Copa America',
+  };
 
   Widget _buildCompetitionLogo(String competition) {
     final img = Image.asset(

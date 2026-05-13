@@ -19,6 +19,8 @@ dependencies:
   google_fonts: ^6.2.1
   firebase_core: ^4.7.0
   cloud_firestore: ^6.3.0
+  flutter_svg: ^2.3.0
+  phosphor_flutter: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -33,6 +35,7 @@ flutter:
     - assets/players.json
     - assets/images/ball.png
     - assets/images/logo.png
+    - assets/images/logo.svg
     - assets/images/logo_app.png
     - assets/images/correct.jpg
     - assets/images/wrong.jpg
