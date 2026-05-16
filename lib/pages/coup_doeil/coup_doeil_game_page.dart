@@ -29,6 +29,7 @@ import '../../data/api_exception.dart';
 import '../../models/player.dart';
 import '../../models/question_result.dart';
 import 'coup_doeil_score_page.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CoupDoeilGamePage — StatefulWidget
@@ -464,17 +465,15 @@ class _CoupDoeilGamePageState extends State<CoupDoeilGamePage> {
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => CoupDoeilScorePage(
-          score:      _score,
-          total:      _selectedPlayers.length,
-          timeTaken:  duration,
-          results:    List.unmodifiable(_questionResults),
-          difficulty: widget.difficulty,
-          category:   widget.category,
-          errors:     List.unmodifiable(_errors),
-        ),
-      ),
+      namedRoute(CoupDoeilScorePage(
+        score:      _score,
+        total:      _selectedPlayers.length,
+        timeTaken:  duration,
+        results:    List.unmodifiable(_questionResults),
+        difficulty: widget.difficulty,
+        category:   widget.category,
+        errors:     List.unmodifiable(_errors),
+      )),
     );
   }
 

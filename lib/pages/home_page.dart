@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:math' show log;
+import 'dart:math' show log, sqrt;
 import 'package:flutter/material.dart';
 import 'coup_doeil/coup_doeil_intro_page.dart';
 import 'package:quiz_foot/pages/lineup/lineup_match_page_intro.dart';
@@ -10,7 +10,6 @@ import 'package:quiz_foot/data/players_data.dart';
 import 'package:quiz_foot/data/data_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../services/game_history_service.dart';
 import '../services/theme_service.dart';
@@ -19,7 +18,9 @@ import '../models/game_result.dart';
 import 'profil_page.dart';
 import 'classement_page.dart';
 import 'qui_a_menti/qui_a_menti_intro.dart';
+import 'parcours_joueur/parcours_joueur_game_page.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 // ── Design tokens (Tempo home — dark + light) ────────────────────────────────
 class _C {
@@ -42,7 +43,6 @@ class _C {
       _d ? const Color(0xFF5A6272) : const Color(0xFF9AA3B0);
   static Color get orange =>
       _d ? const Color(0xFFE87820) : const Color(0xFFC85D0F);
-  static Color get bg => _d ? const Color(0xFF111318) : const Color(0xFFECEFF5);
   static Color get cardAlt =>
       _d ? const Color(0xFF171923) : const Color(0xFFE4E8F2);
 }
@@ -81,6 +81,8 @@ class _HomePageState extends State<HomePage> {
 
   // Top joueurs de l'app
   List<({String pseudo, double score})> _topPlayers = [];
+  List<({String pseudo, int wins, int losses, double ratio})> _top1v1Players =
+      [];
 
   @override
   void initState() {
@@ -93,6 +95,7 @@ class _HomePageState extends State<HomePage> {
     _loadLastConfig();
     _loadReglePrefs();
     _loadBestPlayer();
+    _loadBest1v1Player();
     _retryPendingScores();
     ThemeService.instance.addListener(_onThemeChanged);
   }
@@ -280,18 +283,21 @@ class _HomePageState extends State<HomePage> {
     if (!mounted || results.isEmpty) return;
     results.sort((a, b) => b.playedAt.compareTo(a.playedAt));
     final last = results.first;
-    final mode =
-        (last.gameType == GameType.compos ||
-            last.gameType == GameType.multiplayerCompos)
-        ? 'compos'
-        : 'coupDoeil';
-    final category = last.details['category'] as String?;
-    setState(
-      () => _lastConfig = {
-        'mode': mode,
+    final Map<String, dynamic> config;
+    if (last.gameType == GameType.compos ||
+        last.gameType == GameType.multiplayerCompos) {
+      final category = last.details['category'] as String?;
+      config = {'mode': 'compos', if (category != null) 'category': category};
+    } else if (last.gameType == GameType.quiAMenti) {
+      config = {'mode': 'quiAMenti', 'difficulty': last.difficulty};
+    } else {
+      final category = last.details['category'] as String?;
+      config = {
+        'mode': 'coupDoeil',
         if (category != null) 'category': category,
-      },
-    );
+      };
+    }
+    setState(() => _lastConfig = config);
   }
 
   Future<void> _loadReglePrefs() async {
@@ -329,8 +335,6 @@ class _HomePageState extends State<HomePage> {
         final difficulty = d['difficulty'] as String? ?? 'Pro';
         final rawScore = (d['rawScore'] as num?)?.toInt() ?? 0;
         final maxRaw = (d['maxRawScore'] as num?)?.toInt() ?? 1;
-        final details = d['details'] as Map<String, dynamic>?;
-        final won = details?['won'] as bool?;
 
         final isCompos =
             gameType == 'compos' || gameType == 'multiplayerCompos';
@@ -344,14 +348,14 @@ class _HomePageState extends State<HomePage> {
         final is1v1 =
             gameType == 'multiplayerCompos' ||
             gameType == 'multiplayerCoupDoeil';
-        if (is1v1 && won == true) contribution += 20 * mult;
+        if (is1v1) continue; // solo uniquement
 
         sums[pseudo] = (sums[pseudo] ?? 0) + contribution;
         counts[pseudo] = (counts[pseudo] ?? 0) + 1;
       }
 
       final eligible = sums.entries
-          .where((e) => (counts[e.key] ?? 0) >= 3)
+          .where((e) => (counts[e.key] ?? 0) >= 5)
           .toList();
       if (eligible.isEmpty) return;
 
@@ -363,13 +367,77 @@ class _HomePageState extends State<HomePage> {
         return scoreB.compareTo(scoreA);
       });
 
-      final top5 = eligible.take(5).map((e) {
+      final all = eligible.take(5).map((e) {
         final n = counts[e.key]!;
         final score = (e.value / n) + log(n.toDouble()) * 3;
         return (pseudo: e.key, score: score);
       }).toList();
 
-      if (mounted) setState(() => _topPlayers = top5);
+      if (mounted) setState(() => _topPlayers = all);
+    } catch (_) {}
+  }
+
+  Future<void> _loadBest1v1Player() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('scores')
+          .get();
+
+      final Map<String, int> wins = {};
+      final Map<String, int> losses = {};
+
+      for (final doc in snap.docs) {
+        final d = doc.data();
+        final pseudo = d['pseudo'] as String? ?? '';
+        if (pseudo.isEmpty) continue;
+        final gameType = d['gameType'] as String? ?? '';
+        if (gameType != 'multiplayerCompos' &&
+            gameType != 'multiplayerCoupDoeil')
+          continue;
+        final details = d['details'] as Map<String, dynamic>?;
+        if (details?['abandoned'] == true) continue;
+        final won = details?['won'] as bool?;
+        final isDraw = details?['draw'] as bool? ?? false;
+        if (won == null || isDraw) continue;
+        if (won) {
+          wins[pseudo] = (wins[pseudo] ?? 0) + 1;
+        } else {
+          losses[pseudo] = (losses[pseudo] ?? 0) + 1;
+        }
+      }
+
+      final allPseudos = {...wins.keys, ...losses.keys};
+      final eligible = allPseudos
+          .where((p) => (wins[p] ?? 0) + (losses[p] ?? 0) >= 1)
+          .toList();
+      if (eligible.isEmpty) return;
+
+      double wilsonScore(int w, int total) {
+        if (total == 0) return 0;
+        const z = 1.645;
+        final p = w / total;
+        final n = total.toDouble();
+        return (p + z * z / (2 * n) -
+                z * sqrt(p * (1 - p) / n + z * z / (4 * n * n))) /
+            (1 + z * z / n);
+      }
+
+      eligible.sort((a, b) {
+        final wA = wins[a] ?? 0;
+        final wB = wins[b] ?? 0;
+        final sA = wilsonScore(wA, wA + (losses[a] ?? 0)) * (1 + log(wA + 1) * 0.3);
+        final sB = wilsonScore(wB, wB + (losses[b] ?? 0)) * (1 + log(wB + 1) * 0.3);
+        return sB.compareTo(sA);
+      });
+
+      final all = eligible.take(5).map((p) {
+        final w = wins[p] ?? 0;
+        final l = losses[p] ?? 0;
+        final t = w + l;
+        return (pseudo: p, wins: w, losses: l, ratio: t > 0 ? w / t : 0.0);
+      }).toList();
+
+      if (mounted) setState(() => _top1v1Players = all);
     } catch (_) {}
   }
 
@@ -381,18 +449,23 @@ class _HomePageState extends State<HomePage> {
     if (mode == 'compos') {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => LineupMatchPageIntro(
+        namedRoute(
+          LineupMatchPageIntro(
             autoOpenDifficulty: true,
             initialEras: eras.isNotEmpty ? eras : null,
           ),
         ),
       );
+    } else if (mode == 'quiAMenti') {
+      Navigator.push(
+        context,
+        namedRoute(const QuiAMentiIntro(autoOpenDifficulty: true)),
+      );
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => CoupDoeilIntroPage(
+        namedRoute(
+          CoupDoeilIntroPage(
             initialCategory: category,
             autoOpenDifficulty: true,
           ),
@@ -426,85 +499,124 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showTop5() {
-    const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
     showModalBottomSheet(
       context: context,
       backgroundColor: _C.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Top 5 de la commu',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: _C.fg1,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Classement Solo',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _C.fg1),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Scores pondérés par difficulté et volume — parties solo uniquement.',
+              style: TextStyle(fontSize: 11, color: _C.fg2),
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(_topPlayers.length, (rank) {
+              final player = _topPlayers[rank];
+              final isFirst = rank == 0;
+              final medal = rank == 0 ? '🥇' : rank == 1 ? '🥈' : rank == 2 ? '🥉' : '${rank + 1}.';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isFirst ? _C.accent.withValues(alpha: 0.12) : _C.cardAlt,
+                  border: Border.all(color: isFirst ? _C.accentBr.withValues(alpha: 0.5) : _C.border),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Classement basé sur les scores pondérés par difficulté et volume.',
-                style: TextStyle(fontSize: 11, color: _C.fg2),
-              ),
-              const SizedBox(height: 16),
-              ..._topPlayers.asMap().entries.map((entry) {
-                final rank = entry.key;
-                final player = entry.value;
-                final isFirst = rank == 0;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isFirst
-                        ? _C.accent.withValues(alpha: 0.12)
-                        : _C.cardAlt,
-                    border: Border.all(
-                      color: isFirst
-                          ? _C.accentBr.withValues(alpha: 0.5)
-                          : _C.border,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text(medal, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center),
                     ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(medals[rank], style: const TextStyle(fontSize: 20)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          player.pseudo,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isFirst
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            color: _C.fg1,
-                          ),
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        player.pseudo,
+                        style: TextStyle(fontSize: 14, fontWeight: isFirst ? FontWeight.w800 : FontWeight.w600, color: _C.fg1),
                       ),
-                      Text(
-                        player.score.toStringAsFixed(1),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: isFirst ? _C.accentBr : _C.fg2,
-                        ),
+                    ),
+                    Text(
+                      player.score.toStringAsFixed(1),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isFirst ? _C.accentBr : _C.fg2),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTop51v1() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _C.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Classement 1v1',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _C.fg1),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Score normalisé (ratio + volume de victoires).',
+              style: TextStyle(fontSize: 11, color: _C.fg2),
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(_top1v1Players.length, (rank) {
+              final player = _top1v1Players[rank];
+              final isFirst = rank == 0;
+              final medal = rank == 0 ? '🥇' : rank == 1 ? '🥈' : rank == 2 ? '🥉' : '${rank + 1}.';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isFirst ? _C.accent.withValues(alpha: 0.12) : _C.cardAlt,
+                  border: Border.all(color: isFirst ? _C.accentBr.withValues(alpha: 0.5) : _C.border),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text(medal, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        player.pseudo,
+                        style: TextStyle(fontSize: 14, fontWeight: isFirst ? FontWeight.w800 : FontWeight.w600, color: _C.fg1),
                       ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
+                    ),
+                    Text(
+                      '${player.wins}V · ${player.losses}D',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isFirst ? _C.accentBr : _C.fg2),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
         ),
       ),
     );
@@ -517,6 +629,8 @@ class _HomePageState extends State<HomePage> {
       _loadStats(),
       _loadCommunityStats(),
       _loadLastConfig(),
+      _loadBestPlayer(),
+      _loadBest1v1Player(),
     ]);
   }
 
@@ -580,9 +694,7 @@ class _HomePageState extends State<HomePage> {
                 onAction: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => const _CommunityFeedPage(),
-                    ),
+                    namedRoute(const _CommunityFeedPage()),
                   );
                 },
               ),
@@ -617,7 +729,7 @@ class _HomePageState extends State<HomePage> {
           // Logo tile
           GestureDetector(
             onLongPress: _clearCache,
-            child: Image.asset('assets/images/logo.png', width: 58, height: 58),
+            child: Image.asset('assets/images/logo.png', width: 80, height: 80),
           ),
           const SizedBox(width: 14),
           // Wordmark
@@ -747,7 +859,11 @@ class _HomePageState extends State<HomePage> {
     final mode = config?['mode'] as String? ?? 'coupDoeil';
     final category = config?['category'] as String?;
 
-    final modeLabel = mode == 'compos' ? 'Compos' : "Coup d'Œil";
+    final modeLabel = mode == 'compos'
+        ? 'Compos'
+        : mode == 'quiAMenti'
+        ? 'Qui a menti ?'
+        : "Coup d'Œil";
     final heroTitle = category != null ? '$modeLabel · $category' : modeLabel;
     final eyebrow = hasConfig ? '▶ REPRENDS OÙ TU EN ÉTAIS' : 'DÉMARRER';
 
@@ -794,7 +910,11 @@ class _HomePageState extends State<HomePage> {
               child: Opacity(
                 opacity: 0.13,
                 child: Icon(
-                  mode == 'compos' ? Icons.sports_soccer : Icons.visibility,
+                  mode == 'compos'
+                      ? Icons.sports_soccer
+                      : mode == 'quiAMenti'
+                      ? Icons.gavel
+                      : Icons.visibility,
                   size: 180,
                   color: Colors.white,
                 ),
@@ -865,39 +985,41 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      // Secondary CTA
-                      GestureDetector(
-                        onTap: _showRegleModal,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 11,
-                            horizontal: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.18),
+                      if (mode != 'quiAMenti') ...[
+                        const SizedBox(width: 8),
+                        // Secondary CTA
+                        GestureDetector(
+                          onTap: _showRegleModal,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 11,
+                              horizontal: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.tune, size: 16, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Paramètres',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.tune, size: 16, color: Colors.white),
-                              SizedBox(width: 4),
-                              Text(
-                                'Paramètres',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],
@@ -974,7 +1096,7 @@ class _HomePageState extends State<HomePage> {
                 return true;
               final p1 = d['pseudo'] as String? ?? '';
               final p2 = d['opponentPseudo'] as String? ?? '';
-              final matchKey = d['matchName'] as String? ?? '';
+              final matchKey = (d['matchName'] ?? d['category'] ?? '') as String;
               final pair = ([p1, p2]..sort()).join('-');
               return seen1v1.add('$type-$pair-$matchKey');
             })
@@ -996,6 +1118,7 @@ class _HomePageState extends State<HomePage> {
               final matchName = d['matchName'] as String?;
               final opponentPseudo = d['opponentPseudo'] as String?;
               final won = d['won'] as bool?;
+              final draw = d['draw'] as bool? ?? false;
               final ts = d['createdAt'] as Timestamp?;
               final ago = ts != null ? _timeAgo(ts.toDate()) : '';
               final is1v1Compos = gameType == 'multiplayerCompos';
@@ -1010,16 +1133,19 @@ class _HomePageState extends State<HomePage> {
                   ? '⚔️'
                   : isCompos
                   ? '⚽'
-                  : isQuiAMenti
-                  ? '🎭'
                   : '👁️';
-              final String detail = matchName ?? category ?? '';
+              final String? claim = d['claim'] as String?;
+              final String detail = isQuiAMenti
+                  ? (claim ?? '')
+                  : (matchName ?? category ?? '');
 
               Widget mainText;
               if (is1v1) {
                 final opp = opponentPseudo ?? '?';
                 final winnerLine = won == null
                     ? '$pseudo vs $opp'
+                    : draw
+                    ? '🤝 $pseudo vs $opp — Match nul'
                     : won
                     ? '🏆 $pseudo bat $opp'
                     : '🏆 $opp bat $pseudo';
@@ -1084,7 +1210,7 @@ class _HomePageState extends State<HomePage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Emoji container
+                    // Icon container
                     Container(
                       width: 28,
                       height: 28,
@@ -1094,10 +1220,12 @@ class _HomePageState extends State<HomePage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
-                      child: Text(
-                        emoji,
-                        style: const TextStyle(fontSize: 14, height: 1),
-                      ),
+                      child: isQuiAMenti
+                          ? Icon(Icons.gavel, size: 14, color: _C.orange)
+                          : Text(
+                              emoji,
+                              style: const TextStyle(fontSize: 14, height: 1),
+                            ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -1110,7 +1238,7 @@ class _HomePageState extends State<HomePage> {
                             Text(
                               detail,
                               style: TextStyle(fontSize: 11, color: _C.fg2),
-                              maxLines: 1,
+                              maxLines: isQuiAMenti ? 2 : 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
@@ -1193,15 +1321,12 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHighlights() {
     final cards = [
       _HighlightData(
-        tag: 'Nouveau',
-        title: 'Compos 1v1',
-        subtitle:
-            'Défie ton pote sur les compositions d\'équipe d\'un match légendaire !',
-        emoji: '⚔️',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
-        ),
+        tag: 'Nouveau jeu',
+        title: 'Qui a menti ?',
+        subtitle: '1 affirmation, 10 joueurs : 5 menteurs à démasquer !',
+        emoji: '🎭',
+        onTap: () =>
+            Navigator.push(context, namedRoute(const QuiAMentiIntro())),
       ),
       _HighlightData(
         tag: 'Communauté',
@@ -1211,11 +1336,19 @@ class _HomePageState extends State<HomePage> {
       ),
       if (_topPlayers.isNotEmpty)
         _HighlightData(
-          tag: 'Meilleur joueur',
+          tag: 'Meilleur Joueur Solo',
           title: "🏆 ${_topPlayers.first.pseudo}",
-          subtitle: 'Le crack de la commu Tempo !',
+          subtitle: 'Le crack du solo Tempo !',
           emoji: '🥇',
           onTap: () => _showTop5(),
+        ),
+      if (_top1v1Players.isNotEmpty)
+        _HighlightData(
+          tag: 'Meilleur Joueur 1v1',
+          title: "⚔️ ${_top1v1Players.first.pseudo}",
+          subtitle: 'La terreur des matchs 1v1 !!',
+          emoji: '⚔️',
+          onTap: () => _showTop51v1(),
         ),
     ];
 
@@ -1362,16 +1495,12 @@ class _HomePageState extends State<HomePage> {
               title: "Coup d'Œil",
               subtitle: 'Reconnais le joueur grâce à sa photo',
               accentColor: _C.accent,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => CoupDoeilIntroPage()),
-              ),
+              onTap: () =>
+                  Navigator.push(context, namedRoute(CoupDoeilIntroPage())),
               duelLabel: "Coup d'Œil 1v1",
               onDuelTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const CoupDoeil1v1LobbyPage(),
-                ),
+                namedRoute(const CoupDoeil1v1LobbyPage()),
               ),
             ),
             const SizedBox(height: 12),
@@ -1384,12 +1513,12 @@ class _HomePageState extends State<HomePage> {
               accentColor: _C.accent,
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const LineupMatchPageIntro()),
+                namedRoute(const LineupMatchPageIntro()),
               ),
               duelLabel: 'Compos 1v1',
               onDuelTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const Compos1v1LobbyPage()),
+                namedRoute(const Compos1v1LobbyPage()),
               ),
             ),
             const SizedBox(height: 12),
@@ -1400,10 +1529,8 @@ class _HomePageState extends State<HomePage> {
               title: 'Qui a menti ?',
               subtitle: '1 affirmation, 10 joueurs : 5 menteurs !',
               accentColor: _C.accent,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const QuiAMentiIntro()),
-              ),
+              onTap: () =>
+                  Navigator.push(context, namedRoute(const QuiAMentiIntro())),
             ),
             const SizedBox(height: 12),
 
@@ -1413,8 +1540,11 @@ class _HomePageState extends State<HomePage> {
               title: 'Parcours Joueur',
               subtitle: 'Retrouve le joueur grâce à sa carrière',
               accentColor: _C.fg3,
-              locked: true,
-              onTap: () {},
+              locked: false,
+              onTap: () => Navigator.push(
+                context,
+                namedRoute(const ParcoursJoueurGamePage()),
+              ),
             ),
           ],
         ),
@@ -2236,7 +2366,7 @@ class _CommunityFeedPage extends StatelessWidget {
                   return true;
                 final p1 = d['pseudo'] as String? ?? '';
                 final p2 = d['opponentPseudo'] as String? ?? '';
-                final matchKey = d['matchName'] as String? ?? '';
+                final matchKey = (d['matchName'] ?? d['category'] ?? '') as String;
                 final pair = ([p1, p2]..sort()).join('-');
                 return seen1v1.add('$type-$pair-$matchKey');
               })
@@ -2279,10 +2409,11 @@ class _CommunityFeedPage extends StatelessWidget {
                   ? '⚔️'
                   : isCompos
                   ? '⚽'
-                  : isQuiAMenti
-                  ? '🎭'
                   : '👁️';
-              final detail = matchName ?? category ?? '';
+              final String? claim = d['claim'] as String?;
+              final detail = isQuiAMenti
+                  ? (claim ?? '')
+                  : (matchName ?? category ?? '');
 
               Widget mainText;
               if (is1v1) {
@@ -2354,10 +2485,12 @@ class _CommunityFeedPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
-                      child: Text(
-                        emoji,
-                        style: const TextStyle(fontSize: 15, height: 1),
-                      ),
+                      child: isQuiAMenti
+                          ? Icon(Icons.gavel, size: 15, color: _C.orange)
+                          : Text(
+                              emoji,
+                              style: const TextStyle(fontSize: 15, height: 1),
+                            ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -2370,7 +2503,7 @@ class _CommunityFeedPage extends StatelessWidget {
                             Text(
                               detail,
                               style: TextStyle(fontSize: 11.5, color: _C.fg2),
-                              maxLines: 1,
+                              maxLines: isQuiAMenti ? 2 : 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],

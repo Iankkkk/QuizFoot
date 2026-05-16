@@ -7,6 +7,7 @@ class GameHistoryService {
   static final GameHistoryService instance = GameHistoryService._();
 
   static const _keyPseudo = 'pseudo';
+  static const _keyPlayedClaims = 'played_claims';
 
   // ── Cache mémoire (TTL 5 min) ─────────────────────────────────────────────
 
@@ -44,6 +45,25 @@ class GameHistoryService {
     _cache = results;
     _cacheTime = DateTime.now();
     return results;
+  }
+
+  Future<Set<String>> getPlayedClaims() async {
+    final pseudo = await getPseudo();
+    if (pseudo == null || pseudo.isEmpty) return {};
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList('${_keyPlayedClaims}_$pseudo') ?? []).toSet();
+  }
+
+  Future<void> markClaimPlayed(String claimText) async {
+    final pseudo = await getPseudo();
+    if (pseudo == null || pseudo.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = '${_keyPlayedClaims}_$pseudo';
+    final list = prefs.getStringList(key) ?? [];
+    if (!list.contains(claimText)) {
+      list.add(claimText);
+      await prefs.setStringList(key, list);
+    }
   }
 
   Future<void> save(GameResult result) async {

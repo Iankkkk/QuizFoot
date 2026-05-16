@@ -4,13 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:string_similarity/string_similarity.dart';
 import '../../constants/app_colors.dart';
-import '../../services/theme_service.dart';
 import '../../data/lineup_game_data.dart';
 import '../../models/lineup_model.dart';
 import '../../models/match_model.dart';
 import '../../models/compos_1v1_game.dart';
 import '../../services/compos_1v1_service.dart';
 import '../lineup/formation_layout.dart';
+import 'lineup_visuals.dart';
+import 'pitch_widgets.dart';
 import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
 import 'compos_1v1_result_page.dart';
@@ -55,6 +56,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
   // ── Feedback toast ────────────────────────────────────────────────────────
   String? _feedbackText;
   Color _feedbackColor = AppColors.accentBright;
+  IconData? _feedbackIcon;
   Timer? _feedbackTimer;
   late AnimationController _toastCtrl;
   late Animation<double> _toastOpacity;
@@ -69,6 +71,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
 
   // ── Submitting guard ──────────────────────────────────────────────────────
   bool _submitting = false;
+  final List<String> _myWrongAnswers = [];
   bool _resultSaved = false;
   bool _dialogShown = false;
   bool _firstTurnStarted = false;
@@ -133,18 +136,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _pauseAbandonTimer?.cancel();
-      _pauseAbandonTimer = Timer(const Duration(seconds: 12), () {
-        final g = _game;
-        if (g != null && g.status != GameStatus.finished && !g.abandoned) {
-          MultiplayerService.instance.abandonRoom(
-            code: widget.roomCode,
-            pseudo: widget.pseudo,
-          );
-        }
-      });
-    } else if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed) {
       _pauseAbandonTimer?.cancel();
     } else if (state == AppLifecycleState.detached) {
       _pauseAbandonTimer?.cancel();
@@ -193,8 +185,10 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     // Adversaire a abandonné
     if (game.abandoned && game.abandonedBy != widget.pseudo) {
       _tickTimer?.cancel();
-      final wonByAbandon = game.foundPlayers.length >= 4;
-      _saveResult(game, won: wonByAbandon, abandoned: true);
+      if (game.foundPlayers.isNotEmpty) {
+        final wonByAbandon = game.foundPlayers.length >= 4;
+        _saveResult(game, won: wonByAbandon, abandoned: true);
+      }
       if (mounted) _showAbandonedDialog('${game.abandonedBy ?? 'Adversaire'} a quitté la partie.');
       return;
     }
@@ -215,10 +209,16 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     if (isSuffocating && !_suffocateCtrl.isAnimating) {
       _suffocateCtrl.repeat(reverse: true);
       _suffocateHapticTimer?.cancel();
-      HapticFeedback.vibrate();
+      // Double-tap heavy pattern on start
+      HapticFeedback.heavyImpact();
+      Future.delayed(const Duration(milliseconds: 80), HapticFeedback.heavyImpact);
+      // Recurring double-tap every 600ms
       _suffocateHapticTimer = Timer.periodic(
-        const Duration(milliseconds: 350),
-        (_) => HapticFeedback.vibrate(),
+        const Duration(milliseconds: 600),
+        (_) {
+          HapticFeedback.heavyImpact();
+          Future.delayed(const Duration(milliseconds: 80), HapticFeedback.heavyImpact);
+        },
       );
     } else if (!isSuffocating && _suffocateCtrl.isAnimating) {
       _suffocateHapticTimer?.cancel();
@@ -277,7 +277,21 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
         _showFeedback(
           '$opponentPseudoForHints a utilisé un indice ($curHints/$_maxFreeHints)',
           AppColors.amber,
+          Icons.lightbulb_outline,
         );
+      }
+      final prevErrors = previous?.players[opponentPseudoForHints]?.errors ?? 0;
+      final curErrors = game.players[opponentPseudoForHints]?.errors ?? 0;
+      if (curErrors > prevErrors) {
+        final wasSuffocated = previous?.suffocatedBy == widget.pseudo;
+        final errorType = game.lastErrorType;
+        if (wasSuffocated) {
+          _showFeedback('$opponentPseudoForHints a été suffoqué ! Bien joué 😤', AppColors.red, Icons.whatshot_rounded);
+        } else if (errorType == 'pass' || errorType == 'timeout') {
+          _showFeedback('$opponentPseudoForHints a passé son tour !', AppColors.amber, Icons.skip_next_rounded);
+        } else {
+          _showFeedback('$opponentPseudoForHints a fait une erreur !', AppColors.red, Icons.close_rounded);
+        }
       }
     }
 
@@ -285,7 +299,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     if (game.status == GameStatus.finished && !game.abandoned && mounted) {
       _tickTimer?.cancel();
       final isDraw = game.winner == '__draw__';
-      _saveResult(game, won: !isDraw && game.winner == widget.pseudo, abandoned: false);
+      _saveResult(game, won: !isDraw && game.winner == widget.pseudo, draw: isDraw, abandoned: false);
       _showEndScreen(game);
       return;
     }
@@ -427,7 +441,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
         if (_game != null) _restartTick(_game!);
       }
     } catch (e) {
-      if (mounted) _showFeedback('Erreur chargement match', AppColors.red);
+      if (mounted) _showFeedback('Erreur chargement match', AppColors.red, Icons.wifi_off_rounded);
     }
   }
 
@@ -483,7 +497,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
         for (final name in l.allNames) {
           if (_norm(name) == answer || _norm(_lastName(name)) == answer) {
             HapticFeedback.lightImpact();
-            _showFeedback('Déjà trouvé !', AppColors.amber);
+            _showFeedback('Déjà trouvé !', AppColors.amber, Icons.info_outline);
             _inputController.clear();
             return;
           }
@@ -498,7 +512,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       final label = allMatched.length > 1
           ? '${_lastName(allMatched.first.playerName)} × ${allMatched.length} ✓ (1 pt)'
           : '${_lastName(allMatched.first.playerName)} ✓';
-      _showFeedback(label, AppColors.accentBright);
+      _showFeedback(label, AppColors.accentBright, Icons.check_rounded);
       _hintBannerTimer?.cancel();
       setState(() {
         for (final m in allMatched) _localFoundNames.add(m.playerName);
@@ -529,12 +543,13 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
 
     if (isClose) {
       HapticFeedback.lightImpact();
-      _showFeedback('Presque...', AppColors.amber);
+      _showFeedback('Presque...', AppColors.amber, Icons.info_outline);
       return;
     }
 
     // Wrong
     HapticFeedback.heavyImpact();
+    setState(() => _myWrongAnswers.add(raw));
     _inputController.clear();
     _inputFocus.unfocus();
     final player = _game?.players[widget.pseudo];
@@ -542,6 +557,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     _showFeedback(
       'Pas dans cette compo  ($remaining erreur${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''})',
       AppColors.red,
+      Icons.close_rounded,
     );
     _submitting = true;
     await Future.delayed(const Duration(seconds: 2));
@@ -550,6 +566,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       await MultiplayerService.instance.submitError(
         code: widget.roomCode,
         pseudo: widget.pseudo,
+        errorType: 'wrong',
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -563,12 +580,14 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     _showFeedback(
       'Temps écoulé... +1 erreur ($remaining restante${remaining > 1 ? 's' : ''})',
       AppColors.red,
+      Icons.timer_off_outlined,
     );
     _submitting = true;
     try {
       await MultiplayerService.instance.submitError(
         code: widget.roomCode,
         pseudo: widget.pseudo,
+        errorType: 'timeout',
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -584,6 +603,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     _showFeedback(
       'Passé... +1 erreur ($remaining restante${remaining > 1 ? 's' : ''})',
       AppColors.amber,
+      Icons.skip_next_rounded,
     );
     _submitting = true;
     await Future.delayed(const Duration(seconds: 2));
@@ -592,6 +612,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       await MultiplayerService.instance.submitError(
         code: widget.roomCode,
         pseudo: widget.pseudo,
+        errorType: 'pass',
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -680,16 +701,82 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     }
   }
 
-  void _showFeedback(String text, Color color) {
+  void _showFeedback(String text, Color color, [IconData? icon]) {
     _feedbackTimer?.cancel();
-    setState(() { _feedbackText = text; _feedbackColor = color; });
+    setState(() { _feedbackText = text; _feedbackColor = color; _feedbackIcon = icon; });
     _toastCtrl.forward(from: 0);
     _feedbackTimer = Timer(const Duration(milliseconds: 2800), () {
       if (mounted) setState(() => _feedbackText = null);
     });
   }
 
-  Future<void> _saveResult(MultiplayerGame game, {required bool won, required bool abandoned}) async {
+  void _showWrongAnswers() {
+    if (_myWrongAnswers.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Tes erreurs (${_myWrongAnswers.length})',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ..._myWrongAnswers.map((w) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 24, height: 24,
+                      decoration: BoxDecoration(
+                        color: AppColors.red.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.close_rounded, color: AppColors.red, size: 14),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      w,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveResult(MultiplayerGame game, {required bool won, bool draw = false, required bool abandoned}) async {
     if (_resultSaved || _match == null) return;
     _resultSaved = true;
     final opponentPseudo = game.playerOrder.firstWhere(
@@ -703,6 +790,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       matchName: _match!.matchName,
       opponentPseudo: opponentPseudo,
       won: won,
+      draw: draw,
       abandoned: abandoned,
       foundByMe: foundByMe,
       foundByOpponent: foundByOpp,
@@ -827,7 +915,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
         ) ?? false;
         if (leave && mounted) {
           await MultiplayerService.instance.abandonRoom(code: widget.roomCode, pseudo: widget.pseudo);
-          if (_game != null) _saveResult(_game!, won: false, abandoned: true);
+          if (_game != null && _game!.foundPlayers.isNotEmpty) _saveResult(_game!, won: false, abandoned: true);
           if (mounted) Navigator.of(context).pop();
         }
       },
@@ -858,6 +946,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
                       Expanded(
                         child: _isPitchMode ? _buildPitchView(game) : _buildTabView(game),
                       ),
+                      if (_isMyTurn && game.suffocatedBy != null) _buildSuffocationBanner(),
                       _buildInputBar(game),
                     ],
                   ),
@@ -880,7 +969,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
 
   Widget _buildAppBar(MultiplayerGame game) {
     final match = _match;
-    final folder = match != null ? _leagueFolder(match.competition) : null;
+    final folder = match != null ? leagueFolder(match.competition) : null;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
       decoration: BoxDecoration(
@@ -896,7 +985,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _competitionLogoSmall(match.competition),
+                    competitionLogoSmall(match.competition),
                     const SizedBox(width: 6),
                     Text(
                       '${match.competition}  ·  ${match.date}',
@@ -934,7 +1023,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
           Row(
             children: [
               if (match != null)
-                _teamLogoSmall(match.homeTeam, match.colorHome, folder, size: 32)
+                teamLogoSmall(match.homeTeam, match.colorHome, folder, size: 32)
               else
                 SizedBox(
       width: 32),
@@ -955,7 +1044,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
               ),
               const SizedBox(width: 8),
               if (match != null)
-                _teamLogoSmall(match.awayTeam, match.colorAway, folder, size: 32)
+                teamLogoSmall(match.awayTeam, match.colorAway, folder, size: 32)
               else
                 SizedBox(
       width: 32),
@@ -978,15 +1067,19 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     final total = _lineups.length;
     final found = _allFoundNames.length;
     final pct = total == 0 ? 0.0 : found / total;
+    final isSuffocating = _isMyTurn && game.suffocatedBy != null;
+    final timerColor = _secondsLeft <= 10 || isSuffocating
+        ? AppColors.red
+        : _isMyTurn ? AppColors.accentBright : AppColors.textSecondary;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       color: AppColors.card,
       child: Column(
         children: [
-          // Progress
           Row(
             children: [
+              // Progress
               Text(
                 '$found/$total',
                 style: TextStyle(
@@ -1008,11 +1101,53 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
                 ),
               ),
               const SizedBox(width: 10),
-              // Timer
-              _TimerPill(secondsLeft: _secondsLeft, isMyTurn: _isMyTurn),
+              // Timer — prominent, bigger when my turn, pulses during suffocation
+              AnimatedBuilder(
+                animation: _suffocatePulse,
+                builder: (_, __) {
+                  final pulse = isSuffocating ? _suffocatePulse.value : 0.0;
+                  return Transform.scale(
+                    scale: 1.0 + pulse * 0.08,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: _isMyTurn ? 14 : 10,
+                        vertical: _isMyTurn ? 6 : 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: timerColor.withValues(alpha: (_isMyTurn ? 0.15 : 0.08) + pulse * 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: timerColor.withValues(alpha: (_isMyTurn ? 0.6 : 0.3) + pulse * 0.3),
+                          width: (_isMyTurn ? 1.5 : 1.0) + pulse * 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isSuffocating ? Icons.whatshot_rounded : Icons.timer_outlined,
+                            size: _isMyTurn ? 15 : 12,
+                            color: timerColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_secondsLeft s',
+                            style: TextStyle(
+                              color: timerColor,
+                              fontSize: _isMyTurn ? 15 : 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           // Players row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1022,6 +1157,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
                 errors: myData?.errors ?? 0,
                 isTurn: _isMyTurn,
                 isMe: true,
+                onTapErrors: _myWrongAnswers.isNotEmpty ? _showWrongAnswers : null,
               ),
               Text(
                 'VS',
@@ -1102,7 +1238,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
               crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.78),
           itemBuilder: (_, i) {
             final p = starters[i];
-            return _PlayerCard(
+            return PlayerCard(
               player: p,
               isFound: found.contains(p.playerName),
               isPassed: false,
@@ -1127,7 +1263,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
                 final p = subs[i];
                 return SizedBox(
                   width: 72,
-                  child: _PlayerCard(
+                  child: PlayerCard(
                     player: p,
                     isFound: found.contains(p.playerName),
                     isPassed: false,
@@ -1166,7 +1302,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
               final size = constraints.biggest;
               return Stack(
                 children: [
-                  CustomPaint(size: size, painter: _PitchPainter()),
+                  CustomPaint(size: size, painter: PitchPainter()),
                   Positioned(
                     left: 16, top: size.height * 0.06,
                     child: Text(match.awayTeam.toUpperCase(),
@@ -1206,11 +1342,9 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
     required Match match,
   }) {
     final totalLines = lines.length;
-    final double availableY = size.height * 0.40;
-    final double spacePerLine = totalLines > 1 ? availableY / (totalLines - 1) : availableY;
-    final double chipRadius = (spacePerLine * 0.38).clamp(12.0, 18.0);
-    final Color teamColor = isHomeTeam ? _parseTeamColor(match.colorHome) : _parseTeamColor(match.colorAway);
-    final Color? teamColor2 = isHomeTeam ? _parseTeamColor2(match.colorHome2) : _parseTeamColor2(match.colorAway2);
+    final double chipRadius = (size.shortestSide * 0.048).clamp(13.0, 18.0);
+    final Color teamColor = isHomeTeam ? parseTeamColor(match.colorHome) : parseTeamColor(match.colorAway);
+    final Color? teamColor2 = isHomeTeam ? parseTeamColor2(match.colorHome2) : parseTeamColor2(match.colorAway2);
 
     final widgets = <Widget>[];
     int slotIdx = 0;
@@ -1225,7 +1359,8 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
         widgets.add(Positioned(
           left: frac.dx * size.width - chipRadius - 15,
           top: frac.dy * size.height - chipRadius - 2,
-          child: _PitchChip(
+          child: PitchChip(
+            splitColorTextOutline: false,
             player: player,
             isFound: player != null && found.contains(player.playerName),
             isPassed: false,
@@ -1257,10 +1392,10 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
       child: Row(
         children: [
           Expanded(child: _buildBenchTeam(match.homeTeam, homeSubs,
-              _parseTeamColor(match.colorHome), _parseTeamColor2(match.colorHome2), found)),
+              parseTeamColor(match.colorHome), parseTeamColor2(match.colorHome2), found)),
           Container(width: 1, height: 60, color: AppColors.border),
           Expanded(child: _buildBenchTeam(match.awayTeam, awaySubs,
-              _parseTeamColor(match.colorAway), _parseTeamColor2(match.colorAway2), found)),
+              parseTeamColor(match.colorAway), parseTeamColor2(match.colorAway2), found)),
         ],
       ),
     );
@@ -1286,7 +1421,9 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
               final sub = subs[i];
-              return _SubChip(
+              return PitchChip(
+                isSub: true,
+                splitColorTextOutline: false,
                 player: sub,
                 isFound: found.contains(sub.playerName),
                 isPassed: false,
@@ -1429,6 +1566,7 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
   // ── Toast ─────────────────────────────────────────────────────────────────
 
   Widget _buildToast() {
+    final icon = _feedbackIcon;
     return Positioned(
       left: 24, right: 24, bottom: 92,
       child: IgnorePointer(
@@ -1440,17 +1578,39 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
               offset: Offset(0, _toastSlide.value),
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(
-                    color: _feedbackColor,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.28),
-                        blurRadius: 14, offset: const Offset(0, 4))],
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _feedbackColor.withValues(alpha: 0.6), width: 1.5),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.30),
+                        blurRadius: 16, offset: const Offset(0, 4))],
                   ),
-                  child: Text(
-                    _feedbackText ?? '',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700,
-                        fontSize: 14, shadows: [Shadow(color: Colors.black38, blurRadius: 4)]),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null) ...[
+                        Container(
+                          width: 28, height: 28,
+                          decoration: BoxDecoration(
+                            color: _feedbackColor.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(icon, color: _feedbackColor, size: 15),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Flexible(
+                        child: Text(
+                          _feedbackText ?? '',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1458,6 +1618,67 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
           ),
         ),
       ),
+    );
+  }
+
+  // ── Suffocation banner (above input) ─────────────────────────────────────
+
+  Widget _buildSuffocationBanner() {
+    return AnimatedBuilder(
+      animation: _suffocatePulse,
+      builder: (_, __) {
+        final t = _suffocatePulse.value;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Color.lerp(
+              AppColors.red.withValues(alpha: 0.85),
+              AppColors.red,
+              t,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.red.withValues(alpha: 0.3 + t * 0.3),
+                blurRadius: 10 + t * 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('😤', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 10),
+              Text(
+                'Tu es suffoqué !',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$_secondsLeft s',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1492,39 +1713,6 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
                     border: Border.all(
                       color: AppColors.red.withValues(alpha: 0.5 + t * 0.4),
                       width: 3 + t * 3,
-                    ),
-                  ),
-                ),
-                // Badge toujours visible, scale-pulsé
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Transform.scale(
-                      scale: 0.92 + t * 0.16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.red.withValues(alpha: 0.85 + t * 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.red.withValues(alpha: 0.4 + t * 0.4),
-                              blurRadius: 8 + t * 10,
-                              spreadRadius: t * 3,
-                            ),
-                          ],
-                        ),
-                        child: const Text(
-                          '😤 SUFFOCATION',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),
@@ -1612,22 +1800,18 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: suffocateEnabled
-                          ? AppColors.red.withValues(alpha: 0.15)
-                          : AppColors.border.withValues(alpha: 0.3),
-                      foregroundColor: suffocateEnabled
                           ? AppColors.red
+                          : AppColors.border.withValues(alpha: 0.4),
+                      foregroundColor: suffocateEnabled
+                          ? Colors.white
                           : AppColors.textSecondary,
-                      elevation: 0,
-                      side: BorderSide(
-                        color: suffocateEnabled
-                            ? AppColors.red.withValues(alpha: 0.4)
-                            : AppColors.border,
-                      ),
+                      elevation: suffocateEnabled ? 2 : 0,
+                      shadowColor: suffocateEnabled ? AppColors.red.withValues(alpha: 0.5) : Colors.transparent,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                     onPressed: suffocateEnabled ? _activateSuffocation : null,
-                    icon: Text('😤', style: TextStyle(fontSize: 16, color: suffocateEnabled ? null : AppColors.textSecondary)),
+                    icon: Text('😤', style: TextStyle(fontSize: 16)),
                     label: Text(
                       'Suffocation ($suffocationsLeft restant${suffocationsLeft > 1 ? 's' : ''})',
                       style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
@@ -1655,42 +1839,6 @@ class _Compos1v1GamePageState extends State<Compos1v1GamePage>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _TimerPill
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TimerPill extends StatelessWidget {
-  final int secondsLeft;
-  final bool isMyTurn;
-
-  const _TimerPill({required this.secondsLeft, required this.isMyTurn});
-
-  @override
-  Widget build(BuildContext context) {
-    final isUrgent = secondsLeft <= 10;
-    final color = isUrgent ? AppColors.red : (isMyTurn ? AppColors.accentBright : AppColors.textSecondary);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.timer_outlined, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            '$secondsLeft s',
-            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // _PlayerStatus
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1699,19 +1847,39 @@ class _PlayerStatus extends StatelessWidget {
   final int errors;
   final bool isTurn;
   final bool isMe;
+  final VoidCallback? onTapErrors;
 
   const _PlayerStatus({
     required this.pseudo,
     required this.errors,
     required this.isTurn,
     required this.isMe,
+    this.onTapErrors,
   });
 
   @override
   Widget build(BuildContext context) {
+    final dotsRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...List.generate(3, (i) => Container(
+          width: 9, height: 9,
+          margin: EdgeInsets.only(left: i > 0 ? 3 : 0, right: i < 2 && !isMe ? 3 : 0),
+          decoration: BoxDecoration(
+            color: i < errors ? AppColors.red : AppColors.border,
+            shape: BoxShape.circle,
+          ),
+        )),
+        if (errors > 0 && isMe) ...[
+          const SizedBox(width: 5),
+          Icon(Icons.info_outline, size: 11, color: AppColors.textSecondary.withValues(alpha: 0.6)),
+        ],
+      ],
+    );
+
     return Row(
       children: [
-        if (isTurn)
+        if (isTurn && isMe)
           Container(
             width: 6, height: 6, margin: const EdgeInsets.only(right: 6),
             decoration: BoxDecoration(
@@ -1728,18 +1896,18 @@ class _PlayerStatus extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
-            Row(
-              children: List.generate(3, (i) => Container(
-                width: 7, height: 7,
-                margin: EdgeInsets.only(left: i > 0 ? 3 : 0, right: i < 2 && !isMe ? 3 : 0),
-                decoration: BoxDecoration(
-                  color: i < errors ? AppColors.red : AppColors.border,
-                  shape: BoxShape.circle,
-                ),
-              )),
-            ),
+            const SizedBox(height: 3),
+            isMe && onTapErrors != null
+                ? GestureDetector(onTap: onTapErrors, child: dotsRow)
+                : dotsRow,
           ],
         ),
+        if (isTurn && !isMe)
+          Container(
+            width: 6, height: 6, margin: const EdgeInsets.only(left: 6),
+            decoration: BoxDecoration(
+                color: AppColors.accentBright, shape: BoxShape.circle),
+          ),
       ],
     );
   }
@@ -1794,528 +1962,6 @@ class _ScoreSummary extends StatelessWidget {
           ),
         );
       }).toList(),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers (mirrored from lineup_match_page.dart — private there)
-// ─────────────────────────────────────────────────────────────────────────────
-
-Color _parseTeamColor(String? name) {
-  switch (name?.toLowerCase().trim()) {
-    case 'blanc':      return Color(0xFFF0F0F0);
-    case 'noir':       return Color(0xFF000000);
-    case 'rouge':      return Color(0xFFDC2626);
-    case 'bleu':       return Color(0xFF1D4ED8);
-    case 'bleu clair': return Color(0xFF60A5FA);
-    case 'bleu foncé': return Color(0xFF0C034D);
-    case 'vert':       return Color(0xFF16A34A);
-    case 'jaune':      return Color(0xFFFACC15);
-    case 'orange':     return Color(0xFFE16806);
-    case 'violet':     return Color(0xFF790CC8);
-    default:           return Color(0xFF4A5568);
-  }
-}
-
-Color? _parseTeamColor2(String? name) {
-  if (name == null || name.trim().isEmpty) return null;
-  return _parseTeamColor(name);
-}
-
-Color _labelColor(Color bg) =>
-    bg.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
-
-String? _leagueFolder(String competition) {
-  final c = competition.toLowerCase();
-  if (c.contains('euro') || c.contains('coupe du monde') || c.contains('world cup') ||
-      c.contains('ligue des nations') || c.contains('copa') || c.contains('barrage'))
-    return 'pays';
-  if (c.contains('champions league') || c.contains('ligue des champions'))
-    return 'Champions League';
-  if (c.contains('ligue 1') || c.contains('coupe de france') || c.contains('coupe de la ligue'))
-    return 'France - Ligue 1';
-  if (c.contains('premier league') || c.contains('community shield') || c.contains('fa cup'))
-    return 'England - Premier League';
-  if (c.contains('laliga') || c.contains('la liga') || c.contains('liga'))
-    return 'Spain - La Liga';
-  if (c.contains('bundesliga') && !c.contains('austria'))
-    return 'Germany - Bundesliga';
-  if (c.contains('serie a')) return 'Italy - Serie A';
-  if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
-  if (c.contains('liga portugal')) return 'Portugal - Liga Portugal';
-  if (c.contains('jupiler')) return 'Belgium - Jupiler Pro League';
-  return null;
-}
-
-const _coloredCompLogos = {'Euro', 'Coupe du Monde'};
-
-Widget _teamLogoSmall(String name, String colorName, String? folder, {double size = 28}) {
-  final bg = _parseTeamColor(colorName);
-  final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-  final fallback = Container(
-    width: size, height: size,
-    decoration: BoxDecoration(
-      color: bg, shape: BoxShape.circle,
-      border: Border.all(color: Color(0xFF2D3148), width: 1.5),
-    ),
-    child: Center(
-      child: Text(initial, style: TextStyle(
-        fontSize: size * 0.38, fontWeight: FontWeight.w800,
-        color: bg.computeLuminance() < 0.4 ? Colors.white : Colors.black87,
-      )),
-    ),
-  );
-  if (folder == null) return fallback;
-  final fileName = folder == 'pays' ? removeDiacritics(name.toLowerCase()) : name;
-  return Image.asset('assets/logos/$folder/$fileName.png',
-      width: size, height: size, fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => fallback);
-}
-
-Widget _competitionLogoSmall(String competition) {
-  final img = Image.asset('assets/logos/competitions/$competition.png',
-      width: 36, height: 36, fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const SizedBox.shrink());
-  if (_coloredCompLogos.contains(competition)) return img;
-  return ColorFiltered(
-      colorFilter: ColorFilter.mode(ThemeService.instance.isDark ? Colors.white : Colors.black87, BlendMode.srcIn), child: img);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _PitchPainter
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PitchPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width; final h = size.height;
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), Paint()..color = Color(0xFF1A5C2A));
-    const stripes = 8;
-    final stripeH = h / stripes;
-    for (int i = 0; i < stripes; i += 2) {
-      canvas.drawRect(Rect.fromLTWH(0, i * stripeH, w, stripeH),
-          Paint()..color = Color(0xFF1E6830));
-    }
-    final line = Paint()
-      ..color = Colors.white.withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke ..strokeWidth = 1.0;
-    const p = 10.0;
-    canvas.drawRect(Rect.fromLTRB(p, p, w - p, h - p), line);
-    canvas.drawLine(Offset(p, h / 2), Offset(w - p, h / 2), line);
-    canvas.drawCircle(Offset(w / 2, h / 2), h * 0.09, line);
-    canvas.drawCircle(Offset(w / 2, h / 2), 3, Paint()..color = Colors.white.withValues(alpha: 0.55));
-    final penW = w * 0.55; final penH = h * 0.13; final penLeft = (w - penW) / 2;
-    canvas.drawRect(Rect.fromLTRB(penLeft, p, penLeft + penW, p + penH), line);
-    canvas.drawRect(Rect.fromLTRB(penLeft, h - p - penH, penLeft + penW, h - p), line);
-    final goalW = w * 0.28; final goalH = h * 0.05; final goalLeft = (w - goalW) / 2;
-    canvas.drawRect(Rect.fromLTRB(goalLeft, p, goalLeft + goalW, p + goalH), line);
-    canvas.drawRect(Rect.fromLTRB(goalLeft, h - p - goalH, goalLeft + goalW, h - p), line);
-  }
-  @override
-  bool shouldRepaint(covariant CustomPainter _) => false;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _RipplePainter
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _RipplePainter extends CustomPainter {
-  final double progress;
-  final double chipRadius;
-  final Color color;
-  const _RipplePainter({required this.progress, required this.chipRadius, required this.color});
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progress <= 0) return;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = chipRadius + progress * 32;
-    final opacity = (1.0 - progress).clamp(0.0, 1.0);
-    canvas.drawCircle(center, radius, Paint()
-      ..color = color.withValues(alpha: opacity * 0.7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0 * (1.0 - progress * 0.6));
-  }
-  @override
-  bool shouldRepaint(_RipplePainter old) => old.progress != progress;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _PitchChip
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PitchChip extends StatefulWidget {
-  final Lineup? player;
-  final bool isFound;
-  final bool isPassed;
-  final String? hintContent;
-  final VoidCallback? onTap;
-  final double chipRadius;
-  final Color teamColor;
-  final Color? teamColor2;
-
-  const _PitchChip({
-    required this.player, required this.isFound, required this.isPassed,
-    required this.chipRadius, required this.teamColor,
-    this.teamColor2, this.hintContent, this.onTap,
-  });
-
-  @override
-  State<_PitchChip> createState() => _PitchChipState();
-}
-
-class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  late Animation<double> _glow;
-  late AnimationController _rippleCtrl;
-  late Animation<double> _rippleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
-    _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.55), weight: 18),
-      TweenSequenceItem(tween: Tween(begin: 1.55, end: 0.78), weight: 16),
-      TweenSequenceItem(tween: Tween(begin: 0.78, end: 1.22), weight: 14),
-      TweenSequenceItem(tween: Tween(begin: 1.22, end: 0.90), weight: 12),
-      TweenSequenceItem(tween: Tween(begin: 0.90, end: 1.10), weight: 11),
-      TweenSequenceItem(tween: Tween(begin: 1.10, end: 0.96), weight: 10),
-      TweenSequenceItem(tween: Tween(begin: 0.96, end: 1.03), weight: 9),
-      TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0), weight: 10),
-    ]).animate(_ctrl);
-    _glow = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 80),
-    ]).animate(_ctrl);
-    _rippleCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
-    _rippleAnim = CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut);
-  }
-
-  @override
-  void didUpdateWidget(_PitchChip old) {
-    super.didUpdateWidget(old);
-    if (!old.isFound && widget.isFound) {
-      _ctrl.forward(from: 0);
-      _rippleCtrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); _rippleCtrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    final revealed = widget.isFound || widget.isPassed;
-    final d = widget.chipRadius * 2;
-    String label;
-    if (revealed) {
-      label = widget.player!.playerNumber > 0 ? '${widget.player!.playerNumber}' : '✓';
-    } else if (widget.hintContent != null) {
-      label = widget.hintContent!;
-    } else {
-      label = '?';
-    }
-    final c1 = widget.isPassed ? AppColors.amber : widget.teamColor;
-    final c2 = widget.isPassed ? AppColors.amber : (widget.teamColor2 ?? widget.teamColor);
-    final numFontSize = d < 28 ? 8.0 : 10.0;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.player == null || revealed ? null : widget.onTap,
-      child: SizedBox(
-        width: d + 30,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: d, height: d,
-              child: AnimatedBuilder(
-                animation: Listenable.merge([_ctrl, _rippleCtrl]),
-                builder: (_, __) => Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(size: Size(d, d),
-                        painter: _RipplePainter(progress: _rippleAnim.value, chipRadius: d / 2, color: c1)),
-                    Transform.scale(
-                      scale: _scale.value,
-                      child: Container(
-                        width: d, height: d,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: revealed ? LinearGradient(
-                            colors: [c1, c1, c2, c2], stops: [0.0, 0.5, 0.5, 1.0],
-                            begin: Alignment.centerLeft, end: Alignment.centerRight,
-                          ) : null,
-                          color: revealed ? null : Colors.white.withValues(alpha: 0.10),
-                          border: Border.all(color: Colors.white, width: revealed ? 1.5 : 1.2),
-                          boxShadow: [
-                            const BoxShadow(color: Color(0x55000000), blurRadius: 4, offset: Offset(0, 2)),
-                            BoxShadow(color: c1.withValues(alpha: _glow.value * 0.8),
-                                blurRadius: _glow.value * 24, spreadRadius: _glow.value * 5),
-                          ],
-                        ),
-                        child: Center(child: Text(label, style: TextStyle(
-                          color: revealed && c1 == c2 ? _labelColor(c1) : Colors.white,
-                          fontSize: numFontSize, fontWeight: FontWeight.w800, height: 1,
-                          shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
-                        ))),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (revealed && widget.chipRadius >= 13) ...[
-              const SizedBox(height: 1),
-              SizedBox(
-                width: d + 30,
-                child: Text(
-                  widget.player!.playerName.trim(),
-                  textAlign: TextAlign.center,
-                  maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: widget.isFound ? Color(0xFFB5EDBB) : AppColors.amber,
-                    fontSize: 9, fontWeight: FontWeight.w700, height: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _SubChip
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SubChip extends StatefulWidget {
-  final Lineup player;
-  final bool isFound;
-  final bool isPassed;
-  final String? hintContent;
-  final VoidCallback? onTap;
-  final Color teamColor;
-  final Color? teamColor2;
-
-  const _SubChip({
-    required this.player, required this.isFound, required this.isPassed,
-    required this.teamColor, this.teamColor2, this.hintContent, this.onTap,
-  });
-
-  @override
-  State<_SubChip> createState() => _SubChipState();
-}
-
-class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  late Animation<double> _glow;
-  late AnimationController _rippleCtrl;
-  late Animation<double> _rippleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
-    _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.55), weight: 18),
-      TweenSequenceItem(tween: Tween(begin: 1.55, end: 0.78), weight: 16),
-      TweenSequenceItem(tween: Tween(begin: 0.78, end: 1.22), weight: 14),
-      TweenSequenceItem(tween: Tween(begin: 1.22, end: 0.90), weight: 12),
-      TweenSequenceItem(tween: Tween(begin: 0.90, end: 1.10), weight: 11),
-      TweenSequenceItem(tween: Tween(begin: 1.10, end: 0.96), weight: 10),
-      TweenSequenceItem(tween: Tween(begin: 0.96, end: 1.03), weight: 9),
-      TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0), weight: 10),
-    ]).animate(_ctrl);
-    _glow = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 80),
-    ]).animate(_ctrl);
-    _rippleCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
-    _rippleAnim = CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut);
-  }
-
-  @override
-  void didUpdateWidget(_SubChip old) {
-    super.didUpdateWidget(old);
-    if (!old.isFound && widget.isFound) {
-      _ctrl.forward(from: 0);
-      _rippleCtrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); _rippleCtrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    final revealed = widget.isFound || widget.isPassed;
-    final String label;
-    if (revealed) {
-      label = widget.player.playerNumber > 0 ? '${widget.player.playerNumber}' : '✓';
-    } else if (widget.hintContent != null) {
-      label = widget.hintContent!;
-    } else {
-      label = '?';
-    }
-    const double d = 32;
-    final c1 = widget.isPassed ? AppColors.amber : widget.teamColor;
-    final c2 = widget.isPassed ? AppColors.amber : (widget.teamColor2 ?? widget.teamColor);
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: revealed ? null : widget.onTap,
-      child: SizedBox(
-        width: 32,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: d, height: d,
-              child: AnimatedBuilder(
-                animation: Listenable.merge([_ctrl, _rippleCtrl]),
-                builder: (_, __) => Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(size: Size(d, d),
-                        painter: _RipplePainter(progress: _rippleAnim.value, chipRadius: d / 2, color: c1)),
-                    Transform.scale(
-                      scale: _scale.value,
-                      child: Container(
-                        width: d, height: d,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: revealed ? LinearGradient(
-                            colors: [c1, c1, c2, c2], stops: [0.0, 0.5, 0.5, 1.0],
-                            begin: Alignment.centerLeft, end: Alignment.centerRight,
-                          ) : null,
-                          color: revealed ? null : Colors.white.withValues(alpha: 0.10),
-                          border: Border.all(color: Colors.white, width: revealed ? 1.5 : 1.2),
-                          boxShadow: [
-                            const BoxShadow(color: Color(0x55000000), blurRadius: 4, offset: Offset(0, 2)),
-                            BoxShadow(color: c1.withValues(alpha: _glow.value * 0.8),
-                                blurRadius: _glow.value * 24, spreadRadius: _glow.value * 5),
-                          ],
-                        ),
-                        child: Center(child: Text(label, style: TextStyle(
-                          color: revealed && c1 == c2 ? _labelColor(c1) : Colors.white,
-                          fontSize: 10, fontWeight: FontWeight.w800, height: 1,
-                          shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
-                        ))),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (revealed) ...[
-              const SizedBox(height: 2),
-              Text(widget.player.playerName.trim(),
-                  textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: widget.isFound ? AppColors.accentBright : AppColors.amber,
-                    fontSize: 7, fontWeight: FontWeight.w700, height: 1.2,
-                  )),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _PlayerCard
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PlayerCard extends StatelessWidget {
-  final Lineup player;
-  final bool isFound;
-  final bool isPassed;
-  final String? hintContent;
-  final VoidCallback? onTap;
-
-  const _PlayerCard({
-    required this.player, required this.isFound, required this.isPassed,
-    this.hintContent, this.onTap,
-  });
-
-  Color get _borderColor {
-    if (isFound) return AppColors.accentBright;
-    if (isPassed) return AppColors.amber;
-    return AppColors.border;
-  }
-
-  Color get _bgColor {
-    if (isFound) return AppColors.accentBright.withValues(alpha: 0.10);
-    if (isPassed) return AppColors.amber.withValues(alpha: 0.08);
-    return AppColors.card;
-  }
-
-  Color get _shirtColor {
-    if (isFound) return AppColors.accentBright;
-    if (isPassed) return AppColors.amber;
-    return AppColors.border;
-  }
-
-  Color get _nameColor {
-    if (isFound) return AppColors.accentBright;
-    if (isPassed) return AppColors.amber;
-    return AppColors.textSecondary;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final revealed = isFound || isPassed;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: revealed ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          color: _bgColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _borderColor, width: revealed ? 1.5 : 1),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Image.asset('assets/images/shirt.png', width: 30, height: 30, color: _shirtColor),
-                if (revealed && player.playerNumber > 0)
-                  Positioned(
-                    top: 9,
-                    child: Text('${player.playerNumber}', style: TextStyle(
-                      fontSize: 8, fontWeight: FontWeight.w800, color: _labelColor(_shirtColor),
-                    )),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Text(
-              revealed ? player.playerName.trim() : (hintContent ?? player.position),
-              textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: revealed ? FontWeight.w700 : FontWeight.w500,
-                color: hintContent != null && !revealed ? AppColors.accentBright : _nameColor,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

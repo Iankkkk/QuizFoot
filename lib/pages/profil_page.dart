@@ -171,6 +171,9 @@ class _ProfilPageState extends State<ProfilPage> {
   List<GameResult> get _multiplayerCoupDoeil =>
       _results.where((r) => r.gameType == GameType.multiplayerCoupDoeil).toList();
 
+  List<GameResult> get _quiAMenti =>
+      _results.where((r) => r.gameType == GameType.quiAMenti).toList();
+
   String _formatDuration(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes % 60;
@@ -212,6 +215,13 @@ class _ProfilPageState extends State<ProfilPage> {
   double get _composAvg => _compos.isEmpty
       ? 0
       : _compos.fold(0.0, (s, r) => s + r.normalizedScore) / _compos.length;
+
+  double get _quiAMentiAvg => _quiAMenti.isEmpty
+      ? 0
+      : _quiAMenti.fold(0.0, (s, r) => s + r.rawScore) / _quiAMenti.length;
+
+  int get _quiAMentiWins => _quiAMenti.where((r) => r.rawScore > 0).length;
+  int get _quiAMentiLosses => _quiAMenti.where((r) => r.rawScore == 0).length;
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -264,6 +274,16 @@ class _ProfilPageState extends State<ProfilPage> {
                     _buildMultiplayerSection(),
                     const SizedBox(height: 16),
                     _buildCdoMultiplayerSection(),
+                    const SizedBox(height: 16),
+                    _buildGameSection(
+                      title: 'Qui a menti ?',
+                      icon: Icons.gavel,
+                      results: _quiAMenti,
+                      extraStats: [
+                        _StatData('Score moyen', '${_quiAMentiAvg.toStringAsFixed(1)} pts'),
+                        _StatData('Victoires', '$_quiAMentiWins V · $_quiAMentiLosses D'),
+                      ],
+                    ),
                     if (_results.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       _buildMasterclass(),
@@ -293,6 +313,8 @@ class _ProfilPageState extends State<ProfilPage> {
     } else if (best.gameType == GameType.multiplayerCompos) {
       final opp = best.details['opponentPseudo'] as String? ?? '?';
       label = 'Compos 1v1 · vs $opp';
+    } else if (best.gameType == GameType.quiAMenti) {
+      label = 'Qui a menti ? · ${best.rawScore} pts';
     } else {
       label = (bestCat != null && bestCat.isNotEmpty)
           ? "Coup d'Œil · ${best.difficulty} · $bestCat"
@@ -821,8 +843,6 @@ class _ProfilPageState extends State<ProfilPage> {
                       color: AppColors.textSecondary,
                       fontSize: 11,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
               ],
             ),
@@ -853,6 +873,43 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget _buildResultRow(GameResult r) {
     if (r.gameType == GameType.multiplayerCompos) return _buildMultiplayerRow(r);
     if (r.gameType == GameType.multiplayerCoupDoeil) return _buildCdoMultiplayerRow(r);
+    if (r.gameType == GameType.quiAMenti) {
+      final timedOut = r.details['timedOut'] == true;
+      final correctCount = r.details['correctCount'] as int? ?? 0;
+      final date = '${r.playedAt.day}/${r.playedAt.month}/${r.playedAt.year % 100}';
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.gavel, color: AppColors.textSecondary, size: 16),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                timedOut ? 'Qui a menti ? · Temps écoulé' : 'Qui a menti ? · $correctCount/10',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(date, style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                Text(
+                  '${r.rawScore} pts',
+                  style: TextStyle(color: AppColors.accentBright, fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
     final isCompos = r.gameType == GameType.compos;
     final cat = r.details['category'] as String?;
     final label = isCompos

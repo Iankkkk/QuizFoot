@@ -3,6 +3,7 @@ import '../models/match_model.dart';
 import '../models/lineup_model.dart';
 import '../models/player_career.dart';
 import '../models/claim.dart';
+import '../models/parcours_joueur.dart';
 
 /// Cache in-memory avec TTL de 30 minutes.
 /// Singleton : même instance pour toute la session.
@@ -26,6 +27,9 @@ class DataCache {
 
   List<Claim>? _claims;
   DateTime? _claimsExpiry;
+
+  List<ParcoursPlayer>? _parcoursPlayers;
+  DateTime? _parcoursPlayersExpiry;
 
   bool _valid(DateTime? expiry) =>
       expiry != null && DateTime.now().isBefore(expiry);
@@ -61,11 +65,19 @@ class DataCache {
     _claimsExpiry = DateTime.now().add(_ttl);
   }
 
+  List<ParcoursPlayer>? get parcoursPlayers =>
+      _valid(_parcoursPlayersExpiry) ? _parcoursPlayers : null;
+  void setParcoursPlayers(List<ParcoursPlayer> data) {
+    _parcoursPlayers = data;
+    _parcoursPlayersExpiry = DateTime.now().add(_ttl);
+  }
+
   void invalidateAll() {
     _players = null; _playersExpiry = null;
     _matches = null; _matchesExpiry = null;
     _lineups = null; _lineupsExpiry = null;
     _careerPlayers = null; _careerPlayersExpiry = null;
     _claims = null; _claimsExpiry = null;
+    _parcoursPlayers = null; _parcoursPlayersExpiry = null;
   }
 }

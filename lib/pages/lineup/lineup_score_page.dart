@@ -21,6 +21,7 @@ import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
 import 'lineup_match_page.dart';
 import 'lineup_match_page_intro.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LineupScorePage
@@ -466,7 +467,7 @@ class _LineupScorePageState extends State<LineupScorePage>
               ),
               onPressed: () => Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const LineupMatchPageIntro()),
+                namedRoute(const LineupMatchPageIntro()),
                 (r) => r.isFirst,
               ),
               child: Text('Accueil', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -485,9 +486,7 @@ class _LineupScorePageState extends State<LineupScorePage>
               ),
               onPressed: () => Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => LineupMatchPage(difficulty: widget.difficulty),
-                ),
+                namedRoute(LineupMatchPage(difficulty: widget.difficulty)),
               ),
               child: Text(
                 'Rejouer ↺',

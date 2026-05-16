@@ -6,6 +6,7 @@ import '../../models/match_model.dart';
 import '../../models/compos_1v1_game.dart';
 import '../../services/compos_1v1_service.dart';
 import 'compos_1v1_preview_page.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 class Compos1v1WaitingPage extends StatefulWidget {
   final String roomCode;
@@ -73,15 +74,13 @@ class _Compos1v1WaitingPageState extends State<Compos1v1WaitingPage> {
       _navigating = true;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => Compos1v1PreviewPage(
-            roomCode: widget.roomCode,
-            pseudo: widget.pseudo,
-            opponentPseudo: _opponentPseudo ?? '?',
-            matchId: game.matchId,
-            difficulty: game.difficulty,
-          ),
-        ),
+        namedRoute(Compos1v1PreviewPage(
+          roomCode: widget.roomCode,
+          pseudo: widget.pseudo,
+          opponentPseudo: _opponentPseudo ?? '?',
+          matchId: game.matchId,
+          difficulty: game.difficulty,
+        )),
       );
     }
   }

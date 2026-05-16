@@ -6,23 +6,8 @@ import '../../services/game_history_service.dart';
 import '../../services/compos_1v1_service.dart';
 import 'compos_1v1_waiting_page.dart';
 import '../../main.dart' show routeObserver;
-
-int _difficultyToLevel(String difficulty) {
-  switch (difficulty) {
-    case 'Amateur':
-      return 1;
-    case 'Semi-Pro':
-      return 2;
-    case 'Pro':
-      return 3;
-    case 'International':
-      return 4;
-    case 'Légende':
-      return 5;
-    default:
-      return 3;
-  }
-}
+import 'package:quiz_foot/utils/navigation.dart';
+import 'lineup_visuals.dart';
 
 class Compos1v1LobbyPage extends StatefulWidget {
   const Compos1v1LobbyPage({super.key});
@@ -91,7 +76,7 @@ class _Compos1v1LobbyPageState extends State<Compos1v1LobbyPage>
       if (pseudo.isEmpty) throw Exception('Pseudo introuvable');
 
       final matches = await loadMatches();
-      final level = _difficultyToLevel(difficulty);
+      final level = difficultyToLevel(difficulty);
       final pool = matches.where((m) => m.level == level).toList();
       if (pool.isEmpty)
         throw Exception('Aucun match disponible pour cette difficulté');
@@ -108,14 +93,12 @@ class _Compos1v1LobbyPageState extends State<Compos1v1LobbyPage>
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => Compos1v1WaitingPage(
-            roomCode: code,
-            pseudo: pseudo,
-            match: match,
-            difficulty: difficulty,
-          ),
-        ),
+        namedRoute(Compos1v1WaitingPage(
+          roomCode: code,
+          pseudo: pseudo,
+          match: match,
+          difficulty: difficulty,
+        )),
       );
     } catch (e) {
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -145,13 +128,11 @@ class _Compos1v1LobbyPageState extends State<Compos1v1LobbyPage>
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => Compos1v1WaitingPage(
-            roomCode: code,
-            pseudo: pseudo,
-            isHost: false,
-          ),
-        ),
+        namedRoute(Compos1v1WaitingPage(
+          roomCode: code,
+          pseudo: pseudo,
+          isHost: false,
+        )),
       );
     } catch (e) {
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));

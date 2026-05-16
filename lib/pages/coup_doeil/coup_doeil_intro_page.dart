@@ -16,6 +16,7 @@ import '../../services/game_history_service.dart';
 import '../../main.dart' show routeObserver;
 import '../../services/theme_service.dart';
 import 'coup_doeil_game_page.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CoupDoeilIntroPage
@@ -159,10 +160,7 @@ class _CoupDoeilIntroPageState extends State<CoupDoeilIntroPage> with RouteAware
           Navigator.pop(context); // close the bottom sheet
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  CoupDoeilGamePage(difficulty: difficulty, category: _selectedCategory),
-            ),
+            namedRoute(CoupDoeilGamePage(difficulty: difficulty, category: _selectedCategory)),
           );
         },
       ),
@@ -409,28 +407,6 @@ class _CoupDoeilIntroPageState extends State<CoupDoeilIntroPage> with RouteAware
     );
   }
 
-  /// Horizontal scrollable row of category chips.
-  /// Shows skeleton chips while categories are loading.
-  Widget _buildCategorySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Choix de la Catégorie',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 14),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: _categories.isEmpty ? _buildSkeletonChips() : _buildChipRow(),
-        ),
-      ],
-    );
-  }
 
   /// Placeholder chips shown while the category list loads.
   Widget _buildSkeletonChips() {
@@ -550,22 +526,6 @@ class _CoupDoeilIntroPageState extends State<CoupDoeilIntroPage> with RouteAware
     );
   }
 
-  Widget _buildPlayButton() {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.accentBright,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      onPressed: _openDifficultyPicker,
-      child: Text(
-        'Jouer !',
-        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

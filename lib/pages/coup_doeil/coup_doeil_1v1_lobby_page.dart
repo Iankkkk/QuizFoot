@@ -9,6 +9,7 @@ import '../../services/coup_doeil_1v1_service.dart';
 import '../../services/game_history_service.dart';
 import '../../main.dart' show routeObserver;
 import 'coup_doeil_1v1_waiting_room_page.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 class CoupDoeil1v1LobbyPage extends StatefulWidget {
   const CoupDoeil1v1LobbyPage({super.key});
@@ -119,13 +120,11 @@ class _CoupDoeil1v1LobbyPageState extends State<CoupDoeil1v1LobbyPage>
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => CoupDoeil1v1WaitingRoomPage(
-            roomCode: code,
-            pseudo: pseudo,
-            isHost: true,
-          ),
-        ),
+        namedRoute(CoupDoeil1v1WaitingRoomPage(
+          roomCode: code,
+          pseudo: pseudo,
+          isHost: true,
+        )),
       );
     } catch (e) {
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -153,13 +152,11 @@ class _CoupDoeil1v1LobbyPageState extends State<CoupDoeil1v1LobbyPage>
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => CoupDoeil1v1WaitingRoomPage(
-            roomCode: code,
-            pseudo: pseudo,
-            isHost: false,
-          ),
-        ),
+        namedRoute(CoupDoeil1v1WaitingRoomPage(
+          roomCode: code,
+          pseudo: pseudo,
+          isHost: false,
+        )),
       );
     } catch (e) {
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'firebase_options.dart';
 import 'pages/home_page.dart';
 import 'pages/onboarding_page.dart';
@@ -15,6 +16,9 @@ import 'services/theme_service.dart';
 import 'constants/app_colors.dart';
 
 final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+final FirebaseAnalyticsObserver analyticsObserver = FirebaseAnalyticsObserver(analytics: analytics);
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -116,7 +120,7 @@ class _MyAppState extends State<MyApp> {
       title: 'Quiz Football',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(isDark),
-      navigatorObservers: [routeObserver],
+      navigatorObservers: [routeObserver, analyticsObserver],
       home: widget.hasPseudo ? const HomePage() : const OnboardingPage(),
       routes: {
         '/quiz_test':      (context) => const CoupDoeilIntroPage(),

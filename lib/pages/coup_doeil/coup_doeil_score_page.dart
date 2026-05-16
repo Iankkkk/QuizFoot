@@ -14,6 +14,7 @@ import '../../models/question_result.dart';
 import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
 import 'coup_doeil_game_page.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CoupDoeilScorePage
@@ -352,12 +353,10 @@ class _CoupDoeilScorePageState extends State<CoupDoeilScorePage> {
               ),
               onPressed: () => Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => CoupDoeilGamePage(
-                    difficulty: widget.difficulty,
-                    category:   widget.category,
-                  ),
-                ),
+                namedRoute(CoupDoeilGamePage(
+                  difficulty: widget.difficulty,
+                  category:   widget.category,
+                )),
               ),
               child: Text(
                 'Rejouer ↺',

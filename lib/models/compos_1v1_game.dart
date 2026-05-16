@@ -72,6 +72,9 @@ class MultiplayerGame {
   final String? rematchMatchId;
   final Map<String, int> bonusCounts;
   final Map<String, DateTime> heartbeat;
+  final String? lastErrorType;
+  final String? previewChangeRequest;
+  final List<String> previewReady;
 
   const MultiplayerGame({
     required this.roomCode,
@@ -95,6 +98,9 @@ class MultiplayerGame {
     this.rematchMatchId,
     this.bonusCounts = const {},
     this.heartbeat = const {},
+    this.lastErrorType,
+    this.previewChangeRequest,
+    this.previewReady = const [],
   });
 
   factory MultiplayerGame.fromDoc(DocumentSnapshot doc) {
@@ -134,6 +140,9 @@ class MultiplayerGame {
       heartbeat: Map<String, DateTime>.from(
         (d['heartbeat'] as Map<String, dynamic>? ?? {}).map((k, v) => MapEntry(k, (v as Timestamp).toDate())),
       ),
+      lastErrorType: d['lastErrorType'] as String?,
+      previewChangeRequest: d['previewChangeRequest'] as String?,
+      previewReady: List<String>.from(d['previewReady'] as List? ?? []),
     );
   }
 

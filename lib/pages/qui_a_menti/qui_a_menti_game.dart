@@ -27,17 +27,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import '../../data/qui_a_menti_api.dart';
+import '../../services/game_history_service.dart';
 import '../../data/api_exception.dart';
 import '../../models/claim.dart';
 import 'qui_a_menti_confetti.dart';
 import 'qui_a_menti_score.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QuiAMentiGame
 // ─────────────────────────────────────────────────────────────────────────────
 
 class QuiAMentiGame extends StatefulWidget {
-  const QuiAMentiGame({super.key});
+  final String difficulty;
+  const QuiAMentiGame({super.key, this.difficulty = 'Pro'});
 
   @override
   State<QuiAMentiGame> createState() => _QuiAMentiGameState();
@@ -194,10 +197,32 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
   Future<void> _loadClaim({bool isRetry = false}) async {
     try {
       final claims = await QuiAMentiApi.fetchRandomClaim();
-      final valid = claims.where((c) => c.candidates.length == 10).toList();
-      if (valid.isEmpty) throw Exception('Aucun claim valide trouvé.');
+      final valid = claims
+          .where((c) => c.candidates.length == 10 && c.level == widget.difficulty)
+          .toList();
+      if (valid.isEmpty) {
+        _showError('Aucun claim disponible en ${widget.difficulty} pour l\'instant.');
+        return;
+      }
 
-      final picked = valid[Random().nextInt(valid.length)];
+      final played = await GameHistoryService.instance.getPlayedClaims();
+      final unplayed = valid.where((c) => !played.contains(c.claim)).toList();
+      if (unplayed.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Tu as déjà joué toutes les affirmations en ${widget.difficulty} ! Reviens plus tard ou change de difficulté.',
+              ),
+              backgroundColor: AppColors.amber,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+      final picked = unplayed[Random().nextInt(unplayed.length)];
 
       // Shuffle candidates so the order is unpredictable each game.
       final shuffled = List<Candidate>.from(picked.candidates)..shuffle();
@@ -396,6 +421,7 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
   /// Stops the timer, computes points, and navigates to [QuiAMentiScore].
   void _endGame({required bool timedOut, int? correctCount}) {
     _countdownTimer?.cancel();
+    GameHistoryService.instance.markClaimPlayed(_claim.claim);
 
     final int correct = correctCount ?? _computeCorrectCount();
 
@@ -416,18 +442,18 @@ class _QuiAMentiGameState extends State<QuiAMentiGame>
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => QuiAMentiScore(
-          points: points,
-          correctCount: correct,
-          validationsUsed: _validationCount,
-          timeTaken: timeTaken,
-          timedOut: timedOut,
-          allCandidates: _claim.candidates,
-          finalTrueBucket: List.from(_trueBucket),
-          finalFalseBucket: List.from(_falseBucket),
-        ),
-      ),
+      namedRoute(QuiAMentiScore(
+        points: points,
+        correctCount: correct,
+        validationsUsed: _validationCount,
+        timeTaken: timeTaken,
+        timedOut: timedOut,
+        allCandidates: _claim.candidates,
+        finalTrueBucket: List.from(_trueBucket),
+        finalFalseBucket: List.from(_falseBucket),
+        claim: _claim.claim,
+        difficulty: widget.difficulty,
+      )),
     );
   }
 

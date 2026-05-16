@@ -51,6 +51,10 @@ class FirestoreService {
             'opponentPseudo': result.details['opponentPseudo'],
           if (result.details['won'] != null)
             'won': result.details['won'],
+          if (result.details['draw'] != null)
+            'draw': result.details['draw'],
+          if (result.details['claim'] != null)
+            'claim': result.details['claim'],
           'createdAt':   FieldValue.serverTimestamp(),
         });
         return true;

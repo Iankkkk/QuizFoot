@@ -8,6 +8,8 @@ import '../../models/match_model.dart';
 import '../../models/compos_1v1_game.dart';
 import '../../services/compos_1v1_service.dart';
 import 'compos_1v1_game_page.dart';
+import 'package:quiz_foot/utils/navigation.dart';
+import 'lineup_visuals.dart';
 
 class Compos1v1PreviewPage extends StatefulWidget {
   final String roomCode;
@@ -31,12 +33,14 @@ class Compos1v1PreviewPage extends StatefulWidget {
 
 class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     with TickerProviderStateMixin {
-  static const int _countdownSeconds = 8;
+  static const int _countdownSeconds = 10;
 
   Match? _match;
   bool _matchLoading = true;
+  String _currentMatchId = '';
+  List<Match> _allMatches = [];
 
-  late final AnimationController _progressController;
+  late AnimationController _progressController;
   late final AnimationController _entranceController;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
@@ -45,9 +49,13 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
   StreamSubscription<MultiplayerGame?>? _sub;
   bool _navigating = false;
 
+  bool _iAmReady = false;
+  String? _changeRequestedBy;
+
   @override
   void initState() {
     super.initState();
+    _currentMatchId = widget.matchId;
 
     _progressController = AnimationController(
       vsync: this,
@@ -72,27 +80,40 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     _sub = MultiplayerService.instance
         .watchGame(widget.roomCode)
         .listen(_onGameUpdate);
-    _loadMatch();
+    _loadMatch(_currentMatchId, firstLoad: true);
   }
 
-  Future<void> _loadMatch() async {
+  Future<void> _loadMatch(String matchId, {bool firstLoad = false}) async {
+    if (!mounted) return;
+    setState(() => _matchLoading = true);
     try {
-      final matches = await loadMatches();
-      final match = matches.firstWhere(
-        (m) => m.matchId == widget.matchId,
+      if (_allMatches.isEmpty) {
+        _allMatches = await loadMatches();
+      }
+      final match = _allMatches.firstWhere(
+        (m) => m.matchId == matchId,
         orElse: () => throw Exception('Match introuvable'),
       );
       if (!mounted) return;
       setState(() {
         _match = match;
         _matchLoading = false;
+        _currentMatchId = matchId;
       });
-      _entranceController.forward();
-      _progressController.forward();
-      _navTimer = Timer(const Duration(seconds: _countdownSeconds), _goToGame);
+      if (firstLoad) {
+        _entranceController.forward();
+      }
+      _startCountdown();
     } catch (_) {
       if (mounted) setState(() => _matchLoading = false);
     }
+  }
+
+  void _startCountdown() {
+    _navTimer?.cancel();
+    _progressController.reset();
+    _progressController.forward();
+    _navTimer = Timer(const Duration(seconds: _countdownSeconds), _goToGame);
   }
 
   @override
@@ -117,9 +138,33 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
           ),
         );
         Navigator.of(context)
-          ..pop() // preview
-          ..pop(); // waiting
+          ..pop()
+          ..pop();
       }
+      return;
+    }
+
+    // Match changed → reload
+    if (game.matchId != _currentMatchId) {
+      setState(() {
+        _iAmReady = false;
+        _changeRequestedBy = null;
+      });
+      _loadMatch(game.matchId);
+      return;
+    }
+
+    // Both ready → navigate immediately
+    final bothReady = game.previewReady.contains(widget.pseudo) &&
+        game.previewReady.contains(widget.opponentPseudo);
+    if (bothReady) {
+      _goToGame();
+      return;
+    }
+
+    final newChangeRequest = game.previewChangeRequest;
+    if (newChangeRequest != _changeRequestedBy) {
+      setState(() => _changeRequestedBy = newChangeRequest);
     }
   }
 
@@ -130,11 +175,50 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) =>
-            Compos1v1GamePage(roomCode: widget.roomCode, pseudo: widget.pseudo),
+      namedRoute(
+        Compos1v1GamePage(roomCode: widget.roomCode, pseudo: widget.pseudo),
       ),
     );
+  }
+
+  Future<void> _onReadyTap() async {
+    if (_iAmReady) return;
+    setState(() => _iAmReady = true);
+    await MultiplayerService.instance.markPreviewReady(
+      code: widget.roomCode,
+      pseudo: widget.pseudo,
+    );
+  }
+
+  Future<void> _onRequestChange() async {
+    setState(() => _changeRequestedBy = widget.pseudo);
+    await MultiplayerService.instance.requestChangeMatch(
+      code: widget.roomCode,
+      pseudo: widget.pseudo,
+    );
+  }
+
+  Future<void> _onAcceptChange() async {
+    final level = difficultyToLevel(widget.difficulty);
+    final pool = _allMatches
+        .where((m) => m.level == level && m.matchId != _currentMatchId)
+        .toList();
+    if (pool.isEmpty) return;
+    pool.shuffle();
+    final newMatch = pool.first;
+    setState(() {
+      _changeRequestedBy = null;
+      _iAmReady = false;
+    });
+    await MultiplayerService.instance.acceptChangeMatch(
+      code: widget.roomCode,
+      newMatchId: newMatch.matchId,
+    );
+  }
+
+  Future<void> _onRefuseChange() async {
+    setState(() => _changeRequestedBy = null);
+    await MultiplayerService.instance.refuseChangeMatch(code: widget.roomCode);
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -153,8 +237,11 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
     final match = _match!;
     final hasScore = match.homeGoals != null && match.awayGoals != null;
     final hasPens = match.penalties != null && match.penalties!.isNotEmpty;
-    final folder = _leagueFolder(match.competition);
+    final folder = leagueFolder(match.competition);
     final diffColor = AppColors.forDifficulty(widget.difficulty);
+
+    final iRequestedChange = _changeRequestedBy == widget.pseudo;
+    final opponentRequestedChange = _changeRequestedBy == widget.opponentPseudo;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -249,6 +336,105 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
               child: Column(
                 children: [
+                  // Opponent requested change → show accept/refuse
+                  if (opponentRequestedChange) ...[
+                    _buildChangeRequestBanner(),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Ready button
+                  GestureDetector(
+                    onTap: _iAmReady ? null : _onReadyTap,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: _iAmReady
+                            ? AppColors.accentBright.withValues(alpha: 0.15)
+                            : AppColors.accentBright,
+                        borderRadius: BorderRadius.circular(14),
+                        border: _iAmReady
+                            ? Border.all(
+                                color: AppColors.accentBright,
+                                width: 1.5,
+                              )
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _iAmReady
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.rocket_launch_rounded,
+                            color: _iAmReady
+                                ? AppColors.accentBright
+                                : Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _iAmReady
+                                ? 'En attente de ${widget.opponentPseudo}...'
+                                : 'C\'est parti !',
+                            style: TextStyle(
+                              color: _iAmReady
+                                  ? AppColors.accentBright
+                                  : Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Change match button / waiting state
+                  if (iRequestedChange)
+                    _buildWaitingChip(
+                      'En attente de ${widget.opponentPseudo}...',
+                    )
+                  else if (!opponentRequestedChange &&
+                      _changeRequestedBy == null)
+                    GestureDetector(
+                      onTap: _onRequestChange,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.shuffle_rounded,
+                              color: AppColors.textSecondary,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Changer la compo',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 14),
+
+                  // Auto-start countdown
                   AnimatedBuilder(
                     animation: _progressController,
                     builder: (_, __) {
@@ -263,18 +449,18 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
                               value: 1 - _progressController.value,
                               backgroundColor: AppColors.border,
                               valueColor: AlwaysStoppedAnimation(
-                                AppColors.accentBright,
+                                AppColors.accentBright.withValues(alpha: 0.4),
                               ),
-                              minHeight: 3,
+                              minHeight: 2,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           Text(
-                            'Début dans $remaining s...',
+                            'Début automatique dans $remaining s',
                             style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary
+                                  .withValues(alpha: 0.6),
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -286,6 +472,111 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildChangeRequestBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.amber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '${widget.opponentPseudo} veut changer la compo',
+            style: TextStyle(
+              color: AppColors.amber,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: _onRefuseChange,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Non',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: _onAcceptChange,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentBright,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Oui, changer',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWaitingChip(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+        ],
       ),
     );
   }
@@ -525,63 +816,6 @@ class _Compos1v1PreviewPageState extends State<Compos1v1PreviewPage>
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-String? _leagueFolder(String competition) {
-  final c = competition.toLowerCase();
-  if (c.contains('euro') ||
-      c.contains('coupe du monde') ||
-      c.contains('world cup') ||
-      c.contains('ligue des nations') ||
-      c.contains('copa') ||
-      c.contains('can'))
-    return 'pays';
-  if (c.contains('champions league') || c.contains('ligue des champions'))
-    return 'Champions League';
-  if (c.contains('ligue 1') ||
-      c.contains('coupe de france') ||
-      c.contains('coupe de la ligue'))
-    return 'France - Ligue 1';
-  if (c.contains('premier league') ||
-      c.contains('community shield') ||
-      c.contains('fa cup'))
-    return 'England - Premier League';
-  if (c.contains('laliga') || c.contains('la liga') || c.contains('liga'))
-    return 'Spain - La Liga';
-  if (c.contains('bundesliga') && !c.contains('austria'))
-    return 'Germany - Bundesliga';
-  if (c.contains('serie a')) return 'Italy - Serie A';
-  if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
-  if (c.contains('liga portugal')) return 'Portugal - Liga Portugal';
-  if (c.contains('jupiler')) return 'Belgium - Jupiler Pro League';
-  return null;
-}
-
-Color _parseColor(String? name) {
-  switch (name?.toLowerCase().trim()) {
-    case 'blanc':
-      return Color(0xFFF0F0F0);
-    case 'noir':
-      return Color(0xFF1A1A1A);
-    case 'rouge':
-      return Color(0xFFDC2626);
-    case 'bleu':
-      return Color(0xFF1D4ED8);
-    case 'bleu clair':
-      return Color(0xFF60A5FA);
-    case 'bleu foncé':
-      return Color(0xFF0C0A4D);
-    case 'vert':
-      return Color(0xFF16A34A);
-    case 'jaune':
-      return Color(0xFFFACC15);
-    case 'orange':
-      return Color(0xFFE16806);
-    case 'violet':
-      return Color(0xFF790CC8);
-    default:
-      return Color(0xFF2D3148);
-  }
-}
-
 class _TeamLogo extends StatelessWidget {
   final String name;
   final String colorName;
@@ -593,9 +827,8 @@ class _TeamLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     final fallback = _buildFallback();
     if (folder == null) return fallback;
-    final fileName = folder == 'pays'
-        ? removeDiacritics(name.toLowerCase())
-        : name;
+    final fileName =
+        folder == 'pays' ? removeDiacritics(name.toLowerCase()) : name;
     return Image.asset(
       'assets/logos/$folder/$fileName.png',
       width: 64,
@@ -606,7 +839,7 @@ class _TeamLogo extends StatelessWidget {
   }
 
   Widget _buildFallback() {
-    final bg = _parseColor(colorName);
+    final bg = previewLogoColor(colorName, fallback: const Color(0xFF2D3148));
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
     return Container(
       width: 64,

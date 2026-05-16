@@ -5,6 +5,7 @@ import '../../models/coup_doeil_1v1_game.dart';
 import '../../models/player.dart';
 import '../../services/coup_doeil_1v1_service.dart';
 import 'coup_doeil_1v1_game_page.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 class CoupDoeil1v1PreviewPage extends StatefulWidget {
   final String roomCode;
@@ -110,16 +111,14 @@ class _CoupDoeil1v1PreviewPageState extends State<CoupDoeil1v1PreviewPage>
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => CoupDoeil1v1GamePage(
-          roomCode: widget.roomCode,
-          pseudo: widget.pseudo,
-          opponentPseudo: widget.opponentPseudo,
-          questions: widget.questions,
-          difficulty: widget.difficulty,
-          category: widget.category,
-        ),
-      ),
+      namedRoute(CoupDoeil1v1GamePage(
+        roomCode: widget.roomCode,
+        pseudo: widget.pseudo,
+        opponentPseudo: widget.opponentPseudo,
+        questions: widget.questions,
+        difficulty: widget.difficulty,
+        category: widget.category,
+      )),
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quiz_foot/pages/lineup/lineup_match_preview_page.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 import '../../constants/app_colors.dart';
 import '../../data/lineup_game_data.dart';
 import '../../models/match_model.dart';
@@ -167,12 +168,10 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro>
                           Navigator.pop(context);
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => LineupMatchPreviewPage(
-                                difficulty: diff,
-                                eras: Set.from(_selectedEras),
-                              ),
-                            ),
+                            namedRoute(LineupMatchPreviewPage(
+                              difficulty: diff,
+                              eras: Set.from(_selectedEras),
+                            )),
                           );
                         },
                         child: Container(
@@ -649,12 +648,10 @@ class _LineupMatchPageIntroState extends State<LineupMatchPageIntro>
                                 GestureDetector(
                                   onTap: () => Navigator.push(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (_) => LineupMatchPreviewPage(
-                                        difficulty: diff,
-                                        preselectedMatch: match,
-                                      ),
-                                    ),
+                                    namedRoute(LineupMatchPreviewPage(
+                                      difficulty: diff,
+                                      preselectedMatch: match,
+                                    )),
                                   ),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(

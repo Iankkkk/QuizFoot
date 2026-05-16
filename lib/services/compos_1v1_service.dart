@@ -180,6 +180,7 @@ class MultiplayerService {
   Future<void> submitError({
     required String code,
     required String pseudo,
+    String? errorType,
   }) async {
     final ref = _games.doc(code);
     await _db.runTransaction((tx) async {
@@ -204,6 +205,7 @@ class MultiplayerService {
           'status': GameStatus.finished.name,
           'winner': '__draw__',
           'suffocatedBy': null,
+          'lastErrorType': errorType,
         });
       } else if (eliminated) {
         final elimFoundCount = game.foundPlayers.where((f) => f.foundBy == pseudo).length - (game.bonusCounts[pseudo] ?? 0);
@@ -216,6 +218,7 @@ class MultiplayerService {
             'status': GameStatus.finished.name,
             'winner': opponent,
             'suffocatedBy': null,
+            'lastErrorType': errorType,
           });
         } else {
           // Égalité ou éliminé devant → tour final pour l'adversaire
@@ -225,6 +228,7 @@ class MultiplayerService {
             'turnStartedAt': FieldValue.serverTimestamp(),
             'pendingFinalTurn': true,
             'suffocatedBy': null,
+            'lastErrorType': errorType,
           });
         }
       } else {
@@ -233,6 +237,7 @@ class MultiplayerService {
           'currentTurn': opponent,
           'turnStartedAt': FieldValue.serverTimestamp(),
           'suffocatedBy': null,
+          'lastErrorType': errorType,
         });
       }
     });
@@ -382,6 +387,44 @@ class MultiplayerService {
   Future<void> pingHeartbeat({required String code, required String pseudo}) async {
     try {
       await _games.doc(code).update({'heartbeat.$pseudo': FieldValue.serverTimestamp()});
+    } catch (_) {}
+  }
+
+  // ── Preview ───────────────────────────────────────────────────────────────
+
+  Future<void> markPreviewReady({required String code, required String pseudo}) async {
+    try {
+      await _games.doc(code).update({
+        'previewReady': FieldValue.arrayUnion([pseudo]),
+      });
+    } catch (_) {}
+  }
+
+  Future<void> requestChangeMatch({required String code, required String pseudo}) async {
+    try {
+      await _games.doc(code).update({
+        'previewChangeRequest': pseudo,
+        'previewReady': [],
+      });
+    } catch (_) {}
+  }
+
+  Future<void> acceptChangeMatch({
+    required String code,
+    required String newMatchId,
+  }) async {
+    try {
+      await _games.doc(code).update({
+        'matchId': newMatchId,
+        'previewChangeRequest': null,
+        'previewReady': [],
+      });
+    } catch (_) {}
+  }
+
+  Future<void> refuseChangeMatch({required String code}) async {
+    try {
+      await _games.doc(code).update({'previewChangeRequest': null});
     } catch (_) {}
   }
 

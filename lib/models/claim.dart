@@ -7,9 +7,10 @@ class Candidate {
 
 class Claim {
   final String claim;
+  final String level;
   final List<Candidate> candidates;
 
-  Claim({required this.claim, required this.candidates});
+  Claim({required this.claim, required this.level, required this.candidates});
 
   factory Claim.fromJson(Map<String, dynamic> json) {
     List<Candidate> candidates = [];
@@ -26,8 +27,18 @@ class Claim {
         );
       }
     }
+    final rawLevel = (json['level'] ?? '').toString().trim();
+    final level = switch (rawLevel) {
+      '1' => 'Amateur',
+      '2' => 'Semi-Pro',
+      '3' => 'Pro',
+      '4' => 'International',
+      '5' => 'Légende',
+      _   => 'Légende',
+    };
     return Claim(
       claim: json['claim'] ?? '',
+      level: level,
       candidates: candidates,
     );
   }

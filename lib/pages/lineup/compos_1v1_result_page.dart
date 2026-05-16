@@ -181,7 +181,8 @@ class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
-  bool get _iWon => widget.game.winner == widget.pseudo;
+  bool get _isDraw => widget.game.winner == '__draw__';
+  bool get _iWon => !_isDraw && widget.game.winner == widget.pseudo;
 
   String get _opponentPseudo => widget.game.playerOrder.firstWhere(
     (p) => p != widget.pseudo,
@@ -292,15 +293,19 @@ class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
   Widget _buildScoreCard() {
     final Color outcomeColor = widget.abandoned
         ? AppColors.amber
-        : _iWon
-            ? AppColors.accentBright
-            : AppColors.red;
+        : _isDraw
+            ? AppColors.amber
+            : _iWon
+                ? AppColors.accentBright
+                : AppColors.red;
 
     final String outcomeLabel = widget.abandoned
         ? '⚠️ Partie interrompue'
-        : _iWon
-            ? '🏆 Victoire !'
-            : '💀 Défaite';
+        : _isDraw
+            ? '🤝 Match nul'
+            : _iWon
+                ? '🏆 Victoire !'
+                : '💀 Défaite';
 
     final total = widget.lineups.length;
 
@@ -344,7 +349,7 @@ class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
                   total: total,
                   errors: _myErrors,
                   isMe: true,
-                  isWinner: _iWon && !widget.abandoned,
+                  isWinner: _iWon && !widget.abandoned && !_isDraw,
                 )),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -363,7 +368,7 @@ class _Compos1v1ResultPageState extends State<Compos1v1ResultPage>
                   total: total,
                   errors: widget.game.players[_opponentPseudo]?.errors ?? 0,
                   isMe: false,
-                  isWinner: !_iWon && !widget.abandoned,
+                  isWinner: !_iWon && !widget.abandoned && !_isDraw,
                 )),
               ],
             ),

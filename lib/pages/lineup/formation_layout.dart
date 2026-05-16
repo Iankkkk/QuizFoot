@@ -72,6 +72,13 @@ const Map<String, List<List<String>>> kFormationLines = {
     ['MG', 'MC', 'MC', 'MD'],
     ['AG', 'BU', 'AD'],
   ],
+  '4-3-2-1': [
+    ['GB'],
+    ['DG', 'DC', 'DC', 'DD'],
+    ['MC', 'MC', 'MC'],
+    ['MOC', 'MOC'],
+    ['BU'],
+  ],
 };
 
 bool isFormationSupported(String f) => kFormationLines.containsKey(f);

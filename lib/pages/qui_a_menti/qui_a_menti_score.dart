@@ -19,6 +19,7 @@ import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
 import 'qui_a_menti_confetti.dart';
 import 'qui_a_menti_game.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QuiAMentiScore
@@ -49,6 +50,12 @@ class QuiAMentiScore extends StatefulWidget {
   /// Final state of the FAUX bucket when the game ended.
   final List<Candidate> finalFalseBucket;
 
+  /// The claim statement shown during the game.
+  final String claim;
+
+  /// Difficulty level played (Amateur / Semi-Pro / Pro / International / Légende).
+  final String difficulty;
+
   const QuiAMentiScore({
     super.key,
     required this.points,
@@ -59,6 +66,8 @@ class QuiAMentiScore extends StatefulWidget {
     required this.allCandidates,
     required this.finalTrueBucket,
     required this.finalFalseBucket,
+    required this.claim,
+    required this.difficulty,
   });
 
   @override
@@ -105,6 +114,8 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
         validationsUsed: widget.validationsUsed,
         timedOut:        widget.timedOut,
         timeTaken:       widget.timeTaken,
+        claim:           widget.claim,
+        difficulty:      widget.difficulty,
       ),
     );
   }
@@ -554,7 +565,7 @@ class _QuiAMentiScoreState extends State<QuiAMentiScore>
               ),
               onPressed: () => Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (_) => const QuiAMentiGame()),
+                namedRoute(QuiAMentiGame(difficulty: widget.difficulty)),
               ),
               child: Text(
                 'Rejouer ↺',

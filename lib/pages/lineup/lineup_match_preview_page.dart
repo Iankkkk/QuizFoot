@@ -7,69 +7,10 @@ import '../../models/match_model.dart';
 import 'lineup_match_page.dart';
 import '../../constants/app_colors.dart';
 import '../../services/theme_service.dart';
+import 'package:quiz_foot/utils/navigation.dart';
+import 'lineup_visuals.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-Color _parseColor(String? name) {
-  switch (name?.toLowerCase().trim()) {
-    case 'blanc':
-      return const Color(0xFFF0F0F0);
-    case 'noir':
-      return const Color(0xFF1A1A1A);
-    case 'rouge':
-      return const Color(0xFFDC2626);
-    case 'bleu':
-      return const Color(0xFF1D4ED8);
-    case 'bleu clair':
-      return const Color(0xFF60A5FA);
-    case 'bleu foncé':
-      return const Color(0xFF0C0A4D);
-    case 'vert':
-      return const Color(0xFF16A34A);
-    case 'jaune':
-      return const Color(0xFFFACC15);
-    case 'orange':
-      return const Color(0xFFE16806);
-    case 'violet':
-      return const Color(0xFF790CC8);
-    default:
-      return AppColors.border;
-  }
-}
-
-/// Maps a competition name to the corresponding logos subfolder.
-/// Returns null for multi-league competitions (UCL, etc.).
-String? _leagueFolder(String competition) {
-  final c = competition.toLowerCase();
-  if (c.contains('champions league') ||
-      c.contains('ligue des champions') ||
-      c.contains('ligue europa'))
-    return 'Champions League';
-  if (c.contains('ligue 1') ||
-      c.contains('coupe de france') ||
-      c.contains('coupe de la ligue'))
-    return 'France - Ligue 1';
-  if (c.contains('premier league') ||
-      c.contains('community shield') ||
-      c.contains('fa cup'))
-    return 'England - Premier League';
-  if (c.contains('premier league')) return 'England - Premier League';
-  if (c.contains('laliga') || c.contains('la liga')) return 'Spain - La Liga';
-  if (c.contains('bundesliga') && !c.contains('austria'))
-    return 'Germany - Bundesliga';
-  if (c.contains('euro') ||
-      c.contains('coupe du monde') ||
-      c.contains('world cup') ||
-      c.contains('ligue des nations') ||
-      c.contains('copa') ||
-      c.contains('can'))
-    return 'pays';
-  if (c.contains('serie a')) return 'Italy - Serie A';
-  if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
-  if (c.contains('liga portugal')) return 'Portugal - Liga Portugal';
-  if (c.contains('jupiler')) return 'Belgium - Jupiler Pro League';
-  return null;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LineupMatchPreviewPage
@@ -142,23 +83,6 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
-  int _difficultyToLevel(String d) {
-    switch (d) {
-      case 'Amateur':
-        return 1;
-      case 'Semi-Pro':
-        return 2;
-      case 'Pro':
-        return 3;
-      case 'International':
-        return 4;
-      case 'Légende':
-        return 5;
-      default:
-        return 3;
-    }
-  }
-
   Future<void> _loadMatch() async {
     try {
       if (widget.preselectedMatch != null) {
@@ -176,7 +100,7 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
       }
 
       final matches = await loadMatches();
-      final level = _difficultyToLevel(widget.difficulty);
+      final level = difficultyToLevel(widget.difficulty);
 
       final filtered = matches.where((m) {
         if (m.level != level) return false;
@@ -228,13 +152,11 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => LineupMatchPage(
-          difficulty: widget.difficulty,
-          eras: widget.eras,
-          preselectedMatch: _match,
-        ),
-      ),
+      namedRoute(LineupMatchPage(
+        difficulty: widget.difficulty,
+        eras: widget.eras,
+        preselectedMatch: _match,
+      )),
     );
   }
 
@@ -292,7 +214,7 @@ class _LineupMatchPreviewPageState extends State<LineupMatchPreviewPage>
     final match = _match!;
     final hasScore = match.homeGoals != null && match.awayGoals != null;
     final hasPens = match.penalties != null && match.penalties!.isNotEmpty;
-    final folder = _leagueFolder(match.competition);
+    final folder = leagueFolder(match.competition);
 
     return Column(
       children: [
@@ -618,7 +540,7 @@ class _TeamLogo extends StatelessWidget {
   }
 
   Widget _buildFallback() {
-    final bg = _parseColor(colorName);
+    final bg = previewLogoColor(colorName, fallback: AppColors.border);
     final isDark = bg.computeLuminance() < 0.4;
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 

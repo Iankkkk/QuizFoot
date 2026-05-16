@@ -19,7 +19,6 @@ import 'package:flutter/services.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:string_similarity/string_similarity.dart';
 import '../../constants/app_colors.dart';
-import '../../services/theme_service.dart';
 import '../../data/lineup_game_data.dart';
 import '../../data/api_exception.dart';
 import '../../models/match_model.dart';
@@ -28,154 +27,9 @@ import '../../models/game_result.dart';
 import '../../services/game_history_service.dart';
 import 'formation_layout.dart';
 import 'lineup_score_page.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-Color _parseTeamColor(String? name) {
-  switch (name?.toLowerCase().trim()) {
-    case 'blanc':
-      return Color(0xFFF0F0F0);
-    case 'noir':
-      return const Color.fromARGB(255, 0, 0, 0);
-    case 'rouge':
-      return Color(0xFFDC2626);
-    case 'bleu':
-      return Color(0xFF1D4ED8);
-    case 'bleu clair':
-      return Color(0xFF60A5FA);
-    case 'bleu foncé':
-      return const Color.fromARGB(255, 12, 3, 77);
-    case 'vert':
-      return Color(0xFF16A34A);
-    case 'jaune':
-      return Color(0xFFFACC15);
-    case 'orange':
-      return const Color.fromARGB(255, 225, 104, 6);
-    case 'violet':
-      return const Color.fromARGB(255, 121, 12, 200);
-    default:
-      return Color(0xFF4A5568);
-  }
-}
-
-// Returns null if no second color → flat circle
-Color? _parseTeamColor2(String? name) {
-  if (name == null || name.trim().isEmpty) return null;
-  return _parseTeamColor(name);
-}
-
-Color _labelColor(Color bg) =>
-    bg.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
-
-int _difficultyToLevel(String difficulty) {
-  switch (difficulty) {
-    case 'Amateur':
-      return 1;
-    case 'Semi-Pro':
-      return 2;
-    case 'Pro':
-      return 3;
-    case 'International':
-      return 4;
-    case 'Légende':
-      return 5;
-    default:
-      return 3;
-  }
-}
-
-String? _leagueFolder(String competition) {
-  final c = competition.toLowerCase();
-  if (c.contains('champions league') ||
-      c.contains('ligue des champions') ||
-      c.contains('ligue europa'))
-    return 'Champions League';
-  if (c.contains('ligue 1') ||
-      c.contains('coupe de france') ||
-      c.contains('coupe de la ligue'))
-    return 'France - Ligue 1';
-  if (c.contains('premier league') ||
-      c.contains('community shield') ||
-      c.contains('fa cup'))
-    return 'England - Premier League';
-  if (c.contains('premier league')) return 'England - Premier League';
-  if (c.contains('laliga') || c.contains('la liga')) return 'Spain - La Liga';
-  if (c.contains('bundesliga') && !c.contains('austria'))
-    return 'Germany - Bundesliga';
-  if (c.contains('euro') ||
-      c.contains('coupe du monde') ||
-      c.contains('world cup') ||
-      c.contains('ligue des nations') ||
-      c.contains('copa'))
-    return 'pays';
-  if (c.contains('serie a')) return 'Italy - Serie A';
-  if (c.contains('eredivisie')) return 'Netherlands - Eredivisie';
-  if (c.contains('liga portugal')) return 'Portugal - Liga Portugal';
-  if (c.contains('jupiler')) return 'Belgium - Jupiler Pro League';
-  return null;
-}
-
-const _coloredCompLogos = {'Euro', 'Coupe du Monde'};
-
-Widget _teamLogoSmall(
-  String name,
-  String colorName,
-  String? folder, {
-  double size = 28,
-}) {
-  final bg = _parseTeamColor(colorName);
-  final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-  final fallback = Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      color: bg,
-      shape: BoxShape.circle,
-      border: Border.all(color: Color(0xFF2D3148), width: 1.5),
-    ),
-    child: Center(
-      child: Text(
-        initial,
-        style: TextStyle(
-          fontSize: size * 0.38,
-          fontWeight: FontWeight.w800,
-          color: bg.computeLuminance() < 0.4 ? Colors.white : Colors.black87,
-        ),
-      ),
-    ),
-  );
-  if (folder == null) return fallback;
-  final fileName = folder == 'pays'
-      ? removeDiacritics(name.toLowerCase())
-      : name;
-  return Image.asset(
-    'assets/logos/$folder/$fileName.png',
-    width: size,
-    height: size,
-    fit: BoxFit.contain,
-    errorBuilder: (_, __, ___) => fallback,
-  );
-}
-
-Widget _competitionLogoSmall(String competition) {
-  final img = Image.asset(
-    'assets/logos/competitions/$competition.png',
-    width: 36,
-    height: 36,
-    fit: BoxFit.contain,
-    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-  );
-  if (_coloredCompLogos.contains(competition)) return img;
-  return ColorFiltered(
-    colorFilter: ColorFilter.mode(
-      ThemeService.instance.isDark ? Colors.white : Colors.black87,
-      BlendMode.srcIn,
-    ),
-    child: img,
-  );
-}
+import 'lineup_visuals.dart';
+import 'pitch_widgets.dart';
+import 'package:quiz_foot/utils/navigation.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LineupMatchPage
@@ -290,7 +144,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           .map((r) => r.details['matchId'] as String? ?? '')
           .toSet();
 
-      final level = _difficultyToLevel(widget.difficulty);
+      final level = difficultyToLevel(widget.difficulty);
       List<Match> filtered = matches.where((m) {
         if (m.level != level) return false;
         final eras = widget.eras;
@@ -672,21 +526,19 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     final timeTaken = DateTime.now().difference(_startTime);
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => LineupScorePage(
-          match: _selectedMatch!,
-          lineups: _lineups,
-          foundPlayers: Set.from(_foundPlayers),
-          passedPlayers: Set.from(_passedPlayers),
-          score: _score,
-          errors: _errors,
-          hintsUsed: _hints.length,
-          wrongAnswers: List.from(_wrongAnswers),
-          timeTaken: timeTaken,
-          defeat: defeat,
-          difficulty: widget.difficulty,
-        ),
-      ),
+      namedRoute(LineupScorePage(
+        match: _selectedMatch!,
+        lineups: _lineups,
+        foundPlayers: Set.from(_foundPlayers),
+        passedPlayers: Set.from(_passedPlayers),
+        score: _score,
+        errors: _errors,
+        hintsUsed: _hints.length,
+        wrongAnswers: List.from(_wrongAnswers),
+        timeTaken: timeTaken,
+        defeat: defeat,
+        difficulty: widget.difficulty,
+      )),
     );
   }
 
@@ -762,7 +614,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
 
   Widget _buildAppBar({bool compact = false}) {
     final match = _selectedMatch;
-    final folder = match != null ? _leagueFolder(match.competition) : null;
+    final folder = match != null ? leagueFolder(match.competition) : null;
     return Container(
       padding: EdgeInsets.fromLTRB(12, compact ? 4 : 10, 12, compact ? 4 : 12),
       decoration: BoxDecoration(
@@ -802,7 +654,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _competitionLogoSmall(match.competition),
+                    competitionLogoSmall(match.competition),
                     const SizedBox(width: 6),
                     Text(
                       '${match.competition}  ·  ${match.date}',
@@ -821,7 +673,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           Row(
             children: [
               if (match != null)
-                _teamLogoSmall(
+                teamLogoSmall(
                   match.homeTeam,
                   match.colorHome,
                   folder,
@@ -846,7 +698,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
               ),
               const SizedBox(width: 10),
               if (match != null)
-                _teamLogoSmall(
+                teamLogoSmall(
                   match.awayTeam,
                   match.colorAway,
                   folder,
@@ -1034,7 +886,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           ),
           itemBuilder: (_, i) {
             final p = starters[i];
-            return _PlayerCard(
+            return PlayerCard(
               player: p,
               isFound: _foundPlayers.contains(p.playerName),
               isPassed: _passedPlayers.contains(p.playerName),
@@ -1065,7 +917,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
                 final p = subs[i];
                 return SizedBox(
                   width: 72,
-                  child: _PlayerCard(
+                  child: PlayerCard(
                     player: p,
                     isFound: _foundPlayers.contains(p.playerName),
                     isPassed: _passedPlayers.contains(p.playerName),
@@ -1112,7 +964,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
               return Stack(
                 children: [
                   // ── Pitch background ──
-                  CustomPaint(size: size, painter: _PitchPainter()),
+                  CustomPaint(size: size, painter: PitchPainter()),
 
                   // ── Team labels — left side, near each GK zone ──
                   Positioned(
@@ -1179,11 +1031,11 @@ class _LineupMatchPageState extends State<LineupMatchPage>
     final totalLines = lines.length;
     final double chipRadius = (size.shortestSide * 0.048).clamp(13.0, 18.0);
     final Color teamColor = isHomeTeam
-        ? _parseTeamColor(match.colorHome)
-        : _parseTeamColor(match.colorAway);
+        ? parseTeamColor(match.colorHome)
+        : parseTeamColor(match.colorAway);
     final Color? teamColor2 = isHomeTeam
-        ? _parseTeamColor2(match.colorHome2)
-        : _parseTeamColor2(match.colorAway2);
+        ? parseTeamColor2(match.colorHome2)
+        : parseTeamColor2(match.colorAway2);
 
     final widgets = <Widget>[];
     int slotIdx = 0;
@@ -1207,7 +1059,7 @@ class _LineupMatchPageState extends State<LineupMatchPage>
           Positioned(
             left: x - chipRadius - 15,
             top: y - chipRadius - 2,
-            child: _PitchChip(
+            child: PitchChip(
               player: player,
               isFound:
                   player != null && _foundPlayers.contains(player.playerName),
@@ -1248,8 +1100,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             child: _buildBenchTeam(
               match.homeTeam,
               homeSubs,
-              _parseTeamColor(match.colorHome),
-              _parseTeamColor2(match.colorHome2),
+              parseTeamColor(match.colorHome),
+              parseTeamColor2(match.colorHome2),
             ),
           ),
           Container(width: 1, height: 60, color: AppColors.border),
@@ -1257,8 +1109,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             child: _buildBenchTeam(
               match.awayTeam,
               awaySubs,
-              _parseTeamColor(match.colorAway),
-              _parseTeamColor2(match.colorAway2),
+              parseTeamColor(match.colorAway),
+              parseTeamColor2(match.colorAway2),
             ),
           ),
         ],
@@ -1297,7 +1149,8 @@ class _LineupMatchPageState extends State<LineupMatchPage>
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
               final sub = subs[i];
-              return _SubChip(
+              return PitchChip(
+                isSub: true,
                 player: sub,
                 isFound: _foundPlayers.contains(sub.playerName),
                 isPassed: _passedPlayers.contains(sub.playerName),
@@ -1581,707 +1434,4 @@ class _LineupMatchPageState extends State<LineupMatchPage>
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _PitchPainter
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PitchPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Base green
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, h),
-      Paint()..color = Color(0xFF1A5C2A),
-    );
-
-    // Alternating stripes
-    const stripeColor = Color(0xFF1E6830);
-    const stripes = 8;
-    final stripeH = h / stripes;
-    for (int i = 0; i < stripes; i += 2) {
-      canvas.drawRect(
-        Rect.fromLTWH(0, i * stripeH, w, stripeH),
-        Paint()..color = stripeColor,
-      );
-    }
-
-    final line = Paint()
-      ..color = Colors.white.withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
-    const p = 10.0; // pitch padding
-
-    // Outer border
-    canvas.drawRect(Rect.fromLTRB(p, p, w - p, h - p), line);
-
-    // Center line
-    canvas.drawLine(Offset(p, h / 2), Offset(w - p, h / 2), line);
-
-    // Center circle
-    canvas.drawCircle(Offset(w / 2, h / 2), h * 0.09, line);
-
-    // Center dot
-    canvas.drawCircle(
-      Offset(w / 2, h / 2),
-      3,
-      Paint()..color = Colors.white.withValues(alpha: 0.55),
-    );
-
-    // Penalty areas
-    final penW = w * 0.55;
-    final penH = h * 0.13;
-    final penLeft = (w - penW) / 2;
-
-    // Top (away goal)
-    canvas.drawRect(Rect.fromLTRB(penLeft, p, penLeft + penW, p + penH), line);
-    // Bottom (home goal)
-    canvas.drawRect(
-      Rect.fromLTRB(penLeft, h - p - penH, penLeft + penW, h - p),
-      line,
-    );
-
-    // Goal areas
-    final goalW = w * 0.28;
-    final goalH = h * 0.05;
-    final goalLeft = (w - goalW) / 2;
-
-    canvas.drawRect(
-      Rect.fromLTRB(goalLeft, p, goalLeft + goalW, p + goalH),
-      line,
-    );
-    canvas.drawRect(
-      Rect.fromLTRB(goalLeft, h - p - goalH, goalLeft + goalW, h - p),
-      line,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _PitchChip  —  player chip on the pitch
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PitchChip extends StatefulWidget {
-  final Lineup? player;
-  final bool isFound;
-  final bool isPassed;
-  final String? hintContent;
-  final VoidCallback? onTap;
-  final double chipRadius;
-  final Color teamColor;
-  final Color? teamColor2;
-
-  const _PitchChip({
-    required this.player,
-    required this.isFound,
-    required this.isPassed,
-    required this.chipRadius,
-    required this.teamColor,
-    this.teamColor2,
-    this.hintContent,
-    this.onTap,
-  });
-
-  @override
-  State<_PitchChip> createState() => _PitchChipState();
-}
-
-class _PitchChipState extends State<_PitchChip> with TickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  late Animation<double> _glow;
-  late AnimationController _rippleCtrl;
-  late Animation<double> _rippleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.55), weight: 18),
-      TweenSequenceItem(tween: Tween(begin: 1.55, end: 0.78), weight: 16),
-      TweenSequenceItem(tween: Tween(begin: 0.78, end: 1.22), weight: 14),
-      TweenSequenceItem(tween: Tween(begin: 1.22, end: 0.90), weight: 12),
-      TweenSequenceItem(tween: Tween(begin: 0.90, end: 1.10), weight: 11),
-      TweenSequenceItem(tween: Tween(begin: 1.10, end: 0.96), weight: 10),
-      TweenSequenceItem(tween: Tween(begin: 0.96, end: 1.03), weight: 9),
-      TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0), weight: 10),
-    ]).animate(_ctrl);
-    _glow = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 80),
-    ]).animate(_ctrl);
-    _rippleCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 650),
-    );
-    _rippleAnim = CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut);
-  }
-
-  @override
-  void didUpdateWidget(_PitchChip old) {
-    super.didUpdateWidget(old);
-    if (!old.isFound && widget.isFound) {
-      _ctrl.forward(from: 0);
-      _rippleCtrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    _rippleCtrl.dispose();
-    super.dispose();
-  }
-
-  String get _shortName {
-    if (widget.player == null) return '';
-    return widget.player!.playerName.trim();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final revealed = widget.isFound || widget.isPassed;
-    final d = widget.chipRadius * 2;
-
-    String label;
-    if (revealed) {
-      label = widget.player!.playerNumber > 0
-          ? '${widget.player!.playerNumber}'
-          : '✓';
-    } else if (widget.hintContent != null) {
-      label = widget.hintContent!;
-    } else {
-      label = '?';
-    }
-
-    final numFontSize = d < 28 ? 8.0 : 10.0;
-
-    // Not found → empty circle (transparent + white border)
-    // Passed    → amber fill
-    // Found     → team colors
-    final Color c1 = widget.isPassed ? AppColors.amber : widget.teamColor;
-    final Color c2 = widget.isPassed
-        ? AppColors.amber
-        : (widget.teamColor2 ?? widget.teamColor);
-
-    final bool filled = revealed; // only fill when found/passed
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.player == null || revealed ? null : widget.onTap,
-      child: SizedBox(
-        width: d + 30,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: d,
-              height: d,
-              child: AnimatedBuilder(
-                animation: Listenable.merge([_ctrl, _rippleCtrl]),
-                builder: (_, __) => Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(
-                      size: Size(d, d),
-                      painter: _RipplePainter(
-                        progress: _rippleAnim.value,
-                        chipRadius: d / 2,
-                        color: c1,
-                      ),
-                    ),
-                    Transform.scale(
-                      scale: _scale.value,
-                      child: Container(
-                        width: d,
-                        height: d,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: filled
-                              ? LinearGradient(
-                                  colors: [c1, c1, c2, c2],
-                                  stops: [0.0, 0.5, 0.5, 1.0],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                )
-                              : null,
-                          color: filled ? null : Colors.white.withOpacity(0.10),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: filled ? 1.5 : 1.2,
-                          ),
-                          boxShadow: [
-                            const BoxShadow(
-                              color: Color(0x55000000),
-                              blurRadius: 4,
-                              offset: Offset(0, 2),
-                            ),
-                            BoxShadow(
-                              color: c1.withOpacity(_glow.value * 0.8),
-                              blurRadius: _glow.value * 24,
-                              spreadRadius: _glow.value * 5,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              color: filled && c1 == c2
-                                  ? _labelColor(c1)
-                                  : Colors.white,
-                              fontSize: numFontSize,
-                              fontWeight: FontWeight.w800,
-                              height: 1,
-                              shadows: filled && c1 != c2
-                                  ? [
-                                      Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 2,
-                                        offset: Offset(-1, -1),
-                                      ),
-                                      Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 2,
-                                        offset: Offset(1, -1),
-                                      ),
-                                      Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 2,
-                                        offset: Offset(-1, 1),
-                                      ),
-                                      Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 2,
-                                        offset: Offset(1, 1),
-                                      ),
-                                    ]
-                                  : [
-                                      Shadow(
-                                        color: Colors.black54,
-                                        blurRadius: 3,
-                                      ),
-                                    ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (revealed && widget.chipRadius >= 13) ...[
-              const SizedBox(height: 1),
-              SizedBox(
-                width: d + 30,
-                child: Text(
-                  _shortName,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: widget.isFound
-                        ? const Color.fromARGB(255, 181, 237, 187)
-                        : AppColors.amber,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _SubChip  —  compact chip for bench players
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SubChip extends StatefulWidget {
-  final Lineup player;
-  final bool isFound;
-  final bool isPassed;
-  final String? hintContent;
-  final VoidCallback? onTap;
-  final Color teamColor;
-  final Color? teamColor2;
-
-  const _SubChip({
-    required this.player,
-    required this.isFound,
-    required this.isPassed,
-    required this.teamColor,
-    this.teamColor2,
-    this.hintContent,
-    this.onTap,
-  });
-
-  @override
-  State<_SubChip> createState() => _SubChipState();
-}
-
-class _SubChipState extends State<_SubChip> with TickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  late Animation<double> _glow;
-  late AnimationController _rippleCtrl;
-  late Animation<double> _rippleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.55), weight: 18),
-      TweenSequenceItem(tween: Tween(begin: 1.55, end: 0.78), weight: 16),
-      TweenSequenceItem(tween: Tween(begin: 0.78, end: 1.22), weight: 14),
-      TweenSequenceItem(tween: Tween(begin: 1.22, end: 0.90), weight: 12),
-      TweenSequenceItem(tween: Tween(begin: 0.90, end: 1.10), weight: 11),
-      TweenSequenceItem(tween: Tween(begin: 1.10, end: 0.96), weight: 10),
-      TweenSequenceItem(tween: Tween(begin: 0.96, end: 1.03), weight: 9),
-      TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0), weight: 10),
-    ]).animate(_ctrl);
-    _glow = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 80),
-    ]).animate(_ctrl);
-    _rippleCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 650),
-    );
-    _rippleAnim = CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut);
-  }
-
-  @override
-  void didUpdateWidget(_SubChip old) {
-    super.didUpdateWidget(old);
-    if (!old.isFound && widget.isFound) {
-      _ctrl.forward(from: 0);
-      _rippleCtrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    _rippleCtrl.dispose();
-    super.dispose();
-  }
-
-  String get _shortName => widget.player.playerName.trim();
-
-  @override
-  Widget build(BuildContext context) {
-    final revealed = widget.isFound || widget.isPassed;
-
-    final String label;
-    if (revealed) {
-      label = widget.player.playerNumber > 0
-          ? '${widget.player.playerNumber}'
-          : '✓';
-    } else if (widget.hintContent != null) {
-      label = widget.hintContent!;
-    } else {
-      label = '?';
-    }
-
-    const double d = 32;
-
-    final Color c1 = widget.isPassed ? AppColors.amber : widget.teamColor;
-    final Color c2 = widget.isPassed
-        ? AppColors.amber
-        : (widget.teamColor2 ?? widget.teamColor);
-    final bool filled = revealed;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: revealed ? null : widget.onTap,
-      child: SizedBox(
-        width: 32,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: d,
-              height: d,
-              child: AnimatedBuilder(
-                animation: Listenable.merge([_ctrl, _rippleCtrl]),
-                builder: (_, __) => Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(
-                      size: Size(d, d),
-                      painter: _RipplePainter(
-                        progress: _rippleAnim.value,
-                        chipRadius: d / 2,
-                        color: c1,
-                      ),
-                    ),
-                    Transform.scale(
-                      scale: _scale.value,
-                      child: Container(
-                        width: d,
-                        height: d,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: filled
-                              ? LinearGradient(
-                                  colors: [c1, c1, c2, c2],
-                                  stops: [0.0, 0.5, 0.5, 1.0],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                )
-                              : null,
-                          color: filled ? null : Colors.white.withOpacity(0.10),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: filled ? 1.5 : 1.2,
-                          ),
-                          boxShadow: [
-                            const BoxShadow(
-                              color: Color(0x55000000),
-                              blurRadius: 4,
-                              offset: Offset(0, 2),
-                            ),
-                            BoxShadow(
-                              color: c1.withOpacity(_glow.value * 0.8),
-                              blurRadius: _glow.value * 24,
-                              spreadRadius: _glow.value * 5,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              color: filled && c1 == c2
-                                  ? _labelColor(c1)
-                                  : Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              height: 1,
-                              shadows: filled && c1 != c2
-                                  ? [
-                                      Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 2,
-                                        offset: Offset(-1, -1),
-                                      ),
-                                      Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 2,
-                                        offset: Offset(1, -1),
-                                      ),
-                                      Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 2,
-                                        offset: Offset(-1, 1),
-                                      ),
-                                      Shadow(
-                                        color: Colors.black,
-                                        blurRadius: 2,
-                                        offset: Offset(1, 1),
-                                      ),
-                                    ]
-                                  : [
-                                      Shadow(
-                                        color: Colors.black54,
-                                        blurRadius: 3,
-                                      ),
-                                    ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (revealed) ...[
-              const SizedBox(height: 2),
-              Text(
-                _shortName,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: widget.isFound
-                      ? AppColors.accentBright
-                      : AppColors.amber,
-                  fontSize: 7,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _PlayerCard  —  card for fallback list view
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PlayerCard extends StatelessWidget {
-  final Lineup player;
-  final bool isFound;
-  final bool isPassed;
-  final String? hintContent;
-  final VoidCallback? onTap;
-
-  const _PlayerCard({
-    required this.player,
-    required this.isFound,
-    required this.isPassed,
-    this.hintContent,
-    this.onTap,
-  });
-
-  String get _displayName => player.playerName.trim();
-  String get _hiddenLabel => hintContent ?? player.position;
-
-  Color get _borderColor {
-    if (isFound) return AppColors.accentBright;
-    if (isPassed) return AppColors.amber;
-    return AppColors.border;
-  }
-
-  Color get _bgColor {
-    if (isFound) return AppColors.accentBright.withValues(alpha: 0.10);
-    if (isPassed) return AppColors.amber.withValues(alpha: 0.08);
-    return AppColors.card;
-  }
-
-  Color get _shirtColor {
-    if (isFound) return AppColors.accentBright;
-    if (isPassed) return AppColors.amber;
-    return AppColors.border;
-  }
-
-  Color get _nameColor {
-    if (isFound) return AppColors.accentBright;
-    if (isPassed) return AppColors.amber;
-    return AppColors.textSecondary;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final revealed = isFound || isPassed;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: revealed ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          color: _bgColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _borderColor, width: revealed ? 1.5 : 1),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Image.asset(
-                  'assets/images/shirt.png',
-                  width: 30,
-                  height: 30,
-                  color: _shirtColor,
-                ),
-                if (revealed && player.playerNumber > 0)
-                  Positioned(
-                    top: 9,
-                    child: Text(
-                      '${player.playerNumber}',
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        color: _labelColor(_shirtColor),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Text(
-              revealed ? _displayName : _hiddenLabel,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: revealed ? FontWeight.w700 : FontWeight.w500,
-                color: hintContent != null && !revealed
-                    ? AppColors.accentBright
-                    : _nameColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _RipplePainter
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _RipplePainter extends CustomPainter {
-  final double progress;
-  final double chipRadius;
-  final Color color;
-
-  const _RipplePainter({
-    required this.progress,
-    required this.chipRadius,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progress <= 0) return;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = chipRadius + progress * 32;
-    final opacity = (1.0 - progress).clamp(0.0, 1.0);
-    final strokeWidth = 3.0 * (1.0 - progress * 0.6);
-    final paint = Paint()
-      ..color = color.withOpacity(opacity * 0.7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-    canvas.drawCircle(center, radius, paint);
-  }
-
-  @override
-  bool shouldRepaint(_RipplePainter old) => old.progress != progress;
 }

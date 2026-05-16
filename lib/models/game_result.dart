@@ -109,6 +109,7 @@ class GameResult {
     required String matchName,
     required String opponentPseudo,
     required bool won,
+    required bool draw,
     required bool abandoned,
     required int foundByMe,
     required int foundByOpponent,
@@ -131,6 +132,7 @@ class GameResult {
         'matchName': matchName,
         'opponentPseudo': opponentPseudo,
         'won': won,
+        'draw': draw,
         'abandoned': abandoned,
         'foundByMe': foundByMe,
         'foundByOpponent': foundByOpponent,
@@ -185,11 +187,13 @@ class GameResult {
     required int validationsUsed,
     required bool timedOut,
     required Duration timeTaken,
+    required String claim,
+    required String difficulty,
   }) {
     return GameResult(
       id:              DateTime.now().microsecondsSinceEpoch.toString(),
       gameType:        GameType.quiAMenti,
-      difficulty:      'Standard',
+      difficulty:      difficulty,
       rawScore:        points,
       maxRawScore:     50,
       normalizedScore: points.toDouble(),
@@ -199,6 +203,7 @@ class GameResult {
         'correctCount':     correctCount,
         'validationsUsed':  validationsUsed,
         'timedOut':         timedOut,
+        'claim':            claim,
       },
     );
   }
