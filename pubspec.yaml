@@ -66,6 +66,11 @@ flutter:
     - assets/logos/Switzerland - Super League/
     - assets/logos/Türkiye - Süper Lig/
     - assets/logos/Ukraine - Premier Liga/
+    - assets/logos/England - Championship.cc/
+    - assets/logos/France - Ligue 2.cc/
+    - assets/logos/Germany - 2 Bundesliga.cc/
+    - assets/logos/Italy - Serie B.cc/
+    - assets/logos/Spain - La Liga 2.cc/
     - assets/images/shirt.png
 
   uses-material-design: true

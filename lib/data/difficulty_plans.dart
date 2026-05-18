@@ -40,3 +40,33 @@ const Map<String, List<Map<int, int>>> kDifficultyPlans = {
     {10: 4}, // 4 very obscure players
   ],
 };
+
+/// Difficulty plans for the "Parcours Joueur" game.
+/// Each difficulty selects exactly 5 players (one game = 5 players),
+/// then displayed easiest → hardest.
+const Map<String, List<Map<int, int>>> kParcoursDifficultyPlans = {
+  'Amateur': [
+    {1: 4},
+    {2: 1},
+  ],
+  'Semi-Pro': [
+    {2: 3},
+    {3: 2},
+  ],
+  'Pro': [
+    {3: 1},
+    {4: 2},
+    {5: 1},
+    {6: 1},
+  ],
+  'International': [
+    {5: 1},
+    {6: 2},
+    {7: 2},
+  ],
+  'Légende': [
+    {8: 1},
+    {9: 2},
+    {10: 2},
+  ],
+};

@@ -18,7 +18,7 @@ import '../models/game_result.dart';
 import 'profil_page.dart';
 import 'classement_page.dart';
 import 'qui_a_menti/qui_a_menti_intro.dart';
-import 'parcours_joueur/parcours_joueur_game_page.dart';
+import 'parcours_joueur/parcours_joueur_intro_page.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:quiz_foot/utils/navigation.dart';
 
@@ -1543,7 +1543,7 @@ class _HomePageState extends State<HomePage> {
               locked: false,
               onTap: () => Navigator.push(
                 context,
-                namedRoute(const ParcoursJoueurGamePage()),
+                namedRoute(const ParcoursJoueurIntroPage()),
               ),
             ),
           ],
